@@ -2832,6 +2832,10 @@ td small {
   align-items: center;
   gap: 8px;
 }
+.design-toolbar > div:last-child {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .design-toolbar strong {
   font-size: 11px;
   font-weight: 500;
@@ -2841,6 +2845,50 @@ td small {
   font-size: 10px;
   padding: 8px 10px;
   min-height: 32px;
+}
+.layout-recovery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid #d9e4c9;
+  border-top: 0;
+  background: #f6faef;
+  color: #536247;
+  font-size: 10px;
+}
+.layout-recovery > div,
+.layout-recovery span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.layout-recovery span {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+}
+.layout-recovery .button {
+  flex: none;
+}
+.empty-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.empty-actions > label {
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  color: #65705d;
+  font-size: 9px;
+}
+.empty-actions select {
+  min-width: 220px;
 }
 .segmented {
   display: flex;
@@ -3023,7 +3071,8 @@ td small {
   margin-bottom: 14px;
 }
 .object-properties .field input,
-.object-properties .field select {
+.object-properties .field select,
+.object-properties .field textarea {
   font-size: 10px;
   padding: 8px;
 }
@@ -3039,6 +3088,53 @@ td small {
 .property-actions .button {
   font-size: 10px;
   flex: 1;
+}
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+.reference-tools {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.reference-heading,
+.reference-actions,
+.reconciliation-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.reference-tools small {
+  color: #6f765f;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.reference-tools .field {
+  margin: 0;
+}
+.reference-actions .button {
+  flex: 1;
+}
+.reconciliation-source {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 11px;
+}
+.reconciliation-source + .table-wrap {
+  margin-top: 16px;
 }
 .danger-text {
   color: #866550;
@@ -4012,7 +4108,8 @@ td small {
     font-size: 11px;
   }
   .object-properties .field input,
-  .object-properties .field select {
+  .object-properties .field select,
+  .object-properties .field textarea {
     font-size: 12px;
   }
   .scene-container {

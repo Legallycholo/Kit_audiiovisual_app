@@ -45,6 +45,21 @@ const object = z
     label: name,
     layer: name,
     equipmentId: identifier.optional(),
+    equipmentQuantity: z.number().int().positive().max(1_000_000).optional(),
+  })
+  .strict();
+const layoutReference = z
+  .object({
+    name,
+    mimeType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+    dataUrl: z
+      .string()
+      .max(1_500_000)
+      .regex(/^data:image\/(png|jpeg|webp);base64,/),
+    intrinsicWidth: z.number().int().positive().max(50_000),
+    intrinsicHeight: z.number().int().positive().max(50_000),
+    opacity: z.number().finite().min(0.05).max(1),
+    calibratedAt: z.string().datetime().optional(),
   })
   .strict();
 const line = z
@@ -274,6 +289,9 @@ export const schemas = {
       depth: dimension,
       objects: z.array(object).max(10000),
       verified: z.boolean(),
+      verifiedAt: z.string().datetime().optional(),
+      verificationNote: z.string().trim().max(1000).optional(),
+      reference: layoutReference.optional(),
       history: z
         .array(
           z
@@ -281,6 +299,11 @@ export const schemas = {
               version: z.number().int().positive(),
               objects: z.array(object).max(10000),
               savedAt: z.string().datetime(),
+              width: dimension.optional(),
+              depth: dimension.optional(),
+              verified: z.boolean().optional(),
+              verifiedAt: z.string().datetime().optional(),
+              verificationNote: z.string().trim().max(1000).optional(),
             })
             .strict(),
         )

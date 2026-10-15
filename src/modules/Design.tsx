@@ -7,6 +7,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  FileImage,
   Grid2X2,
   History,
   Layers3,
@@ -14,6 +15,8 @@ import {
   Plus,
   RotateCcw,
   Save,
+  ScanLine,
+  ShieldCheck,
   Trash2,
   Undo2,
   Redo2,
@@ -22,7 +25,13 @@ import {
 } from "lucide-react";
 import { useWorkspace, activity } from "../shared/store";
 import { Badge, Button, Empty, Field, Modal, PageHeader } from "../shared/ui";
-import { downloadFile, id } from "../shared/domain";
+import {
+  downloadFile,
+  id,
+  layoutSvg,
+  reconcileLayoutEquipment,
+  validateLayoutGeometry,
+} from "../shared/domain";
 import { uiLabel } from "../shared/i18n";
 import type { Layout, LayoutObject, ObjectKind } from "../shared/types";
 import { useUnsavedChanges } from "../shared/useUnsavedChanges";
@@ -53,29 +62,57 @@ const kinds: ObjectKind[] = [
   "Screen",
   "Decoration",
 ];
+const layoutDraftKey = (layoutId: string) => `kit.layout-draft.${layoutId}`;
+const editableLayout = (layout: Layout) => ({
+  name: layout.name,
+  width: layout.width,
+  depth: layout.depth,
+  objects: layout.objects,
+  verified: layout.verified,
+  verifiedAt: layout.verifiedAt,
+  verificationNote: layout.verificationNote,
+  reference: layout.reference,
+});
 export function Design() {
   const { data, update, toast } = useWorkspace();
   const [params, setParams] = useSearchParams();
   const eventId = params.get("event") || data.events[0]?.id;
   const existing = data.layouts.find((l) => l.eventId === eventId);
   const [view, setView] = useState("2D");
-  async function createLayout() {
+  const [templateId, setTemplateId] = useState("");
+  async function createLayout(template?: Layout) {
     const event = data.events.find((e) => e.id === eventId);
     const room = data.venues.find((v) => v.id === event?.venueId)?.rooms[0];
+    const width = room?.width || template?.width || 24;
+    const depth = room?.depth || template?.depth || 26;
+    const templateScale = template
+      ? Math.min(width / template.width, depth / template.depth)
+      : 1;
     const next: Layout = {
       id: id(),
       eventId: eventId!,
       name: `${room?.name || "Event space"} · Main layout`,
       version: 1,
-      width: room?.width || 24,
-      depth: room?.depth || 26,
+      width,
+      depth,
       verified: false,
-      objects: [],
+      objects: (template?.objects || []).map((object) => ({
+        ...structuredClone(object),
+        id: id(),
+        x: Math.round(object.x * templateScale * 10) / 10,
+        y: Math.round(object.y * templateScale * 10) / 10,
+        width: Math.round(object.width * templateScale * 10) / 10,
+        depth: Math.round(object.depth * templateScale * 10) / 10,
+      })),
       history: [],
     };
     if (!(await update((s) => ({ ...s, layouts: [...s.layouts, next] }))))
       return;
-    toast("Event layout created. Confirm room dimensions before production.");
+    toast(
+      template
+        ? "Plantilla copiada y ajustada al salón. Confirma todas las medidas."
+        : "Event layout created. Confirm room dimensions before production.",
+    );
   }
   return (
     <>
@@ -109,10 +146,42 @@ export function Design() {
           title="Start with a space"
           description="Create a layout linked to this event's venue. You can add and position objects, then inspect them in 3D."
           action={
-            <Button onClick={createLayout}>
-              <Plus size={16} />
-              Create event layout
-            </Button>
+            <div className="empty-actions">
+              <Button onClick={() => void createLayout()}>
+                <Plus size={16} />
+                Create event layout
+              </Button>
+              {data.layouts.length > 0 && (
+                <>
+                  <label>
+                    <span>Usar plano guardado como plantilla</span>
+                    <select
+                      aria-label="Plano para usar como plantilla"
+                      value={templateId}
+                      onChange={(event) => setTemplateId(event.target.value)}
+                    >
+                      <option value="">Selecciona un plano</option>
+                      {data.layouts.map((layout) => (
+                        <option key={layout.id} value={layout.id}>
+                          {layout.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Button
+                    variant="secondary"
+                    disabled={!templateId}
+                    onClick={() =>
+                      void createLayout(
+                        data.layouts.find((layout) => layout.id === templateId),
+                      )
+                    }
+                  >
+                    Copiar plantilla
+                  </Button>
+                </>
+              )}
+            </div>
           }
         />
       )}
@@ -129,11 +198,33 @@ function LayoutEditor({
   setView: (s: string) => void;
 }) {
   const { data, update, toast } = useWorkspace();
-  const [layout, setLayout] = useState<Layout>(() => structuredClone(original));
+  const initial = useRef<{ layout: Layout; recovered: boolean } | null>(null);
+  if (!initial.current) {
+    let recovered: Layout | undefined;
+    try {
+      const stored = JSON.parse(
+        localStorage.getItem(layoutDraftKey(original.id)) || "null",
+      );
+      if (stored?.baseVersion === original.version)
+        recovered = stored.layout as Layout;
+    } catch {
+      /* An invalid local draft can be replaced by the saved revision. */
+    }
+    initial.current = {
+      layout: structuredClone(recovered || original),
+      recovered: Boolean(recovered),
+    };
+  }
+  const [layout, setLayout] = useState<Layout>(initial.current.layout);
+  const [recovered, setRecovered] = useState(initial.current.recovered);
   const [selection, setSelection] = useState<string | null>(null);
   const [hidden, setHidden] = useState<string[]>([]);
   const [zoom, setZoom] = useState(1);
   const [versions, setVersions] = useState(false);
+  const [equipmentReview, setEquipmentReview] = useState(false);
+  const [calibrationWidth, setCalibrationWidth] = useState(
+    String(initial.current.layout.width),
+  );
   const [past, setPast] = useState<LayoutObject[][]>([]);
   const [future, setFuture] = useState<LayoutObject[][]>([]);
   const [drag, setDrag] = useState<{
@@ -143,14 +234,30 @@ function LayoutEditor({
     initial: LayoutObject[];
   } | null>(null);
   const svg = useRef<SVGSVGElement>(null);
+  const referenceInput = useRef<HTMLInputElement>(null);
   const object = layout.objects.find((o) => o.id === selection);
   const layers = Array.from(new Set(layout.objects.map((o) => o.layer)));
   const visible = layout.objects.filter((o) => !hidden.includes(o.layer));
   const dirty =
-    JSON.stringify(layout.objects) !== JSON.stringify(original.objects) ||
-    layout.width !== original.width ||
-    layout.depth !== original.depth;
+    JSON.stringify(editableLayout(layout)) !==
+    JSON.stringify(editableLayout(original));
+  const reconciliation = reconcileLayoutEquipment(data, layout);
   useUnsavedChanges(dirty);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        if (dirty)
+          localStorage.setItem(
+            layoutDraftKey(original.id),
+            JSON.stringify({ baseVersion: original.version, layout }),
+          );
+        else localStorage.removeItem(layoutDraftKey(original.id));
+      } catch {
+        /* The saved server/sample revision remains the durable fallback. */
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [dirty, layout, original.id, original.version]);
   function change(objects: LayoutObject[]) {
     setPast([...past.slice(-49), structuredClone(layout.objects)]);
     setFuture([]);
@@ -199,6 +306,11 @@ function LayoutEditor({
     setSelection(next.id);
   }
   async function save() {
+    const geometryErrors = validateLayoutGeometry(layout);
+    if (geometryErrors.length) {
+      toast(geometryErrors[0]);
+      return;
+    }
     const next = {
       ...layout,
       version: original.version + 1,
@@ -208,6 +320,11 @@ function LayoutEditor({
           version: original.version,
           objects: structuredClone(original.objects),
           savedAt: new Date().toISOString(),
+          width: original.width,
+          depth: original.depth,
+          verified: original.verified,
+          verifiedAt: original.verifiedAt,
+          verificationNote: original.verificationNote,
         },
       ],
     };
@@ -227,9 +344,88 @@ function LayoutEditor({
     )
       return;
     setLayout(next);
+    localStorage.removeItem(layoutDraftKey(original.id));
+    setRecovered(false);
     toast(
       `Layout revision ${next.version} saved. Equipment allocations have not changed.`,
     );
+  }
+  async function loadReference(file?: File) {
+    if (!file) return;
+    if (
+      !(["image/png", "image/jpeg", "image/webp"] as string[]).includes(
+        file.type,
+      )
+    ) {
+      toast("Usa una imagen PNG, JPEG o WebP como referencia.");
+      return;
+    }
+    if (file.size > 1_000_000) {
+      toast("La imagen de referencia debe pesar 1 MB o menos.");
+      return;
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+      reader.readAsDataURL(file);
+    });
+    const dimensions = await new Promise<{ width: number; height: number }>(
+      (resolve, reject) => {
+        const image = new Image();
+        image.onload = () =>
+          resolve({ width: image.naturalWidth, height: image.naturalHeight });
+        image.onerror = () => reject(new Error("La imagen no es válida."));
+        image.src = dataUrl;
+      },
+    );
+    setLayout((current) => ({
+      ...current,
+      verified: false,
+      verifiedAt: undefined,
+      reference: {
+        name: file.name,
+        mimeType: file.type as "image/png" | "image/jpeg" | "image/webp",
+        dataUrl,
+        intrinsicWidth: dimensions.width,
+        intrinsicHeight: dimensions.height,
+        opacity: 0.35,
+      },
+    }));
+    setRecovered(false);
+  }
+  function calibrateReference() {
+    if (!layout.reference) return;
+    const width = Number(calibrationWidth);
+    if (!Number.isFinite(width) || width <= 0) {
+      toast("Ingresa un ancho conocido válido.");
+      return;
+    }
+    const depth =
+      Math.round(
+        width *
+          (layout.reference.intrinsicHeight / layout.reference.intrinsicWidth) *
+          100,
+      ) / 100;
+    const outside = layout.objects.find(
+      (item) => item.x + item.width > width || item.y + item.depth > depth,
+    );
+    if (outside) {
+      toast(`${outside.label} quedaría fuera del espacio calibrado.`);
+      return;
+    }
+    setLayout({
+      ...layout,
+      width,
+      depth,
+      verified: false,
+      verifiedAt: undefined,
+      reference: {
+        ...layout.reference,
+        calibratedAt: new Date().toISOString(),
+      },
+    });
+    toast("Referencia calibrada. Verifica la fuente de las medidas.");
   }
   function point(clientX: number, clientY: number) {
     const element = svg.current!;
@@ -245,6 +441,9 @@ function LayoutEditor({
           <Layers3 size={18} />
           <strong>{layout.name}</strong>
           <Badge tone="neutral">v{original.version}</Badge>
+          <Badge tone={layout.verified ? "green" : "amber"}>
+            {layout.verified ? "Medidas verificadas" : "Sin verificar"}
+          </Badge>
         </div>
         <div className="segmented">
           <button
@@ -270,8 +469,9 @@ function LayoutEditor({
           >
             <History size={18} />
           </button>
-          <Button
-            variant="secondary"
+          <button
+            className="icon-button"
+            aria-label="Exportar datos JSON"
             onClick={() =>
               downloadFile(
                 `layout-v${layout.version}.json`,
@@ -279,8 +479,24 @@ function LayoutEditor({
               )
             }
           >
-            <Download size={15} />
-            Export data
+            <Download size={17} />
+          </button>
+          <Button
+            variant="secondary"
+            onClick={() =>
+              downloadFile(
+                `layout-v${layout.version}.svg`,
+                layoutSvg(layout, data.equipment),
+                "image/svg+xml",
+              )
+            }
+          >
+            <FileImage size={15} />
+            Exportar plano
+          </Button>
+          <Button variant="secondary" onClick={() => setEquipmentReview(true)}>
+            <ScanLine size={15} />
+            Revisar equipos
           </Button>
           <Button disabled={!dirty} onClick={save}>
             <Save size={15} />
@@ -288,6 +504,28 @@ function LayoutEditor({
           </Button>
         </div>
       </div>
+      {recovered && (
+        <div className="layout-recovery" role="status">
+          <div>
+            <RotateCcw size={17} />
+            <span>
+              <strong>Borrador recuperado</strong>
+              Cambios locales sin guardar restaurados sobre la versión{" "}
+              {original.version}.
+            </span>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              localStorage.removeItem(layoutDraftKey(original.id));
+              setLayout(structuredClone(original));
+              setRecovered(false);
+            }}
+          >
+            Descartar borrador
+          </Button>
+        </div>
+      )}
       <div className="design-workspace">
         <aside className="object-library">
           <span className="eyebrow">BIBLIOTECA DE OBJETOS</span>
@@ -413,6 +651,18 @@ function LayoutEditor({
                   strokeWidth=".16"
                   onPointerDown={() => setSelection(null)}
                 />
+                {layout.reference && (
+                  <image
+                    href={layout.reference.dataUrl}
+                    x="0"
+                    y="0"
+                    width={layout.width}
+                    height={layout.depth}
+                    opacity={layout.reference.opacity}
+                    preserveAspectRatio="none"
+                    pointerEvents="none"
+                  />
+                )}
                 <rect
                   width={layout.width}
                   height={layout.depth}
@@ -499,6 +749,18 @@ function LayoutEditor({
                     >
                       {o.label}
                     </text>
+                    {selection === o.id && (
+                      <text
+                        x={o.width / 2}
+                        y={o.depth + 0.55}
+                        textAnchor="middle"
+                        fontSize=".38"
+                        fill="#2e674a"
+                        pointerEvents="none"
+                      >
+                        {o.width} × {o.depth} m
+                      </text>
+                    )}
                   </g>
                 ))}
               </svg>
@@ -592,18 +854,49 @@ function LayoutEditor({
                     <input
                       type="number"
                       min={
-                        ["width", "depth", "height"].includes(k) ? ".1" : "0"
+                        ["width", "depth", "height"].includes(k)
+                          ? ".1"
+                          : k === "rotation"
+                            ? "-360"
+                            : "0"
                       }
                       step=".1"
                       value={object[k]}
                       onChange={(e) => {
                         const n = Number(e.target.value);
-                        if (
-                          Number.isFinite(n) &&
-                          n >=
-                            (["width", "depth", "height"].includes(k) ? 0.1 : 0)
-                        )
-                          edit({ [k]: n });
+                        if (!Number.isFinite(n)) return;
+                        if (k === "x")
+                          edit({
+                            x: Math.max(
+                              0,
+                              Math.min(layout.width - object.width, n),
+                            ),
+                          });
+                        else if (k === "y")
+                          edit({
+                            y: Math.max(
+                              0,
+                              Math.min(layout.depth - object.depth, n),
+                            ),
+                          });
+                        else if (k === "width")
+                          edit({
+                            width: Math.max(
+                              0.1,
+                              Math.min(layout.width - object.x, n),
+                            ),
+                          });
+                        else if (k === "depth")
+                          edit({
+                            depth: Math.max(
+                              0.1,
+                              Math.min(layout.depth - object.y, n),
+                            ),
+                          });
+                        else if (k === "height")
+                          edit({ height: Math.max(0.1, n) });
+                        else
+                          edit({ rotation: Math.max(-360, Math.min(360, n)) });
                       }}
                     />
                   </Field>
@@ -612,9 +905,15 @@ function LayoutEditor({
               <Field label="Equipment mapping">
                 <select
                   value={object.equipmentId || ""}
-                  onChange={(e) =>
-                    edit({ equipmentId: e.target.value || undefined })
-                  }
+                  onChange={(e) => {
+                    const equipmentId = e.target.value || undefined;
+                    edit({
+                      equipmentId,
+                      equipmentQuantity: equipmentId
+                        ? object.equipmentQuantity || 1
+                        : undefined,
+                    });
+                  }}
                 >
                   <option value="">Solo concepto / sin equipo vinculado</option>
                   {data.equipment.map((q) => (
@@ -624,6 +923,24 @@ function LayoutEditor({
                   ))}
                 </select>
               </Field>
+              {object.equipmentId && (
+                <Field label="Cantidad representada">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={object.equipmentQuantity || 1}
+                    onChange={(e) =>
+                      edit({
+                        equipmentQuantity: Math.max(
+                          1,
+                          Math.floor(Number(e.target.value) || 1),
+                        ),
+                      })
+                    }
+                  />
+                </Field>
+              )}
               <p className="tiny muted">
                 El vínculo identifica el equipo. No reserva inventario ni agrega
                 cargos a la cotización.
@@ -635,8 +952,8 @@ function LayoutEditor({
                     const next = {
                       ...object,
                       id: id(),
-                      x: object.x + 1,
-                      y: object.y + 1,
+                      x: Math.min(layout.width - object.width, object.x + 1),
+                      y: Math.min(layout.depth - object.depth, object.y + 1),
                     };
                     change([...layout.objects, next]);
                     setSelection(next.id);
@@ -673,6 +990,8 @@ function LayoutEditor({
                     setLayout({
                       ...layout,
                       width: Math.max(1, Number(e.target.value)),
+                      verified: false,
+                      verifiedAt: undefined,
                     })
                   }
                 />
@@ -686,17 +1005,150 @@ function LayoutEditor({
                     setLayout({
                       ...layout,
                       depth: Math.max(1, Number(e.target.value)),
+                      verified: false,
+                      verifiedAt: undefined,
                     })
                   }
                 />
               </Field>
+              <div className="reference-tools">
+                <div className="reference-heading">
+                  <strong>Plano de referencia</strong>
+                  {layout.reference && (
+                    <Badge
+                      tone={layout.reference.calibratedAt ? "green" : "amber"}
+                    >
+                      {layout.reference.calibratedAt
+                        ? "Calibrado"
+                        : "Sin calibrar"}
+                    </Badge>
+                  )}
+                </div>
+                <input
+                  ref={referenceInput}
+                  className="visually-hidden"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  aria-label="Cargar plano de referencia"
+                  onChange={(event) => {
+                    void loadReference(event.target.files?.[0]).catch((error) =>
+                      toast((error as Error).message),
+                    );
+                    event.currentTarget.value = "";
+                  }}
+                />
+                <Button
+                  variant="secondary"
+                  onClick={() => referenceInput.current?.click()}
+                >
+                  <FileImage size={14} />
+                  {layout.reference ? "Cambiar imagen" : "Cargar imagen"}
+                </Button>
+                {layout.reference && (
+                  <>
+                    <small>
+                      {layout.reference.name} · máximo guardado 1 MB
+                    </small>
+                    <Field label="Opacidad de referencia">
+                      <input
+                        type="range"
+                        min="0.05"
+                        max="1"
+                        step="0.05"
+                        value={layout.reference.opacity}
+                        onChange={(event) =>
+                          setLayout({
+                            ...layout,
+                            reference: {
+                              ...layout.reference!,
+                              opacity: Number(event.target.value),
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field label="Ancho conocido de la imagen · m">
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={calibrationWidth}
+                        onChange={(event) =>
+                          setCalibrationWidth(event.target.value)
+                        }
+                      />
+                    </Field>
+                    <small>
+                      La calibración usa la proporción completa de la imagen
+                      para calcular la profundidad.
+                    </small>
+                    <div className="reference-actions">
+                      <Button variant="secondary" onClick={calibrateReference}>
+                        <ScanLine size={14} />
+                        Calibrar escala
+                      </Button>
+                      <button
+                        className="text-button danger-text"
+                        onClick={() =>
+                          setLayout({
+                            ...layout,
+                            reference: undefined,
+                            verified: false,
+                            verifiedAt: undefined,
+                          })
+                        }
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+              <Field label="Fuente de las medidas">
+                <textarea
+                  rows={3}
+                  placeholder="Ej.: levantamiento del salón confirmado por el lugar el 15 oct 2026"
+                  value={layout.verificationNote || ""}
+                  onChange={(event) =>
+                    setLayout({
+                      ...layout,
+                      verificationNote: event.target.value,
+                      verified: false,
+                      verifiedAt: undefined,
+                    })
+                  }
+                />
+              </Field>
+              <Button
+                variant="secondary"
+                disabled={!layout.verified && !layout.verificationNote?.trim()}
+                onClick={() =>
+                  setLayout({
+                    ...layout,
+                    verified: !layout.verified,
+                    verifiedAt: layout.verified
+                      ? undefined
+                      : new Date().toISOString(),
+                  })
+                }
+              >
+                <ShieldCheck size={14} />
+                {layout.verified
+                  ? "Marcar medidas sin verificar"
+                  : "Confirmar medidas verificadas"}
+              </Button>
             </>
           )}
           <div className="dimension-note">
-            <Badge tone="amber">Dimensions unverified</Badge>
+            <Badge tone={layout.verified ? "green" : "amber"}>
+              {layout.verified
+                ? "Medidas verificadas"
+                : "Medidas sin verificar"}
+            </Badge>
             <p>
-              Confirma las medidas del lugar antes de usar este diseño para
-              producción.
+              {layout.verified
+                ? `Fuente: ${layout.verificationNote}`
+                : "Confirma las medidas del lugar antes de usar este diseño para producción."}
             </p>
           </div>
           {view === "3D" && (
@@ -708,6 +1160,69 @@ function LayoutEditor({
           )}
         </aside>
       </div>
+      {equipmentReview && (
+        <Modal
+          title="Reconciliar equipos"
+          description="Compara las cantidades representadas en el plano con la propuesta vigente. Esta revisión no reserva inventario ni cambia la cotización."
+          onClose={() => setEquipmentReview(false)}
+        >
+          <div className="modal-body">
+            {reconciliation.proposal ? (
+              <div className="reconciliation-source">
+                <span>
+                  Alcance comparado: {reconciliation.proposal.number} · versión{" "}
+                  {reconciliation.proposal.version}
+                </span>
+                <Badge tone={reconciliation.complete ? "green" : "amber"}>
+                  {reconciliation.complete ? "Conciliado" : "Requiere revisión"}
+                </Badge>
+              </div>
+            ) : (
+              <div className="info-note">
+                No hay una propuesta vigente vinculada a este evento.
+              </div>
+            )}
+            {reconciliation.rows.length > 0 && (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Equipo</th>
+                      <th>Propuesta</th>
+                      <th>Plano</th>
+                      <th>Diferencia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reconciliation.rows.map((row) => (
+                      <tr key={row.equipmentId}>
+                        <td>{row.name}</td>
+                        <td>{row.required}</td>
+                        <td>{row.mapped}</td>
+                        <td>
+                          <Badge
+                            tone={row.difference === 0 ? "green" : "amber"}
+                          >
+                            {row.difference === 0
+                              ? "Coincide"
+                              : row.difference > 0
+                                ? `+${row.difference}`
+                                : row.difference}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="tiny muted">
+              Ajusta “Cantidad representada” en cada objeto vinculado. Los
+              objetos conceptuales pueden permanecer sin equipo.
+            </p>
+          </div>
+        </Modal>
+      )}
       {versions && (
         <Modal
           title="Layout versions"
@@ -728,7 +1243,20 @@ function LayoutEditor({
                 <Button
                   variant="secondary"
                   onClick={() => {
-                    change(structuredClone(h.objects));
+                    setPast([
+                      ...past.slice(-49),
+                      structuredClone(layout.objects),
+                    ]);
+                    setFuture([]);
+                    setLayout({
+                      ...layout,
+                      objects: structuredClone(h.objects),
+                      width: h.width || layout.width,
+                      depth: h.depth || layout.depth,
+                      verified: h.verified || false,
+                      verifiedAt: h.verifiedAt,
+                      verificationNote: h.verificationNote,
+                    });
                     setVersions(false);
                     toast("Previous geometry restored as an unsaved draft.");
                   }}

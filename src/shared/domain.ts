@@ -1,5 +1,6 @@
 import type {
   Equipment,
+  Layout,
   Proposal,
   QuoteLine,
   Reservation,
@@ -233,6 +234,137 @@ export function productionReadiness(
     closeoutReady: closeoutBlockers.length === 0,
     closeoutBlockers,
   };
+}
+
+export function validateLayoutGeometry(layout: Layout): string[] {
+  const errors: string[] = [];
+  for (const object of layout.objects) {
+    if (object.x + object.width > layout.width + 0.001)
+      errors.push(`${object.label} excede el ancho del espacio.`);
+    if (object.y + object.depth > layout.depth + 0.001)
+      errors.push(`${object.label} excede la profundidad del espacio.`);
+    if (object.equipmentQuantity && !object.equipmentId)
+      errors.push(`${object.label} tiene una cantidad sin equipo vinculado.`);
+  }
+  if (
+    layout.verified &&
+    (!layout.verifiedAt || !layout.verificationNote?.trim())
+  )
+    errors.push(
+      "La verificación requiere fecha y una nota sobre la fuente de las medidas.",
+    );
+  return errors;
+}
+
+export interface LayoutEquipmentReconciliation {
+  proposal?: Proposal;
+  rows: {
+    equipmentId: string;
+    name: string;
+    required: number;
+    mapped: number;
+    difference: number;
+  }[];
+  complete: boolean;
+}
+
+export function reconcileLayoutEquipment(
+  workspace: Workspace,
+  layout: Layout,
+): LayoutEquipmentReconciliation {
+  const proposal = workspace.proposals
+    .filter(
+      (item) => item.eventId === layout.eventId && item.status !== "Superseded",
+    )
+    .sort((a, b) => {
+      const accepted =
+        Number(b.status === "Accepted") - Number(a.status === "Accepted");
+      return accepted || b.version - a.version;
+    })[0];
+  const required = new Map<string, number>();
+  for (const line of proposal?.lines || [])
+    if (line.equipmentId)
+      required.set(
+        line.equipmentId,
+        (required.get(line.equipmentId) || 0) + line.quantity,
+      );
+  const mapped = new Map<string, number>();
+  for (const object of layout.objects)
+    if (object.equipmentId)
+      mapped.set(
+        object.equipmentId,
+        (mapped.get(object.equipmentId) || 0) + (object.equipmentQuantity || 1),
+      );
+  const ids = new Set([...required.keys(), ...mapped.keys()]);
+  const rows = [...ids]
+    .map((equipmentId) => {
+      const requiredQuantity = required.get(equipmentId) || 0;
+      const mappedQuantity = mapped.get(equipmentId) || 0;
+      return {
+        equipmentId,
+        name:
+          workspace.equipment.find((item) => item.id === equipmentId)?.name ||
+          equipmentId,
+        required: requiredQuantity,
+        mapped: mappedQuantity,
+        difference: mappedQuantity - requiredQuantity,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    proposal,
+    rows,
+    complete: Boolean(proposal) && rows.every((row) => row.difference === 0),
+  };
+}
+
+const xml = (value: string) =>
+  value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&apos;",
+      })[character]!,
+  );
+
+export function layoutSvg(layout: Layout, equipment: Equipment[]): string {
+  const scale = 40;
+  const margin = 80;
+  const width = layout.width * scale + margin * 2;
+  const height = layout.depth * scale + margin * 2 + 50;
+  const colors: Record<string, string> = {
+    Stage: "#667c70",
+    Table: "#c7d4bd",
+    Chair: "#c6d3dc",
+    Booth: "#d3c9e1",
+    "LED wall": "#7599b0",
+    Speaker: "#606777",
+    Light: "#e2c883",
+    Truss: "#a8afb2",
+    Exit: "#b3d1bd",
+    Screen: "#95bacb",
+    Decoration: "#c7ad9b",
+  };
+  const objects = layout.objects
+    .map((object) => {
+      const x = margin + object.x * scale;
+      const y = margin + object.y * scale;
+      const w = object.width * scale;
+      const h = object.depth * scale;
+      const equipmentName = object.equipmentId
+        ? equipment.find((item) => item.id === object.equipmentId)?.name
+        : undefined;
+      return `<g transform="rotate(${object.rotation} ${x + w / 2} ${y + h / 2})"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${colors[object.kind] || "#d9dfd4"}" stroke="#526156"/><text x="${x + w / 2}" y="${y + h / 2}" text-anchor="middle" dominant-baseline="middle" font-size="11" fill="#26372e">${xml(object.label)}</text>${equipmentName ? `<title>${xml(equipmentName)} × ${object.equipmentQuantity || 1}</title>` : ""}</g>`;
+    })
+    .join("");
+  const reference = layout.reference
+    ? `<image href="${layout.reference.dataUrl}" x="${margin}" y="${margin}" width="${layout.width * scale}" height="${layout.depth * scale}" opacity="${layout.reference.opacity}" preserveAspectRatio="none"/>`
+    : "";
+  return `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#fff"/><text x="${margin}" y="32" font-family="sans-serif" font-size="18" font-weight="600">${xml(layout.name)} · v${layout.version}</text><text x="${margin}" y="52" font-family="sans-serif" font-size="11" fill="#59665d">${layout.width} m × ${layout.depth} m · ${layout.verified ? "Medidas verificadas" : "MEDIDAS NO VERIFICADAS"}</text><rect x="${margin}" y="${margin}" width="${layout.width * scale}" height="${layout.depth * scale}" fill="#fff" stroke="#405348" stroke-width="2"/>${reference}${objects}<text x="${width / 2}" y="${margin - 12}" text-anchor="middle" font-family="sans-serif" font-size="11">${layout.width} m</text><text x="18" y="${margin + (layout.depth * scale) / 2}" text-anchor="middle" font-family="sans-serif" font-size="11" transform="rotate(-90 18 ${margin + (layout.depth * scale) / 2})">${layout.depth} m</text></svg>`;
 }
 export function acceptConversation(
   workspace: Workspace,

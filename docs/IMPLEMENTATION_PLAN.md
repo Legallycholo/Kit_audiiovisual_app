@@ -1,6 +1,6 @@
 # Audiovisual Event Production Platform — Implementation Plan
 
-Status: **Phase 1 and the Phase 3A–3D local showcases are complete. Live provider validation is deferred until API tools, credentials, and business examples are selected. Phase 4 is the next product track. See `IMPLEMENTATION_PROGRESS.md` for evidence and remaining work.**
+Status: **Phase 1, the Phase 3A–3D local showcases, and the Phase 4 local showcase are complete. Live provider validation is deferred until API tools, credentials, and business examples are selected. Phase 5 is the next product track. See `IMPLEMENTATION_PROGRESS.md` for evidence and remaining work.**
 
 Prepared: October 15, 2026
 
@@ -651,7 +651,7 @@ Connect an owner-confirmed accepted proposal to explicit availability confirmati
 
 Local completion recorded October 15, 2026: the production workspace evaluates an accepted current proposal revision, confirmed equipment quantities covering the complete event window, and named production task owners before enabling preparation or execution. The same rules are enforced at the server boundary. Closeout requires the event to be in production, every task complete, and every allocation returned or cancelled. Acceptance remains a separate action and creates none of these operational records. Detailed shifts, custody, partial returns, damage, transport, actual costs, and company-specific deposit or contract gates remain later operational work.
 
-### Phase 4 — Structured 2D floor-plan editor — **Next**
+### Phase 4 — Structured 2D floor-plan editor — **Local showcase complete**
 
 - **Objective:** produce reusable, dimensioned event layouts.
 - **Scope:** reference upload/calibration, room geometry, object placement/manipulation, layers, labels, dimensions, versioning, equipment mapping, and agreed exports.
@@ -661,7 +661,9 @@ Local completion recorded October 15, 2026: the production workspace evaluates a
 - **Risks:** poor source plans, unverified measurements, complex selection/undo behavior, oversized layouts, scope creep into specialist CAD.
 - **Completion:** representative plans meet agreed dimensional, recovery, tablet, and performance criteria; design/production reviewers accept the workflow.
 
-### Phase 5 — Connected 3D event simulator
+Local completion recorded October 15, 2026: the shared structured editor supports rectangular room dimensions, labeled and layered objects, precise placement/size/rotation, mouse and touch movement, undo/redo, saved immutable revisions, local unsaved-draft recovery, reusable layout templates, PNG/JPEG/WebP reference images, full-image scale calibration, explicit measurement-source verification, equipment quantities mapped to catalog records, proposal-to-layout reconciliation without reservations, JSON data export, and self-contained dimensioned SVG plan export. Server validation rejects out-of-bounds geometry, incomplete measurement evidence, invalid equipment links, and revision updates that omit an exact prior snapshot. Final source formats, arbitrary room outlines, grouped editing, layer locks, production print standards, maximum plan sizes, and representative venue approval remain business validation checkpoints rather than implied capabilities.
+
+### Phase 5 — Connected 3D event simulator — **Next**
 
 - **Objective:** inspect the shared layout in 3D and produce presentation snapshots.
 - **Scope:** geometry projection, model/placeholder mapping, height/elevation properties, scene navigation, saved cameras, branding surfaces, and revision-linked exports.

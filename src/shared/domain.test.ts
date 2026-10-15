@@ -3,9 +3,12 @@ import {
   acceptConversation,
   availableStock,
   createProposalRevision,
+  layoutSvg,
   productionReadiness,
   quoteTotals,
+  reconcileLayoutEquipment,
   reviseProposal,
+  validateLayoutGeometry,
   validateReservation,
 } from "./domain";
 import { createSeed } from "./seed";
@@ -228,5 +231,68 @@ describe("production readiness and closeout", () => {
       .filter((reservation) => reservation.eventId === "e1")
       .forEach((reservation) => (reservation.status = "Returned"));
     expect(productionReadiness(revision, "e1").closeoutReady).toBe(true);
+  });
+});
+
+describe("structured layout production data", () => {
+  it("reconciles represented equipment quantities without creating allocations", () => {
+    const workspace = createSeed();
+    const layout = workspace.layouts[0];
+    const before = structuredClone(workspace.reservations);
+    const initial = reconcileLayoutEquipment(workspace, layout);
+    expect(initial.rows.find((row) => row.equipmentId === "q1")).toMatchObject({
+      required: 8,
+      mapped: 8,
+      difference: 0,
+    });
+    expect(initial.rows.find((row) => row.equipmentId === "q4")).toMatchObject({
+      required: 12,
+      mapped: 0,
+      difference: -12,
+    });
+    expect(initial.complete).toBe(false);
+
+    const stage = layout.objects.find((object) => object.id === "stage1")!;
+    stage.equipmentId = undefined;
+    stage.equipmentQuantity = undefined;
+    layout.objects.push({
+      id: "lighting-package",
+      kind: "Light",
+      x: 1,
+      y: 1,
+      width: 1,
+      depth: 1,
+      height: 2,
+      rotation: 0,
+      label: "Lighting package",
+      layer: "Lighting",
+      equipmentId: "q4",
+      equipmentQuantity: 12,
+    });
+    expect(reconcileLayoutEquipment(workspace, layout).complete).toBe(true);
+    expect(workspace.reservations).toEqual(before);
+  });
+
+  it("rejects out-of-bounds geometry and incomplete measurement evidence", () => {
+    const layout = structuredClone(createSeed().layouts[0]);
+    layout.objects[0].x = layout.width;
+    layout.verified = true;
+    expect(validateLayoutGeometry(layout)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("excede el ancho"),
+        expect.stringContaining("requiere fecha"),
+      ]),
+    );
+  });
+
+  it("exports a self-contained dimensioned SVG with escaped labels", () => {
+    const workspace = createSeed();
+    const layout = structuredClone(workspace.layouts[0]);
+    layout.objects[0].label = "Stage <Main>";
+    const svg = layoutSvg(layout, workspace.equipment);
+    expect(svg).toContain("<svg");
+    expect(svg).toContain("24 m × 26 m");
+    expect(svg).toContain("Stage &lt;Main&gt;");
+    expect(svg).toContain("MEDIDAS NO VERIFICADAS");
   });
 });

@@ -186,6 +186,16 @@ export interface LayoutObject {
   label: string;
   layer: string;
   equipmentId?: string;
+  equipmentQuantity?: number;
+}
+export interface LayoutReference {
+  name: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp";
+  dataUrl: string;
+  intrinsicWidth: number;
+  intrinsicHeight: number;
+  opacity: number;
+  calibratedAt?: string;
 }
 export interface Layout {
   id: string;
@@ -196,7 +206,19 @@ export interface Layout {
   depth: number;
   objects: LayoutObject[];
   verified: boolean;
-  history: { version: number; objects: LayoutObject[]; savedAt: string }[];
+  verifiedAt?: string;
+  verificationNote?: string;
+  reference?: LayoutReference;
+  history: {
+    version: number;
+    objects: LayoutObject[];
+    savedAt: string;
+    width?: number;
+    depth?: number;
+    verified?: boolean;
+    verifiedAt?: string;
+    verificationNote?: string;
+  }[];
 }
 export interface Activity {
   id: string;

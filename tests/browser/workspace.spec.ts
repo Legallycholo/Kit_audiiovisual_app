@@ -248,6 +248,66 @@ test("layout object editing, revision saving, undo and 3D rendering", async ({
   await expect(
     page.getByRole("button", { name: "Seleccionar Booth 101", exact: true }),
   ).toBeVisible();
+  await page.getByLabel("Cargar plano de referencia").setInputFiles({
+    name: "salon-reference.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await page.getByLabel("Ancho conocido de la imagen · m").fill("30");
+  await page
+    .getByRole("button", { name: "Calibrar escala", exact: true })
+    .click();
+  await page
+    .getByLabel("Fuente de las medidas")
+    .fill("Plano del salón confirmado por el lugar.");
+  await page
+    .getByRole("button", {
+      name: "Confirmar medidas verificadas",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", { name: "Revisar equipos", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toContainText("Moving Head Wash");
+  await expect(page.getByRole("dialog")).toContainText("-12");
+  await page.getByRole("button", { name: "Cerrar ventana" }).click();
+  const downloadPromise = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Exportar plano", exact: true })
+    .click();
+  expect((await downloadPromise).suggestedFilename()).toMatch(
+    /layout-v\d+\.svg/,
+  );
+  await page
+    .getByRole("button", { name: "Guardar versión", exact: true })
+    .click();
+  await page.reload();
+  await expect(page.getByText("Medidas verificadas").first()).toBeVisible();
+  await page
+    .getByRole("button", { name: "Seleccionar Booth 101", exact: true })
+    .click();
+  await page.getByLabel("Etiqueta", { exact: true }).fill("Booth recovered");
+  await page.waitForTimeout(500);
+  await page.reload();
+  await expect(
+    page.getByText("Borrador recuperado", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Seleccionar Booth recovered",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Descartar borrador", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Seleccionar Booth 101", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Vista 3D", exact: true }).click();
   await expect(page.getByLabel("Diseño 3D interactivo del evento")).toBeVisible(
     {
@@ -259,6 +319,26 @@ test("layout object editing, revision saving, undo and 3D rendering", async ({
     path: "artifacts/design-desktop.png",
     fullPage: true,
   });
+});
+
+test("a saved layout can seed a new event layout without copying verification", async ({
+  page,
+}) => {
+  await page.goto("/design?event=e2");
+  await expect(
+    page.getByRole("heading", { name: "Comienza con un espacio" }),
+  ).toBeVisible();
+  await page
+    .getByLabel("Plano para usar como plantilla")
+    .selectOption("layout1");
+  await page
+    .getByRole("button", { name: "Copiar plantilla", exact: true })
+    .click();
+  await expect(page.getByLabel("Plano editable del evento")).toBeVisible();
+  await expect(page.getByText("Sin verificar", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Seleccionar Main stage", exact: true }),
+  ).toBeVisible();
 });
 
 test("dashboard, tablet navigation, assistant and mobile layout", async ({

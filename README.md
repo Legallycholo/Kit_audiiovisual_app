@@ -2,6 +2,8 @@
 
 An audiovisual event-production app connecting clients, events, venues, proposals, equipment, layouts, and production. Implementation is in progress; the full requirements remain in [the implementation plan](docs/IMPLEMENTATION_PLAN.md) and remaining work is tracked in [implementation progress](docs/IMPLEMENTATION_PROGRESS.md).
 
+The local layout showcase supports calibrated image references, verified measurement notes, reusable templates, equipment-quantity reconciliation, revision recovery, and dimensioned SVG exports. Layout mappings do not create reservations or change proposal scope.
+
 Spanish is the primary interface language. The Phase 1 shell, account entry, common controls, acceptance review, design controls, and proposal drafting/editing workflow use Spanish. Stored business content is preserved in its original language, while development documentation and internal record identifiers remain in English.
 
 ## Run locally

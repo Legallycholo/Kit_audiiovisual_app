@@ -517,6 +517,7 @@ export const createSeed = (): Workspace => ({
           label: "Main stage",
           layer: "Staging",
           equipmentId: "q5",
+          equipmentQuantity: 1,
         },
         {
           id: "led1",
@@ -530,6 +531,7 @@ export const createSeed = (): Workspace => ({
           label: "LED wall",
           layer: "Video",
           equipmentId: "q3",
+          equipmentQuantity: 24,
         },
         {
           id: "speaker1",
@@ -543,6 +545,7 @@ export const createSeed = (): Workspace => ({
           label: "PA L",
           layer: "Audio",
           equipmentId: "q1",
+          equipmentQuantity: 4,
         },
         {
           id: "speaker2",
@@ -556,6 +559,7 @@ export const createSeed = (): Workspace => ({
           label: "PA R",
           layer: "Audio",
           equipmentId: "q1",
+          equipmentQuantity: 4,
         },
         ...tables,
         {

@@ -257,6 +257,52 @@ describe("authenticated company workspace", () => {
       ).status,
     ).toBe(422);
   });
+  it("rejects invalid layout geometry and missing revision snapshots", async () => {
+    const initial = await workspace();
+    const layout = initial.workspace.layouts[0];
+    const withoutSnapshot = await patch(
+      [
+        {
+          collection: "layouts",
+          id: layout.id,
+          value: { ...layout, version: layout.version + 1, width: 25 },
+        },
+      ],
+      initial.revision,
+    );
+    expect(withoutSnapshot.status).toBe(422);
+    expect(withoutSnapshot.json.error).toContain("exact snapshot");
+
+    const snapshot = {
+      version: layout.version,
+      objects: structuredClone(layout.objects),
+      savedAt: new Date().toISOString(),
+      width: layout.width,
+      depth: layout.depth,
+      verified: layout.verified,
+      verifiedAt: layout.verifiedAt,
+      verificationNote: layout.verificationNote,
+    };
+    const invalidGeometry = await patch(
+      [
+        {
+          collection: "layouts",
+          id: layout.id,
+          value: {
+            ...layout,
+            version: layout.version + 1,
+            objects: layout.objects.map((object, index) =>
+              index === 0 ? { ...object, x: layout.width } : object,
+            ),
+            history: [...layout.history, snapshot],
+          },
+        },
+      ],
+      initial.revision,
+    );
+    expect(invalidGeometry.status).toBe(422);
+    expect(invalidGeometry.json.error).toContain("excede el ancho");
+  });
   it("only the owner can confirm exact issued revisions, without sending or reserving", async () => {
     const sales = await account("Sales Manager");
     const initial = await workspace();

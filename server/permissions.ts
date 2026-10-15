@@ -9,6 +9,7 @@ import type { Workspace, Proposal, Conversation } from "../src/shared/types";
 import {
   productionReadiness,
   quoteTotals,
+  validateLayoutGeometry,
   validateReservation,
 } from "../src/shared/domain";
 import { HttpError } from "./database";
@@ -282,6 +283,26 @@ export function applyChanges(
         !old.history.every((h, i) => same(h, layout.history[i])),
         "Previous layout revisions are immutable.",
       );
+      const snapshot = layout.history.at(-1);
+      invalid(
+        layout.history.length !== old.history.length + 1 ||
+          !snapshot ||
+          snapshot.version !== old.version ||
+          !same(snapshot.objects, old.objects) ||
+          snapshot.width !== old.width ||
+          snapshot.depth !== old.depth ||
+          snapshot.verified !== old.verified ||
+          snapshot.verifiedAt !== old.verifiedAt ||
+          snapshot.verificationNote !== old.verificationNote,
+        "A layout revision must preserve an exact snapshot of the prior geometry and measurement status.",
+      );
+    }
+    if (collection === "layouts" && !before) {
+      const layout = row as Workspace["layouts"][number];
+      invalid(
+        layout.version !== 1 || layout.history.length !== 0,
+        "New layouts must begin at version one without revision history.",
+      );
     }
     const index = next[collection].findIndex((r) => r.id === row.id);
     // The value is validated by the collection-specific schema above.
@@ -378,6 +399,8 @@ export function validateWorkspace(next: Workspace, before: Workspace) {
   for (const t of next.tasks) requireEvent(t.eventId);
   for (const l of next.layouts) {
     requireEvent(l.eventId);
+    const geometryErrors = validateLayoutGeometry(l);
+    invalid(geometryErrors.length > 0, geometryErrors.join(" "));
     const ids = new Set<string>();
     for (const object of l.objects) {
       invalid(ids.has(object.id), "Layout object identities must be unique.");
