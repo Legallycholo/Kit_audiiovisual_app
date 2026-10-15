@@ -88,6 +88,13 @@ export interface Proposal {
   status: ProposalStatus;
   validUntil: string;
   acceptedAt?: string;
+  aiReview?: {
+    brief: string;
+    assumptions: string[];
+    questions: string[];
+    generatedAt: string;
+    model: string;
+  };
 }
 export interface Message {
   id: string;
@@ -113,6 +120,7 @@ export interface Task {
   eventId: string;
   title: string;
   assignee: string;
+  assigneeId?: string;
   role: string;
   date: string;
   done: boolean;

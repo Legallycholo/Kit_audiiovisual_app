@@ -23,6 +23,7 @@ import {
 import { useWorkspace, activity } from "../shared/store";
 import { Badge, Button, Empty, Field, Modal, PageHeader } from "../shared/ui";
 import { downloadFile, id } from "../shared/domain";
+import { uiLabel } from "../shared/i18n";
 import type { Layout, LayoutObject, ObjectKind } from "../shared/types";
 import { useUnsavedChanges } from "../shared/useUnsavedChanges";
 const Scene = lazy(() => import("./Scene"));
@@ -58,7 +59,7 @@ export function Design() {
   const eventId = params.get("event") || data.events[0]?.id;
   const existing = data.layouts.find((l) => l.eventId === eventId);
   const [view, setView] = useState("2D");
-  function createLayout() {
+  async function createLayout() {
     const event = data.events.find((e) => e.id === eventId);
     const room = data.venues.find((v) => v.id === event?.venueId)?.rooms[0];
     const next: Layout = {
@@ -72,7 +73,8 @@ export function Design() {
       objects: [],
       history: [],
     };
-    update((s) => ({ ...s, layouts: [...s.layouts, next] }));
+    if (!(await update((s) => ({ ...s, layouts: [...s.layouts, next] }))))
+      return;
     toast("Event layout created. Confirm room dimensions before production.");
   }
   return (
@@ -196,7 +198,7 @@ function LayoutEditor({
     change([...layout.objects, next]);
     setSelection(next.id);
   }
-  function save() {
+  async function save() {
     const next = {
       ...layout,
       version: original.version + 1,
@@ -209,18 +211,21 @@ function LayoutEditor({
         },
       ],
     };
-    update((s) => ({
-      ...s,
-      layouts: s.layouts.map((l) => (l.id === next.id ? next : l)),
-      activity: [
-        activity(
-          "Layout revision saved",
-          `${next.name} · v${next.version}`,
-          next.eventId,
-        ),
-        ...s.activity,
-      ],
-    }));
+    if (
+      !(await update((s) => ({
+        ...s,
+        layouts: s.layouts.map((l) => (l.id === next.id ? next : l)),
+        activity: [
+          activity(
+            "Layout revision saved",
+            `${next.name} · v${next.version}`,
+            next.eventId,
+          ),
+          ...s.activity,
+        ],
+      })))
+    )
+      return;
     setLayout(next);
     toast(
       `Layout revision ${next.version} saved. Equipment allocations have not changed.`,
@@ -247,20 +252,20 @@ function LayoutEditor({
             onClick={() => setView("2D")}
           >
             <Grid2X2 size={15} />
-            2D plan
+            {uiLabel("2D plan")}
           </button>
           <button
             className={view === "3D" ? "active" : ""}
             onClick={() => setView("3D")}
           >
             <Box size={15} />
-            3D view
+            {uiLabel("3D view")}
           </button>
         </div>
         <div>
           <button
             className="icon-button"
-            aria-label="Layout versions"
+            aria-label="Versiones del diseño"
             onClick={() => setVersions(true)}
           >
             <History size={18} />
@@ -285,20 +290,20 @@ function LayoutEditor({
       </div>
       <div className="design-workspace">
         <aside className="object-library">
-          <span className="eyebrow">OBJECT LIBRARY</span>
-          <p>Click to add to your layout.</p>
+          <span className="eyebrow">BIBLIOTECA DE OBJETOS</span>
+          <p>Selecciona un objeto para agregarlo al diseño.</p>
           <div className="object-buttons">
             {kinds.map((kind) => (
               <button key={kind} onClick={() => add(kind)}>
                 <span style={{ background: palette[kind] }}>
                   {kind === "Table" ? <Circle size={20} /> : <Box size={20} />}
                 </span>
-                {kind}
+                {uiLabel(kind)}
               </button>
             ))}
           </div>
           <div className="layer-list">
-            <span className="eyebrow">LAYERS</span>
+            <span className="eyebrow">CAPAS</span>
             {layers.map((layer) => (
               <button
                 key={layer}
@@ -315,7 +320,7 @@ function LayoutEditor({
                 ) : (
                   <Eye size={14} />
                 )}
-                <span>{layer}</span>
+                <span>{uiLabel(layer)}</span>
                 <small>
                   {layout.objects.filter((o) => o.layer === layer).length}
                 </small>
@@ -328,17 +333,17 @@ function LayoutEditor({
             <span>
               <MousePointer2 size={13} />
               {view === "2D"
-                ? "Select & move"
-                : "Drag to orbit · scroll to zoom"}
+                ? "Seleccionar y mover"
+                : "Arrastra para girar · desplázate para ampliar"}
             </span>
-            <span>Units: meters</span>
+            <span>Unidades: metros</span>
           </div>
           {view === "2D" ? (
             <div className="svg-viewport">
               <svg
                 ref={svg}
                 role="group"
-                aria-label="Editable event floor plan"
+                aria-label="Plano editable del evento"
                 viewBox={`${-3 + (layout.width * (1 - 1 / zoom)) / 2} ${-3 + (layout.depth * (1 - 1 / zoom)) / 2} ${(layout.width + 6) / zoom} ${(layout.depth + 6) / zoom}`}
                 onPointerMove={(e) => {
                   if (!drag) return;
@@ -437,7 +442,7 @@ function LayoutEditor({
                   <g
                     key={o.id}
                     role="button"
-                    aria-label={`Select ${o.label}`}
+                    aria-label={`Seleccionar ${o.label}`}
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -502,7 +507,7 @@ function LayoutEditor({
             <Suspense
               fallback={
                 <div className="empty">
-                  <h3>Preparing the 3D workspace…</h3>
+                  <h3>Preparando el espacio 3D…</h3>
                 </div>
               }
             >
@@ -513,7 +518,7 @@ function LayoutEditor({
             <div>
               <button
                 className="icon-button"
-                aria-label="Undo layout change"
+                aria-label="Deshacer cambio del diseño"
                 disabled={!past.length}
                 onClick={() => {
                   setFuture([structuredClone(layout.objects), ...future]);
@@ -525,7 +530,7 @@ function LayoutEditor({
               </button>
               <button
                 className="icon-button"
-                aria-label="Redo layout change"
+                aria-label="Rehacer cambio del diseño"
                 disabled={!future.length}
                 onClick={() => {
                   setPast([...past, structuredClone(layout.objects)]);
@@ -537,14 +542,14 @@ function LayoutEditor({
               </button>
             </div>
             <span>
-              {layout.objects.length} objects ·{" "}
-              {dirty ? "Unsaved changes" : "Saved layout"}
+              {layout.objects.length} objetos ·{" "}
+              {dirty ? "Cambios sin guardar" : "Diseño guardado"}
             </span>
             {view === "2D" && (
               <div>
                 <button
                   className="icon-button"
-                  aria-label="Zoom out"
+                  aria-label="Alejar"
                   onClick={() => setZoom(Math.max(0.6, zoom - 0.2))}
                 >
                   <ZoomOut size={16} />
@@ -554,7 +559,7 @@ function LayoutEditor({
                 </button>
                 <button
                   className="icon-button"
-                  aria-label="Zoom in"
+                  aria-label="Acercar"
                   onClick={() => setZoom(Math.min(3, zoom + 0.2))}
                 >
                   <ZoomIn size={16} />
@@ -565,11 +570,11 @@ function LayoutEditor({
         </div>
         <aside className="object-properties">
           <span className="eyebrow">
-            {object ? "OBJECT PROPERTIES" : "ROOM PROPERTIES"}
+            {object ? "PROPIEDADES DEL OBJETO" : "PROPIEDADES DEL ESPACIO"}
           </span>
           {object ? (
             <>
-              <h3>{object.kind}</h3>
+              <h3>{uiLabel(object.kind)}</h3>
               <Field label="Label">
                 <input
                   value={object.label}
@@ -611,7 +616,7 @@ function LayoutEditor({
                     edit({ equipmentId: e.target.value || undefined })
                   }
                 >
-                  <option value="">Concept only / no mapping</option>
+                  <option value="">Solo concepto / sin equipo vinculado</option>
                   {data.equipment.map((q) => (
                     <option value={q.id} key={q.id}>
                       {q.name}
@@ -620,8 +625,8 @@ function LayoutEditor({
                 </select>
               </Field>
               <p className="tiny muted">
-                Mapping identifies equipment. It does not reserve stock or add
-                quotation charges.
+                El vínculo identifica el equipo. No reserva inventario ni agrega
+                cargos a la cotización.
               </p>
               <div className="property-actions">
                 <Button
@@ -642,7 +647,7 @@ function LayoutEditor({
                 </Button>
                 <button
                   className="icon-button danger-text"
-                  aria-label="Delete selected object"
+                  aria-label="Eliminar objeto seleccionado"
                   onClick={() => {
                     change(layout.objects.filter((o) => o.id !== object.id));
                     setSelection(null);
@@ -654,10 +659,10 @@ function LayoutEditor({
             </>
           ) : (
             <>
-              <h3>Event space</h3>
+              <h3>Espacio del evento</h3>
               <p>
-                Select an object to edit its size, position, and equipment
-                mapping.
+                Selecciona un objeto para editar su tamaño, posición y equipo
+                vinculado.
               </p>
               <Field label="Width · m">
                 <input
@@ -690,15 +695,15 @@ function LayoutEditor({
           <div className="dimension-note">
             <Badge tone="amber">Dimensions unverified</Badge>
             <p>
-              Confirm the venue measurements before using this layout for
-              production.
+              Confirma las medidas del lugar antes de usar este diseño para
+              producción.
             </p>
           </div>
           {view === "3D" && (
             <p className="tiny muted">
-              3D uses the same object dimensions and positions. Objects use
-              simple geometric representations; this is not a lighting or
-              engineering simulation.
+              La vista 3D usa las mismas medidas y posiciones. Los objetos son
+              representaciones geométricas simples; no es una simulación de
+              iluminación ni de ingeniería.
             </p>
           )}
         </aside>

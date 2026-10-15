@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { canEditCollection } from "../shared/access";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Box, Plus, Wrench, CalendarDays } from "lucide-react";
 import { useWorkspace, activity } from "../shared/store";
@@ -23,7 +24,12 @@ import {
 } from "../shared/domain";
 import type { Equipment, Reservation } from "../shared/types";
 export function Inventory() {
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, mode, user, request } = useWorkspace();
+  const canPrice =
+    !user ||
+    ["Administrator", "Sales Manager", "Production Manager"].includes(
+      user.role,
+    );
   const [params] = useSearchParams();
   const [tab, setTab] = useState(
     params.has("event") ? "Reservations" : "Catalog",
@@ -36,6 +42,33 @@ export function Inventory() {
   const today = new Date().toLocaleDateString("en-CA");
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
+  const [availability, setAvailability] = useState<Record<
+    string,
+    number
+  > | null>(null);
+  const [availabilityError, setAvailabilityError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setAvailability(null);
+    setAvailabilityError("");
+    if (mode === "company" && tab === "Availability")
+      request<{ availability: Record<string, number> }>(
+        `/inventory/availability?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+      )
+        .then((result) => {
+          if (active) setAvailability(result.availability);
+        })
+        .catch((e) => {
+          if (active) setAvailabilityError(e.message);
+        });
+    return () => {
+      active = false;
+    };
+  }, [mode, tab, start, end, data.reservations, data.equipment, request]);
+  const available = (q: Equipment) =>
+    mode === "sample"
+      ? availableStock(q, data.reservations, start, end)
+      : availability?.[q.id];
   const items = data.equipment.filter(
     (q) =>
       `${q.name} ${q.sku}`.toLowerCase().includes(search.toLowerCase()) &&
@@ -64,11 +97,16 @@ export function Inventory() {
         description="Your owned equipment, availability, and event allocations."
         actions={
           <>
-            <Button variant="secondary" onClick={addReservation}>
+            <Button
+              disabled={!canEditCollection(user, "reservations")}
+              variant="secondary"
+              onClick={addReservation}
+            >
               <CalendarDays size={17} />
               Reserve equipment
             </Button>
             <Button
+              disabled={!canEditCollection(user, "equipment")}
               onClick={() =>
                 setDraft({
                   id: id(),
@@ -88,6 +126,7 @@ export function Inventory() {
           </>
         }
       />
+      {availabilityError && <ErrorNote>{availabilityError}</ErrorNote>}
       <Panel>
         <div className="list-toolbar">
           <Tabs
@@ -190,9 +229,10 @@ export function Inventory() {
                       </td>
                       <td>
                         <select
+                          disabled={!canEditCollection(user, "reservations")}
                           aria-label={`Reservation status ${r.id}`}
                           value={r.status}
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const next = {
                               ...r,
                               status: e.target.value as Reservation["status"],
@@ -208,20 +248,23 @@ export function Inventory() {
                                   data.reservations,
                                   next,
                                 );
-                              update((s) => ({
-                                ...s,
-                                reservations: s.reservations.map((x) =>
-                                  x.id === r.id ? next : x,
-                                ),
-                                activity: [
-                                  activity(
-                                    "Equipment allocation updated",
-                                    `${r.quantity} units · ${next.status}`,
-                                    r.eventId,
+                              if (
+                                !(await update((s) => ({
+                                  ...s,
+                                  reservations: s.reservations.map((x) =>
+                                    x.id === r.id ? next : x,
                                   ),
-                                  ...s.activity,
-                                ],
-                              }));
+                                  activity: [
+                                    activity(
+                                      "Equipment allocation updated",
+                                      `${r.quantity} units · ${next.status}`,
+                                      r.eventId,
+                                    ),
+                                    ...s.activity,
+                                  ],
+                                })))
+                              )
+                                return;
                               toast("Reservation updated.");
                             } catch (err) {
                               toast((err as Error).message);
@@ -257,7 +300,7 @@ export function Inventory() {
                       ? "Available in window"
                       : "Maintenance"}
                   </th>
-                  <th>Rate / day</th>
+                  {canPrice && <th>Rate / day</th>}
                   <th />
                 </tr>
               </thead>
@@ -279,15 +322,11 @@ export function Inventory() {
                     <td>{q.quantity}</td>
                     <td>
                       {tab === "Availability" ? (
-                        <Badge
-                          tone={
-                            availableStock(q, data.reservations, start, end) > 0
-                              ? "green"
-                              : "red"
-                          }
-                        >
-                          {availableStock(q, data.reservations, start, end)}{" "}
-                          available
+                        <Badge tone={(available(q) ?? 0) > 0 ? "green" : "red"}>
+                          {available(q) ?? "…"}{" "}
+                          {available(q) === undefined
+                            ? "por consultar"
+                            : "disponibles"}
                         </Badge>
                       ) : q.maintenance > 0 ? (
                         <Badge tone="amber">{q.maintenance} unavailable</Badge>
@@ -295,9 +334,10 @@ export function Inventory() {
                         "—"
                       )}
                     </td>
-                    <td className="amount">{money(q.rate)}</td>
+                    {canPrice && <td className="amount">{money(q.rate)}</td>}
                     <td>
                       <Button
+                        disabled={!canEditCollection(user, "equipment")}
                         variant="ghost"
                         onClick={() => setDraft({ ...q })}
                       >
@@ -330,18 +370,21 @@ export function Inventory() {
         >
           <form
             className="modal-body"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (draft.maintenance > draft.quantity) {
                 setError("Maintenance quantity cannot exceed owned stock.");
                 return;
               }
-              update((s) => ({
-                ...s,
-                equipment: s.equipment.some((q) => q.id === draft.id)
-                  ? s.equipment.map((q) => (q.id === draft.id ? draft : q))
-                  : [...s.equipment, draft],
-              }));
+              if (
+                !(await update((s) => ({
+                  ...s,
+                  equipment: s.equipment.some((q) => q.id === draft.id)
+                    ? s.equipment.map((q) => (q.id === draft.id ? draft : q))
+                    : [...s.equipment, draft],
+                })))
+              )
+                return;
               setDraft(null);
               setError("");
               toast("Equipment saved.");
@@ -433,7 +476,7 @@ export function Inventory() {
         >
           <form
             className="modal-body"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               try {
                 const item = data.equipment.find(
@@ -441,18 +484,21 @@ export function Inventory() {
                 );
                 if (!item) throw new Error("Select equipment first.");
                 validateReservation(item, data.reservations, reservation);
-                update((s) => ({
-                  ...s,
-                  reservations: [...s.reservations, reservation],
-                  activity: [
-                    activity(
-                      "Equipment reserved",
-                      `${reservation.quantity} × ${item.name}`,
-                      reservation.eventId,
-                    ),
-                    ...s.activity,
-                  ],
-                }));
+                if (
+                  !(await update((s) => ({
+                    ...s,
+                    reservations: [...s.reservations, reservation],
+                    activity: [
+                      activity(
+                        "Equipment reserved",
+                        `${reservation.quantity} × ${item.name}`,
+                        reservation.eventId,
+                      ),
+                      ...s.activity,
+                    ],
+                  })))
+                )
+                  return;
                 setReservation(null);
                 toast("Equipment allocation saved.");
               } catch (err) {

@@ -1,3 +1,7 @@
+import { sameValue } from "../shared/value";
+import { uiLabel } from "../shared/i18n";
+import { ProposalAI, AIReview, type DraftSuggestion } from "./ProposalAI";
+import { canEditCollection } from "../shared/access";
 import { useState } from "react";
 import {
   Link,
@@ -42,7 +46,7 @@ import {
 import type { Proposal } from "../shared/types";
 import { useUnsavedChanges } from "../shared/useUnsavedChanges";
 export function Proposals() {
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, user, mode, saving } = useWorkspace();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -52,7 +56,7 @@ export function Proposals() {
   const [eventId, setEventId] = useState(
     params.get("event") || data.events[0]?.id || "",
   );
-  function createDraft() {
+  async function createDraft(suggestion?: DraftSuggestion) {
     const event = data.events.find((e) => e.id === eventId);
     if (!event) return;
     const proposal: Proposal = {
@@ -63,21 +67,25 @@ export function Proposals() {
       title: event.name,
       introduction: event.notes,
       terms:
-        "Availability, payment terms, and final scope are subject to review.",
+        "La disponibilidad, las condiciones de pago y el alcance final están sujetos a revisión.",
       lines: [],
       discount: 0,
       tax: 0,
       status: "Draft",
       validUntil: event.date,
+      ...suggestion,
     };
-    update((s) => ({
-      ...s,
-      proposals: [...s.proposals, proposal],
-      activity: [
-        activity("Proposal draft created", proposal.number, eventId),
-        ...s.activity,
-      ],
-    }));
+    if (
+      !(await update((s) => ({
+        ...s,
+        proposals: [...s.proposals, proposal],
+        activity: [
+          activity("Proposal draft created", proposal.number, eventId),
+          ...s.activity,
+        ],
+      })))
+    )
+      return;
     navigate(`/proposals/${proposal.id}`);
   }
   const filtered = data.proposals.filter(
@@ -90,31 +98,35 @@ export function Proposals() {
   return (
     <>
       <PageHeader
-        eyebrow="TURN A GOOD IDEA INTO A YES"
-        title="Proposals & quotations"
-        description="Thoughtful proposals. Clear pricing. Every revision in one place."
+        eyebrow={uiLabel("TURN A GOOD IDEA INTO A YES")}
+        title={uiLabel("Proposals & quotations")}
+        description={uiLabel(
+          "Thoughtful proposals. Clear pricing. Every revision in one place.",
+        )}
         actions={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setCreate(true);
-                setAI(true);
-              }}
-            >
-              <Sparkles size={17} />
-              Draft with AI
-            </Button>
-            <Button
-              onClick={() => {
-                setCreate(true);
-                setAI(false);
-              }}
-            >
-              <Plus size={17} />
-              New proposal
-            </Button>
-          </>
+          canEditCollection(user, "proposals") ? (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setCreate(true);
+                  setAI(true);
+                }}
+              >
+                <Sparkles size={17} />
+                {uiLabel("Draft with AI")}
+              </Button>
+              <Button
+                onClick={() => {
+                  setCreate(true);
+                  setAI(false);
+                }}
+              >
+                <Plus size={17} />
+                {uiLabel("New proposal")}
+              </Button>
+            </>
+          ) : undefined
         }
       />
       <Panel>
@@ -133,18 +145,18 @@ export function Proposals() {
           <SearchField
             value={search}
             onChange={setSearch}
-            placeholder="Search proposals…"
+            placeholder={uiLabel("Search proposals\u2026")}
           />
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Proposal</th>
-                <th>Client</th>
-                <th>Version</th>
-                <th>Total</th>
-                <th>Status</th>
+                <th>{uiLabel("Proposal")}</th>
+                <th>{uiLabel("Client")}</th>
+                <th>{uiLabel("Version")}</th>
+                <th>{uiLabel("Total")}</th>
+                <th>{uiLabel("Status")}</th>
                 <th />
               </tr>
             </thead>
@@ -189,20 +201,24 @@ export function Proposals() {
           </table>
           {filtered.length === 0 && (
             <Empty
-              title="A fresh page for your next proposal"
-              description="Create a draft linked to an event, then build its scope and pricing."
+              title={uiLabel("A fresh page for your next proposal")}
+              description={uiLabel(
+                "Create a draft linked to an event, then build its scope and pricing.",
+              )}
             />
           )}
         </div>
       </Panel>
       {create && (
         <Modal
-          title={ai ? "Draft with AI" : "Create a proposal"}
-          description="Start with an event so your client, scope, and dates stay connected."
+          title={ai ? uiLabel("Draft with AI") : uiLabel("Create a proposal")}
+          description={uiLabel(
+            "Start with an event so your client, scope, and dates stay connected.",
+          )}
           onClose={() => setCreate(false)}
         >
           <div className="modal-body">
-            <Field label="Event">
+            <Field label={uiLabel("Event")}>
               <select
                 value={eventId}
                 onChange={(e) => setEventId(e.target.value)}
@@ -215,31 +231,18 @@ export function Proposals() {
               </select>
             </Field>
             {ai && (
-              <>
-                <Field label="What should this proposal include?">
-                  <textarea
-                    rows={4}
-                    placeholder="Describe the event, equipment, creative direction, and any special requirements…"
-                  />
-                </Field>
-                <div className="connection-note">
-                  <Sparkles size={20} />
-                  <div>
-                    <strong>AI is not connected yet</strong>
-                    <p>
-                      The proposal workspace is ready. You can start a manual
-                      draft using your event brief now.
-                    </p>
-                  </div>
-                </div>
-              </>
+              <ProposalAI
+                key={eventId}
+                eventId={eventId}
+                onApply={createDraft}
+              />
             )}
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setCreate(false)}>
-                Cancel
+                {uiLabel("Cancel")}
               </Button>
-              <Button disabled={!eventId} onClick={createDraft}>
-                {ai ? "Start a manual draft" : "Create draft"}
+              <Button disabled={!eventId} onClick={() => createDraft()}>
+                {ai ? uiLabel("Start a manual draft") : uiLabel("Create draft")}
               </Button>
             </div>
           </div>
@@ -250,30 +253,32 @@ export function Proposals() {
 }
 export function ProposalEditor() {
   const { proposalId } = useParams();
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, user, mode, saving } = useWorkspace();
   const navigate = useNavigate();
   const original = data.proposals.find((p) => p.id === proposalId);
   if (!original)
     return (
       <Empty
-        title="Proposal not found"
-        description="Return to proposals to select a record."
-        action={<Link to="/proposals">All proposals</Link>}
+        title={uiLabel("Proposal not found")}
+        description={uiLabel("Return to proposals to select a record.")}
+        action={<Link to="/proposals">{uiLabel("All proposals")}</Link>}
       />
     );
   return <Editor key={original.id} original={original} />;
 }
 function Editor({ original }: { original: Proposal }) {
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, user, mode, saving } = useWorkspace();
   const navigate = useNavigate();
   const [draft, setDraft] = useState<Proposal>(() => structuredClone(original));
   const [error, setError] = useState("");
   const [preview, setPreview] = useState(false);
   const [sending, setSending] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [section, setSection] = useState("Introduction");
-  const locked = ["Issued", "Accepted", "Declined", "Superseded"].includes(
-    original.status,
-  );
+  const editable = canEditCollection(user, "proposals");
+  const locked =
+    !editable ||
+    ["Issued", "Accepted", "Declined", "Superseded"].includes(original.status);
   const event = data.events.find((e) => e.id === draft.eventId);
   const client = data.clients.find((c) => c.id === event?.clientId);
   let totals = { subtotal: 0, discount: 0, tax: 0, total: 0 };
@@ -282,58 +287,71 @@ function Editor({ original }: { original: Proposal }) {
   } catch {
     /* Validation is reported on save. */
   }
-  const dirty = JSON.stringify(draft) !== JSON.stringify(original);
+  const dirty = !sameValue(draft, original);
   useUnsavedChanges(dirty);
-  function save(next = draft) {
+  async function save(next = draft) {
     try {
+      if (
+        original.status === "Ready to send" &&
+        next.status === "Ready to send" &&
+        !sameValue(next, original)
+      )
+        next = { ...next, status: "Draft" };
       quoteTotals(next.lines, next.discount, next.tax);
-      if (!next.title.trim()) throw new Error("A proposal title is required.");
-      update((s) => ({
-        ...s,
-        proposals: s.proposals.map((p) => (p.id === next.id ? next : p)),
-        activity: [
-          activity(
-            "Proposal saved",
-            `${next.number} · revision ${next.version}`,
-            next.eventId,
-          ),
-          ...s.activity,
-        ],
-      }));
+      if (!next.title.trim())
+        throw new Error("La propuesta necesita un título.");
+      if (
+        !(await update((s) => ({
+          ...s,
+          proposals: s.proposals.map((p) => (p.id === next.id ? next : p)),
+          activity: [
+            activity(
+              "Proposal saved",
+              `${next.number} · revision ${next.version}`,
+              next.eventId,
+            ),
+            ...s.activity,
+          ],
+        })))
+      )
+        return;
       setDraft(next);
       setError("");
-      toast("Proposal saved on this device.");
+      toast("Propuesta guardada en este dispositivo.");
     } catch (e) {
       setError((e as Error).message);
     }
   }
-  function revision() {
+  async function revision() {
     const result = createProposalRevision(data, original.id);
     const next = result.proposal;
-    update(() => ({
-      ...result.workspace,
-      activity: [
-        activity(
-          "Proposal draft opened",
-          `${next.number} · revision ${next.version}`,
-          next.eventId,
-        ),
-        ...result.workspace.activity,
-      ],
-    }));
+    if (
+      !(await update(() => ({
+        ...result.workspace,
+        activity: [
+          activity(
+            "Proposal draft opened",
+            `${next.number} · revision ${next.version}`,
+            next.eventId,
+          ),
+          ...result.workspace.activity,
+        ],
+      })))
+    )
+      return;
     navigate(`/proposals/${next.id}`);
     toast(
-      "Draft revision opened. Earlier content and acceptance history are preserved.",
+      "Nueva versión abierta. Las versiones y aceptaciones anteriores se conservan.",
     );
   }
   return (
     <>
       <Link className="back-link" to="/proposals">
         <ArrowLeft size={15} />
-        All proposals
+        {uiLabel("All proposals")}
       </Link>
       <PageHeader
-        eyebrow={`${draft.number} · REVISION ${draft.version}`}
+        eyebrow={`${draft.number} · VERSIÓN ${draft.version}`}
         title={draft.title}
         description={`${client?.name} · ${event ? shortDate(event.date) : ""}`}
         actions={
@@ -341,32 +359,44 @@ function Editor({ original }: { original: Proposal }) {
             <Badge>{original.status}</Badge>
             <Button variant="secondary" onClick={() => setPreview(true)}>
               <Printer size={16} />
-              Preview
+              {uiLabel("Preview")}
             </Button>
-            {locked ? (
-              <Button onClick={revision}>
-                <Copy size={16} />
-                New revision
-              </Button>
-            ) : (
-              <Button onClick={() => save()}>
-                <Save size={16} />
-                Save changes
-              </Button>
-            )}
+            {editable &&
+              (locked ? (
+                <Button disabled={saving} onClick={revision}>
+                  <Copy size={16} />
+                  {uiLabel("New revision")}
+                </Button>
+              ) : (
+                <Button disabled={saving} onClick={() => save()}>
+                  <Save size={16} />
+                  {uiLabel("Save changes")}
+                </Button>
+              ))}
           </>
         }
       />
       {error && <ErrorNote>{error}</ErrorNote>}
       {locked && (
         <div className="info-note">
-          This revision is {original.status.toLowerCase()} and preserved. Create
-          a new revision to change its scope or pricing.
+          Esta versión se conserva como registro.{" "}
+          {editable
+            ? "Crea una nueva versión para cambiar su alcance o precios."
+            : "Tu acceso a esta propuesta es de solo lectura."}
         </div>
       )}
+      {!locked && (
+        <div className="proposal-ai-actions">
+          <Button variant="secondary" onClick={() => setAiOpen(true)}>
+            <Sparkles size={16} />
+            Mejorar con IA
+          </Button>
+        </div>
+      )}
+      <AIReview review={draft.aiReview} />
       <div className="proposal-workspace">
         <aside className="proposal-outline">
-          <span className="eyebrow">DOCUMENT SECTIONS</span>
+          <span className="eyebrow">{uiLabel("DOCUMENT SECTIONS")}</span>
           {[
             "Introduction",
             "Equipment & services",
@@ -379,7 +409,7 @@ function Editor({ original }: { original: Proposal }) {
               key={s}
             >
               <span>{String(i + 1).padStart(2, "0")}</span>
-              {s}
+              {uiLabel(s)}
             </button>
           ))}
           <div className="proposal-client">
@@ -390,20 +420,20 @@ function Editor({ original }: { original: Proposal }) {
           </div>
           <div className="save-indicator">
             <span className={`mini-dot ${dirty ? "amber" : "green"}`} />
-            {dirty ? "Unsaved changes" : "Saved revision"}
+            {dirty ? uiLabel("Unsaved changes") : uiLabel("Saved revision")}
           </div>
         </aside>
         <Panel className="proposal-document">
           <div className="document-brand">
             <span className="brand-small">kit.</span>
-            <span>AUDIOVISUAL EXPERIENCES</span>
+            <span>{uiLabel("AUDIOVISUAL EXPERIENCES")}</span>
           </div>
           <div className="document-caption">
-            PREPARED FOR {client?.name.toUpperCase()}
+            {uiLabel("PREPARED FOR")} {client?.name.toUpperCase()}
           </div>
           {section === "Introduction" && (
             <div className="document-fields">
-              <Field label="Proposal title">
+              <Field label={uiLabel("Proposal title")}>
                 <input
                   className="title-input"
                   disabled={locked}
@@ -413,7 +443,7 @@ function Editor({ original }: { original: Proposal }) {
                   }
                 />
               </Field>
-              <Field label="Introduction & event scope">
+              <Field label={uiLabel("Introduction & event scope")}>
                 <textarea
                   rows={9}
                   disabled={locked}
@@ -431,7 +461,7 @@ function Editor({ original }: { original: Proposal }) {
                     {event
                       ? `${shortDate(event.date)} – ${shortDate(event.endDate)}`
                       : ""}{" "}
-                    · {event?.attendees} attendees
+                    · {event?.attendees} asistentes
                   </p>
                 </div>
               </div>
@@ -439,15 +469,16 @@ function Editor({ original }: { original: Proposal }) {
           )}
           {section === "Equipment & services" && (
             <div className="document-fields">
-              <h2>Equipment & services</h2>
+              <h2>{uiLabel("Equipment & services")}</h2>
               <p className="muted">
-                Rate × quantity × rental days. Prices are saved with this
-                revision.
+                {uiLabel(
+                  "Rate \u00D7 quantity \u00D7 rental days. Prices are saved with this revision.",
+                )}
               </p>
               <div className="quote-lines">
                 {draft.lines.map((line, i) => (
                   <div className="quote-line" key={line.id}>
-                    <Field label={`Item ${i + 1}`}>
+                    <Field label={`Partida ${i + 1}`}>
                       <input
                         disabled={locked}
                         value={line.description}
@@ -469,14 +500,14 @@ function Editor({ original }: { original: Proposal }) {
                           key={key}
                           label={
                             key === "rate"
-                              ? "Rate · USD"
+                              ? uiLabel("Rate · USD")
                               : key === "quantity"
-                                ? "Quantity"
-                                : "Days"
+                                ? uiLabel("Quantity")
+                                : uiLabel("Days")
                           }
                         >
                           <input
-                            aria-label={`${line.description} ${key}`}
+                            aria-label={`${line.description} ${uiLabel(key === "rate" ? "Rate" : key === "days" ? "Days" : "Quantity")}`}
                             disabled={locked}
                             type="number"
                             min="0"
@@ -521,7 +552,7 @@ function Editor({ original }: { original: Proposal }) {
               {!locked && (
                 <div className="add-line-row">
                   <select
-                    aria-label="Add equipment from catalog"
+                    aria-label={uiLabel("Add equipment from catalog")}
                     value=""
                     onChange={(e) => {
                       const item = data.equipment.find(
@@ -544,10 +575,12 @@ function Editor({ original }: { original: Proposal }) {
                         });
                     }}
                   >
-                    <option value="">+ Add from equipment catalog</option>
+                    <option value="">
+                      {uiLabel("+ Add from equipment catalog")}
+                    </option>
                     {data.equipment.map((q) => (
                       <option value={q.id} key={q.id}>
-                        {q.name} · {money(q.rate)}/day
+                        {q.name} · {money(q.rate)}/día
                       </option>
                     ))}
                   </select>
@@ -570,7 +603,7 @@ function Editor({ original }: { original: Proposal }) {
                     }
                   >
                     <Plus size={15} />
-                    Custom line
+                    {uiLabel("Custom line")}
                   </Button>
                 </div>
               )}
@@ -578,21 +611,23 @@ function Editor({ original }: { original: Proposal }) {
           )}
           {section === "Visuals" && (
             <Empty
-              title="Give your proposal a visual story"
-              description="Layout snapshots, 3D views, and reviewed creative assets will be insertable here as their export workflows are connected."
+              title={uiLabel("Give your proposal a visual story")}
+              description={uiLabel(
+                "Layout snapshots, 3D views, and reviewed creative assets will be insertable here as their export workflows are connected.",
+              )}
               action={
                 <Link
                   className="button secondary"
                   to={`/design?event=${event?.id}`}
                 >
-                  Open event design
+                  {uiLabel("Open event design")}
                 </Link>
               }
             />
           )}
           {section === "Terms & details" && (
             <div className="document-fields">
-              <Field label="Terms, exclusions & payment conditions">
+              <Field label={uiLabel("Terms, exclusions & payment conditions")}>
                 <textarea
                   disabled={locked}
                   rows={8}
@@ -602,7 +637,7 @@ function Editor({ original }: { original: Proposal }) {
                   }
                 />
               </Field>
-              <Field label="Valid until">
+              <Field label={uiLabel("Valid until")}>
                 <input
                   type="date"
                   disabled={locked}
@@ -616,14 +651,14 @@ function Editor({ original }: { original: Proposal }) {
           )}
         </Panel>
         <aside className="proposal-summary">
-          <Panel title="Quotation summary">
+          <Panel title={uiLabel("Quotation summary")}>
             <div className="panel-body">
               <div className="summary-line">
                 <span>Subtotal</span>
                 <strong>{money(totals.subtotal)}</strong>
               </div>
               <div className="form-grid">
-                <Field label="Discount %">
+                <Field label={uiLabel("Discount %")}>
                   <input
                     disabled={locked}
                     type="number"
@@ -635,7 +670,7 @@ function Editor({ original }: { original: Proposal }) {
                     }
                   />
                 </Field>
-                <Field label="Tax %">
+                <Field label={uiLabel("Tax %")}>
                   <input
                     disabled={locked}
                     type="number"
@@ -650,20 +685,20 @@ function Editor({ original }: { original: Proposal }) {
                 </Field>
               </div>
               <div className="summary-line muted">
-                <span>Discount</span>
+                <span>{uiLabel("Discount")}</span>
                 <span>−{money(totals.discount)}</span>
               </div>
               <div className="summary-line muted">
-                <span>Tax</span>
+                <span>{uiLabel("Tax")}</span>
                 <span>{money(totals.tax)}</span>
               </div>
               <div className="summary-total">
-                <span>Total · USD</span>
+                <span>{uiLabel("Total \u00B7 USD")}</span>
                 <strong>{money(totals.total)}</strong>
               </div>
               <p className="tiny muted">
-                Tax treatment and commercial terms require business review.
-                Quoted equipment is not automatically reserved.
+                Los impuestos y términos comerciales requieren revisión. Los
+                equipos cotizados no se reservan automáticamente.
               </p>
               {!locked && (
                 <Button
@@ -671,71 +706,102 @@ function Editor({ original }: { original: Proposal }) {
                   onClick={() => save({ ...draft, status: "In review" })}
                 >
                   <Check size={16} />
-                  Submit for internal review
+                  {uiLabel("Submit for internal review")}
                 </Button>
               )}
-              <Button disabled={dirty} onClick={() => setSending(true)}>
+              <Button
+                disabled={dirty || Boolean(user && !user.isOwner)}
+                onClick={() => setSending(true)}
+              >
                 <Send size={15} />
-                Review & send
+                {uiLabel("Review & send")}
               </Button>
               {dirty && (
                 <small>
-                  Save changes before reviewing the outgoing proposal.
+                  {uiLabel(
+                    "Save changes before reviewing the outgoing proposal.",
+                  )}
                 </small>
               )}
             </div>
           </Panel>
         </aside>
       </div>
+      {aiOpen && (
+        <Modal
+          wide
+          title="Mejorar propuesta con IA"
+          description="Genera y revisa una sugerencia antes de reemplazar contenido."
+          onClose={() => setAiOpen(false)}
+        >
+          <div className="modal-body">
+            <ProposalAI
+              eventId={draft.eventId}
+              existing={draft}
+              onApply={(suggestion) => {
+                setDraft({ ...draft, ...suggestion, status: "Draft" });
+                setAiOpen(false);
+              }}
+            />
+          </div>
+        </Modal>
+      )}
       {sending && (
         <Modal
-          title="Owner review · outgoing proposal"
-          description="Every client message requires your confirmation."
+          title={uiLabel("Owner review \u00B7 outgoing proposal")}
+          description={uiLabel(
+            "Every client message requires your confirmation.",
+          )}
           onClose={() => setSending(false)}
         >
           <div className="modal-body">
             <div className="detail-facts">
               <div>
-                <span>Recipient</span>
+                <span>{uiLabel("Recipient")}</span>
                 <strong>
                   {client?.contact} · {client?.phone}
                 </strong>
               </div>
               <div>
-                <span>Exact revision</span>
+                <span>{uiLabel("Exact revision")}</span>
                 <strong>
                   {draft.number} · v{draft.version}
                 </strong>
               </div>
               <div>
-                <span>Total</span>
+                <span>{uiLabel("Total")}</span>
                 <strong>{money(totals.total)}</strong>
               </div>
             </div>
-            <Field label="Message to client">
+            <Field label={uiLabel("Message to client")}>
               <textarea
                 rows={4}
-                defaultValue={`Hi ${client?.contact.split(" ")[0]}, please review the attached proposal for ${event?.name}. Let us know if you have any questions.`}
+                defaultValue={`Hola ${client?.contact.split(" ")[0]}, te compartimos la propuesta para ${event?.name}. Quedamos atentos a tus preguntas.`}
               />
             </Field>
             <div className="connection-note">
               <Send size={20} />
               <div>
-                <strong>WhatsApp is not connected</strong>
+                <strong>{uiLabel("WhatsApp is not connected")}</strong>
                 <p>
-                  No message will be sent. Your proposal stays available in the
-                  app while the messaging integration is added.
+                  {uiLabel(
+                    "No message will be sent. Your proposal stays available in the app while the messaging integration is added.",
+                  )}
                 </p>
               </div>
             </div>
-            <Button disabled>Confirm & send · connection required</Button>
+            <Button disabled>
+              {uiLabel("Confirm & send \u00B7 connection required")}
+            </Button>
           </div>
         </Modal>
       )}
       {preview && (
         <Modal
-          title="Proposal preview"
-          description="Print this review copy or save it as a PDF using your browser."
+          title={uiLabel("Proposal preview")}
+          description={uiLabel(
+            "Print this review copy or save it as a PDF using your browser.",
+          )}
           onClose={() => setPreview(false)}
           wide
         >
@@ -744,19 +810,21 @@ function Editor({ original }: { original: Proposal }) {
             <p>{data.settings.company}</p>
             <h1>{draft.title}</h1>
             <p>
-              {draft.number} · Revision {draft.version} · {draft.status}
+              {draft.number} · Versión {draft.version} · {uiLabel(draft.status)}
             </p>
             <hr />
-            <h3>Prepared for {client?.name}</h3>
+            <h3>
+              {uiLabel("Prepared for")} {client?.name}
+            </h3>
             <p>{draft.introduction}</p>
             <table>
               <thead>
                 <tr>
-                  <th>Description</th>
-                  <th>Qty</th>
-                  <th>Days</th>
-                  <th>Rate</th>
-                  <th>Total</th>
+                  <th>{uiLabel("Description")}</th>
+                  <th>{uiLabel("Qty")}</th>
+                  <th>{uiLabel("Days")}</th>
+                  <th>{uiLabel("Rate")}</th>
+                  <th>{uiLabel("Total")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -773,19 +841,26 @@ function Editor({ original }: { original: Proposal }) {
             </table>
             <div className="print-totals">
               <p>Subtotal: {money(totals.subtotal)}</p>
-              <p>Discount: −{money(totals.discount)}</p>
-              <p>Tax: {money(totals.tax)}</p>
+              <p>Descuento: −{money(totals.discount)}</p>
+              <p>Impuesto: {money(totals.tax)}</p>
               <h2>Total: {money(totals.total)}</h2>
             </div>
-            <h3>Terms</h3>
+            <h3>{uiLabel("Terms")}</h3>
             <p>{draft.terms}</p>
-            <p>Valid until {draft.validUntil}</p>
-            <p className="tiny">Sample workspace · review copy</p>
+            <p>
+              {uiLabel("Valid until")}
+              {draft.validUntil}
+            </p>
+            <p className="tiny">
+              {mode === "sample"
+                ? "Datos de ejemplo · copia de revisión"
+                : "Copia de revisión"}
+            </p>
           </div>
           <div className="modal-actions no-print">
             <Button onClick={() => window.print()}>
               <Printer size={16} />
-              Print / save PDF
+              {uiLabel("Print / save PDF")}
             </Button>
           </div>
         </Modal>

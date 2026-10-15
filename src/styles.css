@@ -4149,3 +4149,128 @@ td small {
     overflow: visible !important;
   }
 }
+
+.session-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: #eef2e9;
+}
+.session-card {
+  width: min(100%, 480px);
+  padding: 40px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 20px 80px #29372f12;
+}
+.session-card .eyebrow {
+  display: block;
+  margin-top: 24px;
+}
+.session-card h1 {
+  font-size: 30px;
+  margin-bottom: 12px;
+}
+.session-card > p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.session-card form {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0;
+}
+.session-footnote {
+  display: flex;
+  gap: 10px;
+  line-height: 1.6;
+  margin: 22px 0;
+  color: var(--muted);
+}
+.session-footnote svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.sample-banner button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.workspace-actions {
+  display: inline-flex;
+  gap: 12px;
+}
+.assignment-fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.assignment-fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.assignment-fieldset input[type="checkbox"] {
+  width: auto;
+}
+.ai-draft-panel {
+  display: grid;
+  gap: 18px;
+}
+.ai-draft-panel > .button {
+  justify-self: start;
+}
+.ai-suggestion {
+  background: #f5f7f0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+}
+.ai-suggestion .button {
+  margin-top: 18px;
+}
+.ai-review {
+  padding: 18px 22px;
+  background: #f8f5eb;
+  border: 1px solid #e9dfbf;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+.ai-review h4 {
+  margin-bottom: 6px;
+}
+.ai-review p {
+  color: #686654;
+}
+.proposal-ai-actions {
+  margin: 0 0 16px;
+}
+.preserve-lines {
+  white-space: pre-wrap;
+}
+@media (max-width: 600px) {
+  .session-card {
+    padding: 24px;
+  }
+  .sample-banner {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+@media print {
+  .ai-review,
+  .proposal-ai-actions {
+    display: none !important;
+  }
+}

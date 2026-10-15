@@ -31,7 +31,7 @@ export default function Scene({
     host.appendChild(renderer.domElement);
     renderer.domElement.setAttribute(
       "aria-label",
-      "Interactive 3D event layout",
+      "Diseño 3D interactivo del evento",
     );
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(layout.width / 2, 0, layout.depth / 2);
@@ -142,7 +142,7 @@ export default function Scene({
     <div className="scene-container" ref={container}>
       {error && (
         <div className="empty">
-          <h3>3D view unavailable</h3>
+          <h3>La vista 3D no está disponible</h3>
           <p>{error}</p>
         </div>
       )}

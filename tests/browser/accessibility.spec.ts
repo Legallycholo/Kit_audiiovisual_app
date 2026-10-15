@@ -37,7 +37,7 @@ test("proposal print preview contains only the client review document", async ({
   page,
 }) => {
   await page.goto("/proposals/p2");
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await page.getByRole("button", { name: "Vista previa", exact: true }).click();
   await page.emulateMedia({ media: "print" });
   await expect(page.locator(".print-proposal")).toBeVisible();
   await expect(page.locator(".sidebar")).not.toBeVisible();

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { UserManagement } from "./UserManagement";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -39,11 +40,37 @@ import {
 } from "../shared/domain";
 import type { Task } from "../shared/types";
 export function Production() {
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, mode, user, request } = useWorkspace();
   const [params] = useSearchParams();
   const [eventFilter, setEventFilter] = useState(params.get("event") || "all");
   const [tab, setTab] = useState("Task board");
   const [draft, setDraft] = useState<Task | null>(null);
+  const [members, setMembers] = useState<
+    { id: string; name: string; role: string }[]
+  >([]);
+  const [teamError, setTeamError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setMembers([]);
+    setTeamError("");
+    if (
+      mode === "company" &&
+      draft?.eventId &&
+      ["Administrator", "Production Manager"].includes(user?.role || "")
+    )
+      request<{ members: typeof members }>(
+        `/team?eventId=${encodeURIComponent(draft.eventId)}`,
+      )
+        .then((result) => {
+          if (active) setMembers(result.members);
+        })
+        .catch((error) => {
+          if (active) setTeamError(error.message);
+        });
+    return () => {
+      active = false;
+    };
+  }, [mode, draft?.eventId, user?.role, request]);
   const tasks = data.tasks.filter(
     (t) => eventFilter === "all" || t.eventId === eventFilter,
   );
@@ -56,6 +83,10 @@ export function Production() {
         description="Keep the crew aligned, the gear ready, and the show on schedule."
         actions={
           <Button
+            disabled={Boolean(
+              user &&
+              !["Administrator", "Production Manager"].includes(user.role),
+            )}
             onClick={() =>
               setDraft({
                 id: id(),
@@ -257,16 +288,23 @@ export function Production() {
         <Modal title="Add a production task" onClose={() => setDraft(null)}>
           <form
             className="modal-body"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              update((s) => ({
-                ...s,
-                tasks: [...s.tasks, draft],
-                activity: [
-                  activity("Production task added", draft.title, draft.eventId),
-                  ...s.activity,
-                ],
-              }));
+              if (
+                !(await update((s) => ({
+                  ...s,
+                  tasks: [...s.tasks, draft],
+                  activity: [
+                    activity(
+                      "Production task added",
+                      draft.title,
+                      draft.eventId,
+                    ),
+                    ...s.activity,
+                  ],
+                })))
+              )
+                return;
               setDraft(null);
               toast("Task assigned.");
             }}
@@ -296,13 +334,42 @@ export function Production() {
             </Field>
             <div className="form-grid">
               <Field label="Assignee">
-                <input
-                  required
-                  value={draft.assignee}
-                  onChange={(e) =>
-                    setDraft({ ...draft, assignee: e.target.value })
-                  }
-                />
+                {mode === "company" ? (
+                  <select
+                    required
+                    value={draft.assigneeId || ""}
+                    onChange={(e) => {
+                      const member = members.find(
+                        (person) => person.id === e.target.value,
+                      );
+                      if (member)
+                        setDraft({
+                          ...draft,
+                          assigneeId: member.id,
+                          assignee: member.name,
+                          role: member.role,
+                        });
+                    }}
+                  >
+                    <option value="">
+                      Selecciona una cuenta asignada al evento
+                    </option>
+                    {members.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name} · {person.role}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    required
+                    value={draft.assignee}
+                    onChange={(e) =>
+                      setDraft({ ...draft, assignee: e.target.value })
+                    }
+                  />
+                )}
+                {teamError && <span role="alert">{teamError}</span>}
               </Field>
               <Field label="Due date">
                 <input
@@ -598,10 +665,32 @@ export function Creative() {
   );
 }
 export function SettingsPage() {
-  const { data, update, toast, reset } = useWorkspace();
+  const { data, update, toast, reset, mode, user, request } = useWorkspace();
+  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
+  useEffect(() => {
+    let active = true;
+    if (mode === "company" && user?.role === "Administrator")
+      request<{ configured: boolean }>("/ai/status")
+        .then((result) => {
+          if (active) setAiConfigured(result.configured);
+        })
+        .catch(() => {
+          if (active) setAiConfigured(null);
+        });
+    return () => {
+      active = false;
+    };
+  }, [mode, user?.role, request]);
   const [tab, setTab] = useState("Company profile");
   const [settings, setSettings] = useState({ ...data.settings });
   const [resetting, setResetting] = useState(false);
+  if (mode === "company" && user?.role !== "Administrator")
+    return (
+      <>
+        <PageHeader title="Mi cuenta" />
+        <UserManagement />
+      </>
+    );
   return (
     <>
       <PageHeader
@@ -639,9 +728,9 @@ export function SettingsPage() {
             >
               <form
                 className="panel-body"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  update((s) => ({ ...s, settings }));
+                  if (!(await update((s) => ({ ...s, settings })))) return;
                   toast("Company preferences saved.");
                 }}
               >
@@ -698,7 +787,8 @@ export function SettingsPage() {
               </form>
             </Panel>
           )}
-          {tab === "Users & roles" && (
+          {tab === "Users & roles" && mode === "company" && <UserManagement />}
+          {tab === "Users & roles" && mode === "sample" && (
             <Panel
               title="Users & roles"
               subtitle="The permission model is defined; authentication is not connected in this local workspace."
@@ -757,16 +847,16 @@ export function SettingsPage() {
                     "Inbound and outbound client messages, with owner approval before every send.",
                   ],
                   [
-                    "AI assistant",
-                    "Contextual summaries, equipment suggestions, and editable proposal drafts.",
+                    "Redacción de propuestas con IA",
+                    "Sugerencias editables con equipos y tarifas del catálogo. El asistente general se conecta por separado.",
                   ],
                   [
                     "Creative generation",
                     "Images, editing, and later video generation.",
                   ],
                   [
-                    "Shared storage & authentication",
-                    "Secure team accounts, files, and shared business records.",
+                    "Cuentas y registros de empresa",
+                    "Acceso por rol y registros compartidos en el servidor. Los archivos adjuntos se incorporarán después.",
                   ],
                 ].map(([name, description]) => (
                   <div className="integration-row" key={name}>
@@ -777,7 +867,19 @@ export function SettingsPage() {
                       <strong>{name}</strong>
                       <p>{description}</p>
                     </div>
-                    <Badge tone="neutral">Not connected</Badge>
+                    <Badge tone="neutral">
+                      {name === "Cuentas y registros de empresa" &&
+                      mode === "company"
+                        ? "Conectado"
+                        : name === "Redacción de propuestas con IA" &&
+                            mode === "company"
+                          ? aiConfigured === null
+                            ? "Estado no disponible"
+                            : aiConfigured
+                              ? "Configurada · pendiente de prueba en vivo"
+                              : "Sin configurar"
+                          : "Sin conectar"}
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -786,7 +888,11 @@ export function SettingsPage() {
           {tab === "Activity history" && (
             <Panel
               title="Workspace activity"
-              subtitle="Local sample history; a protected server audit log is still required for production."
+              subtitle={
+                mode === "sample"
+                  ? "Historial de ejemplo en este dispositivo."
+                  : "Historial registrado por el servidor; los clientes no pueden modificarlo."
+              }
             >
               <div className="activity-list">
                 {data.activity.map((a) => (
@@ -816,14 +922,17 @@ export function SettingsPage() {
                   <input
                     type="checkbox"
                     checked={data.settings.notifications}
-                    onChange={(e) => {
-                      update((s) => ({
-                        ...s,
-                        settings: {
-                          ...s.settings,
-                          notifications: e.target.checked,
-                        },
-                      }));
+                    onChange={async (e) => {
+                      if (
+                        !(await update((s) => ({
+                          ...s,
+                          settings: {
+                            ...s.settings,
+                            notifications: e.target.checked,
+                          },
+                        })))
+                      )
+                        return;
                       toast("Notification preference saved.");
                     }}
                   />
@@ -900,7 +1009,32 @@ export function SettingsPage() {
               </div>
             </Panel>
           )}
-          {tab === "Workspace data" && (
+          {tab === "Workspace data" && mode === "company" && (
+            <Panel title="Datos de la empresa">
+              <div className="panel-body">
+                <p>
+                  Los registros se guardan en el servidor. Esta exportación
+                  contiene datos comerciales; guárdala en un lugar apropiado.
+                </p>
+                <Button
+                  onClick={async () => {
+                    try {
+                      const exported = await request("/export");
+                      downloadFile(
+                        "kit-company-export.json",
+                        JSON.stringify(exported, null, 2),
+                      );
+                    } catch (e) {
+                      toast((e as Error).message);
+                    }
+                  }}
+                >
+                  Exportar registros de empresa
+                </Button>
+              </div>
+            </Panel>
+          )}
+          {tab === "Workspace data" && mode === "sample" && (
             <Panel title="Your local workspace">
               <div className="panel-body">
                 <p>

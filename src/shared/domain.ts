@@ -8,13 +8,13 @@ import type {
 
 export const id = () => crypto.randomUUID();
 export const money = (value: number) =>
-  new Intl.NumberFormat("en-US", {
+  new Intl.NumberFormat("es-PR", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 2,
   }).format(value);
 export const shortDate = (value: string) =>
-  new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("en-US", {
+  new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("es-PR", {
     month: "short",
     day: "numeric",
   });

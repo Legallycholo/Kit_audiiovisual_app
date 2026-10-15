@@ -1,8 +1,10 @@
 # Audiovisual Event Production Platform — Implementation Plan
 
-Status: **Draft for business review. Development is not authorized.**
+Status: **Phase 1 (application structure) completed and accepted on October 15, 2026. Phase 3A (AI proposal drafting and editing) is the next release track. See `IMPLEMENTATION_PROGRESS.md` for verified delivery status and remaining work.**
 
 Prepared: October 15, 2026
+
+The planning-only boundaries below describe the original document-authoring task. The subsequent active instruction to implement authorizes development; it does not resolve open business decisions or mean the full roadmap is complete. Spanish-first presentation and AI proposal drafting/editing as the first functional milestone remain controlling product decisions.
 
 ## 1. Purpose, scope, and planning boundaries
 
@@ -26,34 +28,38 @@ Candidate success measures are time to prepare a proposal, time to create a reus
 ### Confirmed business direction
 
 - The first release serves **one audiovisual production company**.
+- **Spanish is the primary and default user-facing language.** Development and internal planning use English. Whether users can switch the interface to English remains undecided.
 - The company already has an established client base. Existing-client lookup, repeat business, and onboarding current customer records take priority over sophisticated lead acquisition.
 - The company owns equipment and rents it to customers. Owned rental inventory is a core requirement; supplier rentals are optional future scope.
 - The owner needs a section where they can ask AI to draft a proposal and then edit it inside the application.
 - Staff need to send proposals to clients and see incoming and outgoing client messages inside the application.
 - WhatsApp is a requested channel, with Meta for Developers identified by the user as the intended integration direction. Configuration and technical design remain outside this planning task.
 - **Structure comes first:** the first milestone is the complete application structure, into which functionality can be added later.
+- **The first functional milestone after structure approval is AI proposal drafting and in-app editing.** WhatsApp delivery, client-response review, and operational fulfillment follow as separate milestones.
 - **The owner reviews and confirms every outgoing client message.** AI prepares drafts; it does not send autonomously.
 - **Client responses trigger an owner-review notification.** The owner inspects the response and linked offer, then confirms acceptance in the application. AI does not finalize acceptance automatically.
 - Whether equipment-only rentals must be supported separately from event production is explicitly unresolved; the owner does not yet know.
 
-These confirmations override earlier provisional alternatives. The structure-first milestone is confirmed; the scope and order of subsequent functional releases still need review.
+These confirmations override earlier provisional alternatives. The structure-first milestone is complete; the scope and order of subsequent functional releases still need review.
 
 ## 2. Repository review
 
-The workspace was inspected read-only before creating this document.
+The workspace was inspected read-only for this planning update. The repository now contains application code and work in progress; the earlier empty-repository assessment is no longer current. File presence is evidence of existing work, not proof that a feature is complete or production-ready. No application or server was run, and no tests were executed during this planning review.
 
 | Area | Observed state | Planning implication |
 | --- | --- | --- |
 | Repository | `/Users/legallycholo/Kit only repo/Kit_audiiovisual_app` | This is the intended project root. |
-| Git | Initialized repository on `main`; no commits | There is no existing implementation baseline to extend. |
-| Working files | Only `.git` was present before this document | No application files or documentation were available for review. |
-| Application sections and navigation | None present | Navigation must be designed from the business workflow. |
-| Components and business logic | None present | No reusable implementation can currently be identified. |
-| Styling conventions | None present | Visual principles can be planned; specific styling tools remain undecided. |
-| Dependencies and services | No manifests or configuration files present | No stack or hosting choice can be inferred. |
+| Git | Existing commits and uncommitted changes; latest inspected commit `b300715` | Preserve existing work. This review does not approve or complete unfinished implementation. |
+| Working files | `src/`, `server/`, `tests/browser/`, `public/`, manifests, and planning/progress documents | Review the existing structure against this product plan before authorizing additional work. |
+| Application sections and navigation | `src/application/App.tsx` defines dashboard, events, clients, venues, design, creative, proposals, inbox, inventory, production, reports, and settings | Reuse the navigation inventory as a review starting point; compare each destination with the page requirements below. |
+| Components and business logic | Shared UI, domain types, pricing, availability, acceptance/revision logic, and sample records exist under `src/shared/` | Candidate reuse areas exist. Their business rules still require owner validation. |
+| Styling conventions | `src/styles.css` defines shared colors, typography, spacing, and interface styles | Existing cream/green visual conventions are a review candidate, not a newly selected design direction. |
+| Dependencies and services | Manifest lists client and server dependencies; server/session/access files are present as work in progress | Observed technologies are not a recommendation or endorsement. This task makes no stack selection and configures no services. |
 | Repository instructions | No applicable `AGENTS.md` found in the repository or checked ancestor directories | No additional local planning requirements were discovered. |
 
-All requested application modules are missing because implementation has not begun. There are no existing code defects or structural conflicts to diagnose. The principal structural risk is creating independent modules without shared definitions for events, layout versions, equipment allocations, and approved proposals.
+The existing source covers the main module names, but complete workflows are not established by that coverage. The README describes a sample workspace and disconnected external integrations; newer uncommitted server/session files indicate that documentation and implementation are at different stages. Reconcile those descriptions during any later authorized implementation review. Live AI, WhatsApp, production access controls, deployment readiness, and complete operational fulfillment are not verified here.
+
+Reusable candidates include the application frame, common record controls, shared domain concepts, and connected event/proposal/layout views. Structural concerns include several modules sharing large screen files, evolving persistence and access boundaries, and the risk of treating a rendered screen as a completed workflow. Future work should preserve shared event identities, proposal revisions, equipment allocations, and layout geometry across modules. These are planning observations, not a code audit or a request to refactor now.
 
 The brief references an exhibition floor-plan example, but no image or floor-plan file accompanied the supplied text or existed in the repository. The plan supports numbered booths, conference seating, entrances, exits, and common areas based on the description; it does not claim to have inspected that example.
 
@@ -64,7 +70,7 @@ The brief references an exhibition floor-plan example, but no image or floor-pla
 | Priority | Question | Why it changes the plan | Suggested decision owner |
 | --- | --- | --- | --- |
 | 1 | Confirmed: one company at launch. Who will use it, how many users/branches are involved, and which staff can see prices, costs, conversations, and client approvals? | Defines launch access without unnecessary SaaS administration. | Business owner |
-| 2 | For the confirmed structure-first milestone, which representative screens and visual references should define approval, and which functional module should follow it? | Defines shell completion and the first feature to connect afterward. AI proposals and the inbox are the proposed next functional priority. | Business owner and operations lead |
+| 2 | With structure first and AI proposal drafting/editing next confirmed, which representative screens and existing proposal example should define approval? | Defines shell completion and a concrete acceptance example for the first functional milestone. | Business owner and operations lead |
 | 3 | Confirmed: owned equipment rented to customers. Are equipment-only rentals included, and what rate periods, stock tracking, packages, and preparation/return buffers apply? | Defines rental operations, costing, quotation lines, and reservation behavior. | Production and sales leads |
 | 4 | With owner approval of every outgoing message and every acceptance confirmed, what evidence should the owner review, and are signatures, deposits, or purchase orders also required? | Completes the review experience and distinguishes accepted scope from permission to begin fulfillment. | Business owner and sales lead |
 | 5 | What must 2D/3D achieve at launch: presentation layouts, dimensionally accurate production plans, or specialist design exchange? Which sample files, units, exports, and tablet tasks matter? | Defines editor scope, geometry accuracy, file compatibility, and performance expectations. | Design and production leads |
@@ -74,7 +80,7 @@ The brief references an exhibition floor-plan example, but no image or floor-pla
 - Business records belong to the single company at launch. Multiple-company SaaS operation and a platform-level administrator are deferred unless requested later.
 - An event is the primary operational record. A project is an optional grouping for several related events, not a mandatory duplicate record.
 - An event can use several rooms and schedule blocks; the initial user interface may present a simple single-room case first.
-- The complete application structure precedes functional modules, as confirmed by the owner. After that milestone, AI proposals and the client inbox are the proposed first functional workflow; exact sequencing remains subject to review.
+- Confirmed sequence: complete application structure, then AI proposal drafting and editing. The proposed sequence afterward is messaging, acceptance review, and operational handoff; detailed scope remains subject to review.
 - Full editing initially targets desktop and tablet. Offline operation and phone-specific workflows require a separate decision.
 - One shared structured layout supplies geometry to 2D and 3D; independently maintained copies of the same layout are undesirable.
 - AI output remains a draft until reviewed. No AI provider, model, or integration has been selected.
@@ -85,9 +91,47 @@ The brief references an exhibition floor-plan example, but no image or floor-pla
 
 The full product vision includes all modules in this document. **The first delivery milestone is structure only:** the complete navigation, page and tab hierarchy, shared workspace patterns, and clearly identified areas for later functionality. This document plans that milestone; it does not implement it.
 
-After structure approval and explicit authorization to develop, the proposed first functional workflow centers on existing clients, owned rental equipment, an owner-facing AI proposal drafting workspace, in-app editing, owner-confirmed sending, an in-app WhatsApp conversation history, owner-reviewed acceptance notifications, and basic operational handoff. Its exact release boundary remains pending. Advanced spatial editing, richer automation, and generated video follow later.
+After structure approval and explicit authorization to develop, the confirmed first functional workflow is owner-facing AI proposal drafting and in-app editing using existing client information and reviewed equipment/pricing inputs. Its completion is independently reviewable: the owner can generate, edit, save, reopen, and preview a proposal. Build the minimum record and access foundations needed for this workflow first; full CRM, inventory operations, and messaging are not prerequisites for its release.
+
+Owner-confirmed sending, an in-app WhatsApp conversation history, owner-reviewed acceptance notifications, and operational handoff remain required later milestones. Advanced spatial editing, richer automation, and generated video follow later. Completing the drafting milestone does not complete the full product vision.
 
 Payroll, a full accounting ledger, payment processing, ticketing, attendee registration, supplier procurement automation, engineering certification, photorealistic physical simulation, and automatic CAD/BIM interoperability are not assumed launch features. Confirm any that are essential before approving the release boundary.
+
+### Structure-first review checklist
+
+The first milestone is a connected application structure. Use this checklist for the later shell review; this planning task creates only the document.
+
+| Review area | What the owner should be able to inspect | Later dependency |
+| --- | --- | --- |
+| Navigation and context | Every primary destination, event tabs, breadcrumbs, selected client/event, desktop and tablet arrangements, with Spanish user-facing labels | Approved Spanish terminology and visual direction |
+| Shared record screens | Directory, empty state, detail, creation/editing form structure, and related-record links for clients, venues, events, and equipment | Core records and access rules |
+| Proposal workspace | Draft with AI entry point, editable sections, itemized quotation, revision history, preview, and owner send-review area | Pricing rules, proposal records, AI, delivery channel |
+| Client Inbox | Conversation list, thread, composer, attachments, linked proposal, outgoing review queue, and acceptance notification/detail | Client/contact matching and messaging integration |
+| Design workspaces | 2D canvas region, object library, properties, layers, version controls, and connected 3D view structure | Verified dimensions, structured layouts, rendering capabilities |
+| Operations and creative | Stock availability views, preparation/returns, crew/tasks, creative asset gallery, and report categories | Reliable inventory, task, media, and commercial data |
+| Common states | Illustrative content labels, loading/empty/error/conflict states, unsaved-change behavior, access-denied screens, and disconnected-service indicators | Later module-specific behavior |
+
+Review one connected illustrative journey: open an existing client → open their event → inspect venue/design and equipment context → open a proposal draft → inspect the outgoing owner-review screen → open a client response notification → inspect the owner's acceptance decision. At this milestone, the journey demonstrates information organization; it must not imply that AI generation, real delivery, acceptance recording, or reservations are connected.
+
+Structure review can proceed while equipment-only rental scope is undecided. Keep the shared client, equipment, quotation, and messaging concepts reusable. Defer rental-specific booking screens and fulfillment rules until that decision is made; do not invent a fake production event requirement for a possible future rental workflow.
+
+### Answers and remaining questions from this review
+
+| Question | Status | What depends on it |
+| --- | --- | --- |
+| Should screens use Spanish, English, or both? | Confirmed: Spanish is primary/default; development and internal planning use English. An optional English interface is undecided. | Spanish navigation, representative content, and interface review; English development terminology |
+| After structure approval, should the first functional focus be AI proposal drafting, the WhatsApp inbox, or client/equipment records? | Confirmed: AI proposal drafting and in-app editing | Prioritize minimum client, equipment/pricing, access, and draft-persistence foundations; messaging follows |
+| Does owner-confirmed acceptance only accept the proposal, also confirm the event, or additionally reserve equipment? | Asked; awaiting answer | Acceptance action consequences and stock checks |
+
+Until the acceptance consequence is decided, the planning assumption is that proposal acceptance, event confirmation, and equipment reservation are separate actions. Any later combined action must check stock and other agreed booking gates before reporting success. This assumption does not weaken the confirmed requirement that the owner makes the acceptance decision.
+
+### Language requirements
+
+The structure-first milestone should be reviewed with Spanish navigation, headings, buttons, form labels, statuses, notifications, empty states, and error messages. English names in this planning document describe development concepts; they are not the final interface copy. User-visible role names should also use Spanish while internal role identifiers may remain in English.
+
+Plan for interface text to be managed separately from business rules so that an optional English interface can be added later. Do not select a localization library during this planning task. Confirm the preferred regional Spanish terminology, date and number formats, currency, and units separately; language alone does not determine those settings.
+
+Proposed default for later AI drafts and client-facing templates is Spanish, with the owner able to review and edit the wording. Confirm whether individual clients need proposals or messages in English before defining bilingual document and conversation scope. Changing interface language must not translate or overwrite existing client messages, proposal revisions, or acceptance evidence.
 
 ## 4. Application structure and navigation
 
@@ -320,7 +364,7 @@ Permission legend: **V** view, **C** create, **E** edit, **A** approve/publish i
 | 2D / 3D layouts | Delegated organization access | VCEAXD | VX approved revisions | VCEX | VEAX Own | V Own published revisions | VX Shared |
 | Creative assets | Delegated organization access | VCEAXD | VCEX | VCEX | VX Own | V Shared | VX Shared |
 | Proposals / prices | Delegated organization access | VCEAXD | VCEX; A only if delegated | V Own nonfinancial scope | V Own scope; costs if granted | — | VX Shared; A own proposal |
-| Client inbox | Deferred at launch | VCEAXD, retention limited | VCE Own; send if granted | V Own if granted | VCE Own operations if granted | — by default | Own external conversation only |
+| Client inbox | Deferred at launch | VCEAXD; sending and acceptance confirmation owner-only | VCE Own drafts; submit for owner review | V Own if granted | VCE Own operational drafts if granted | — by default | Own external conversation only |
 | Inventory / reservations | Delegated organization access | VCEAXD | V availability; C requests | V availability; C requirements | VCEAX | VE Own custody/checklists | V Shared equipment scope |
 | Team / production | Delegated organization access | VCEAXD | V Own milestones | V Own; E own tasks | VCEAX | VE Own tasks | V Shared milestones |
 | AI assistant | Platform policy, no automatic content access | VCE within access scope | VCE within access scope | VCE within access scope | VCE within access scope | VCE Own permitted tasks | Disabled initially |
@@ -485,13 +529,15 @@ These are requirements to refine before selecting implementation tools.
 | Audit | Approval, sharing, permission changes, reservations, and significant edits have attributable history | Retention, export, and authorized audit readership |
 | Privacy | Client sharing exposes selected materials only; AI context respects record access | Retention, data-location, and approved AI usage policies |
 | Accessibility | Keyboard and touch workflows; readable states and alternatives to color-only meaning | Acceptance tasks and supported devices |
-| Localization | Explicit units, event time zones, currency, date formats, and languages | Launch markets, languages, tax rules, and rounding examples |
+| Localization | Spanish primary/default interface; English development documentation; explicit units, event time zones, currency, and date formats | Regional Spanish terminology, optional English interface, client document languages, tax rules, and rounding examples |
 | Data onboarding | Identify import sources, duplicates, mandatory fields, and validation | Representative customer, equipment, price, and venue files |
 | Portability | Export approved documents and business data with permission checks | Required file formats and handoff destinations |
 
 ## 9. Conceptual future folder organization
 
-The repository is empty, so there is no existing framework layout to preserve. The following are responsibility boundaries, not directories to create now or a framework recommendation. Translate them into the chosen stack's conventions only after product approval.
+The repository already uses `src/application/`, `src/modules/`, `src/shared/`, `server/`, and `tests/`. Preserve these existing boundaries while reviewing whether individual modules later warrant separate folders. The following are conceptual responsibility boundaries, not directories to create now or a framework recommendation. Map them onto existing paths during later authorized work rather than creating a parallel application tree.
+
+For example, shell responsibilities map to `src/application/`; business modules currently live in `src/modules/`; shared experience and business concepts map to `src/shared/`; future server-side access and integration responsibilities belong behind the existing `server/` boundary; verification maps to the existing tests. No file moves or folder creation are part of this plan.
 
 | Proposed area | Responsibility |
 | --- | --- |
@@ -527,6 +573,8 @@ The owner's structure-first direction is the controlling sequence: first plan an
 
 The original proposal phase is split into a basic commercial workflow in Phase 3 and an advanced visual builder in Phase 7. The original inventory/production phase is split across catalog foundations in Phase 2, basic execution in Phase 3, and advanced fulfillment in Phase 8. The AI foundation remains early in Phase 3 but follows core permissions and record definitions.
 
+The confirmed first functional release is Phase 3A below. Phase 2 supplies its minimum foundations; broader record-management features can continue afterward. Do not make the first drafting release wait for WhatsApp onboarding, crew scheduling, stock reservations, or advanced venue management.
+
 The phases below are future development work, not instructions to begin now. No duration or staffing estimate is asserted without scope, representative data, and team constraints.
 
 ### Phase 0 — Business validation and implementation readiness
@@ -539,7 +587,7 @@ The phases below are future development work, not instructions to begin now. No 
 - **Risks:** attempting the whole vision at once; unavailable sample data; conflicting stakeholder expectations.
 - **Completion:** the user explicitly approves the plan and authorizes the next work. Approval of this document alone must not be inferred from silence.
 
-### Phase 1 — Application shell and navigation
+### Phase 1 — Application shell and navigation — **Complete**
 
 - **Objective:** deliver the complete application structure as the first milestone, ready for functionality to be connected later.
 - **Scope:** every planned primary destination, workspace frame, dashboard hierarchy, event tabs, client and venue record layouts, 2D/3D workspace regions, creative library, editable-proposal screen structure, inbox/thread and owner-review notification structure, inventory/production pages, settings, assistant container, and reusable empty/error states. This phase does not require working AI, messaging, authentication, databases, commercial calculations, or editors.
@@ -549,9 +597,12 @@ The phases below are future development work, not instructions to begin now. No 
 - **Risks:** dashboard polish displacing workflow validation; crowded editors; placeholder actions appearing functional.
 - **Completion:** the owner approves the complete structure on agreed devices. Functional modules remain separate later milestones, and structure approval is not permission to send messages or configure services.
 
+Completion recorded October 15, 2026: all primary destinations, event tabs, record workspaces, proposal and inbox review areas, design workspaces, production/settings areas, assistant container, responsive navigation, and representative states are connected and navigable. Spanish is the primary interface across the shell and first workflow. Automated route, responsive, interaction, and accessibility checks pass. Live external services and the deeper workflow requirements remain assigned to their later phases.
+
 ### Phase 2 — Access, core records, and equipment identities
 
 - **Objective:** establish trustworthy shared business records.
+- **Release priority:** first deliver the owner access, client/contact selection, basic event brief, reviewed equipment/rate inputs, and record persistence required by Phase 3A. Opportunities, extensive venue records, and broader administration can be completed incrementally without delaying the first drafting release.
 - **Scope:** users/memberships/roles, customers/contacts/opportunities, venues/rooms, events/schedules, documents/activity, basic equipment catalog and stock identity, units, currency, and lifecycle rules.
 - **Prerequisites:** organization/access decisions, shell, representative business records, and approved conceptual relationships.
 - **Deliverables:** connected record management, scoped access, record linking, archival behavior, and validated initial catalog.
@@ -563,13 +614,23 @@ The phases below are future development work, not instructions to begin now. No 
 
 - **Objective:** support a useful event-to-quotation-to-production pilot.
 - **Scope:** owner-facing AI proposal drafting, editable quotations, pricing rules, versioned internal/client approval, basic availability/reservations, crew/tasks, handoff/return checklist, and a Client Inbox with requested WhatsApp sending/receiving and acceptance notifications. Establish permitted assistant retrieval and draft behavior before enabling outbound actions.
-- **Prerequisites:** Phase 2, approved commercial examples, hold/confirmation policy, crew assignment rules, AI usage policy, detailed owner-confirmation interaction design, plus verified channel feasibility after separately authorized technical discovery.
+- **Prerequisites:** Phase 3A needs the minimum Phase 2 foundations, approved commercial examples, and AI usage policy. Later checkpoints additionally need hold/confirmation policy, crew assignment rules, detailed owner-confirmation interaction design, and verified channel feasibility after authorized technical discovery.
 - **Deliverables:** editable AI-to-proposal workflow, proposal export/review, linked inbound/outbound client conversations, acceptance evidence and notifications, confirmed allocations, production handoff, and assistant context/action previews. Integration occurs only after separate technical decisions.
 - **Acceptance criteria:** the owner generates and edits a proposal using existing customer and stock records, confirms each outgoing message, sees the client's reply inside the app, and receives a correctly linked review notification. The proposal remains pending until the owner confirms acceptance. Ambiguous replies, stale offer versions, duplicate messages, and failed sends do not silently confirm a booking. A pilot event reaches accepted quotation, resource confirmation, assigned crew, execution, and closeout; pricing matches approved examples; accepted versions cannot change silently; reservations are checked for conflicts; AI cannot access hidden records or send without owner confirmation.
 - **Risks:** oversizing the first release, tax/rate ambiguities, accepting scope without availability, premature AI automation, channel onboarding delays, and incorrect interpretation of client replies.
 - **Completion:** the owner, sales, and production complete the agreed pilot, including the requested messaging and acceptance workflow, with traceable approvals and no unresolved critical access, pricing, communication, or allocation defects. A draft-only prototype is an intermediate milestone, not completion of the requested messaging capability.
 
-Suggested Phase 3 checkpoints: (A) correct editable proposal drafting; (B) authorized outbound sending and an inbound/outbound inbox; (C) version-specific acceptance and notifications; (D) confirmed operational handoff. These checkpoints make the phase reviewable without pretending that AI drafting alone meets the owner's full request.
+Phase 3 is delivered through separately reviewable milestones: **3A — AI proposal drafting and editing (confirmed first functional release)**; 3B — owner-confirmed outbound sending and an inbound/outbound inbox; 3C — version-specific acceptance and notifications; 3D — confirmed operational handoff. Completion of 3A does not depend on completion of 3B–3D.
+
+#### Phase 3A — First functional release: AI proposal drafting and editing
+
+- **Objective:** let the owner turn an event request into a saved, editable proposal inside the app.
+- **Scope:** select an existing client, enter an event brief, request a draft, resolve missing information, edit proposal sections and itemized pricing, save/reopen drafts, and preview the result. The interface uses Spanish; Spanish draft content is the proposed default pending client-language requirements.
+- **Prerequisites:** minimum Phase 2 foundations, representative proposal and pricing examples, approved AI data-use rules, and later technical decisions authorized separately from this planning task.
+- **Deliverables:** the Draft with AI workspace, editable proposal record, reviewed calculation rules, saved draft revisions, and preview. Manual editing remains usable when AI is unavailable.
+- **Acceptance criteria:** the owner drafts a representative proposal, edits text and line items, verifies totals, saves it, reopens it without losing changes, and previews it. Missing rates or requirements are flagged; AI does not invent prices or stock availability. Regenerating content preserves manual edits unless the owner explicitly chooses to replace them. AI failure preserves the brief and existing draft. No outgoing message, acceptance, or reservation occurs as a side effect.
+- **Risks:** unsupported prices, missing client context, AI overwriting edits, incorrect totals, and expanding the milestone into full CRM or messaging delivery.
+- **Completion:** the owner approves the representative draft-to-edit-to-save workflow and its error recovery. WhatsApp delivery, client acceptance review, advanced visual editing, and operational fulfillment remain tracked in their subsequent milestones.
 
 ### Phase 4 — Structured 2D floor-plan editor
 
@@ -707,7 +768,7 @@ The top five decisions in Section 3 are the first review priorities. The followi
 
 19. Which AI tasks would save the most time first: summaries, equipment suggestions, proposal drafting, layout assistance, or creative images?
 20. What client information may AI use, what media usage budget is acceptable, and who approves externally shared output?
-21. Which languages, tablets, browsers, keyboard/touch workflows, and accessibility needs must be supported?
+21. With Spanish confirmed as the primary interface language, is a selectable English interface needed at launch, and which regional terminology, tablets, browsers, keyboard/touch workflows, and accessibility needs must be supported?
 22. What retention, restoration, audit, and organization/client access expectations must become measurable acceptance requirements?
 23. With owner confirmation required for every outgoing message, should staff prepare drafts for the owner's queue, or should only the owner use the composer initially?
 24. Which WhatsApp number is used today, who manages it, and should existing conversations appear in the app if technically supported?
@@ -717,4 +778,4 @@ The top five decisions in Section 3 are the first review priorities. The followi
 
 Review the complete page/navigation structure and the remaining top-five decisions. Confirm the structure milestone's review criteria, then refine the first functional workflow and permission details using representative business examples. Equipment-only rentals remain explicitly open. Revise this document into an approved baseline before technology evaluation or development is authorized.
 
-Only this planning document was created for this task. No application functionality, dependencies, database configuration, authentication, APIs, infrastructure, integrations, commits, or pushes are part of the deliverable.
+Only `docs/IMPLEMENTATION_PLAN.md` is updated in this planning pass. Existing application files and uncommitted implementation work are outside this task and remain untouched. No application functionality, dependencies, database configuration, authentication, APIs, infrastructure, integrations, commits, or pushes are part of this deliverable.

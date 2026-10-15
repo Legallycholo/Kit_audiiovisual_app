@@ -2,7 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/browser",
-  fullyParallel: true,
+  // Company scenarios start isolated API servers; serial workers prevent
+  // route-proxy startup races while keeping each test's database isolated.
+  fullyParallel: false,
+  workers: 1,
   reporter: "list",
   outputDir: "artifacts/test-results",
   use: {

@@ -1,60 +1,74 @@
 # KIT — Production workspace
 
-An audiovisual event production app built around connected events, clients, venues, proposals, equipment, layouts, and production tasks.
+An audiovisual event-production app connecting clients, events, venues, proposals, equipment, layouts, and production. Implementation is in progress; the full requirements remain in [the implementation plan](docs/IMPLEMENTATION_PLAN.md) and remaining work is tracked in [implementation progress](docs/IMPLEMENTATION_PROGRESS.md).
 
-Implementation is in progress. The complete product scope is preserved in [the implementation plan](docs/IMPLEMENTATION_PLAN.md); actual delivery status and remaining work are tracked in [implementation progress](docs/IMPLEMENTATION_PROGRESS.md).
+Spanish is the primary interface language. The Phase 1 shell, account entry, common controls, acceptance review, design controls, and proposal drafting/editing workflow use Spanish. Stored business content is preserved in its original language, while development documentation and internal record identifiers remain in English.
 
 ## Run locally
 
-Use Node.js 22.12 or newer and npm.
+Use Node.js 22.12 or newer and npm. The current server uses Node's built-in SQLite module, which emits an experimental-feature warning under Node 22.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. The dev server binds to the local machine only.
+Open **http://127.0.0.1:5173** for the isolated sample workspace. In a second terminal, start the company server:
+
+```sh
+npm run dev:server
+```
+
+Choose **Abrir espacio de empresa** in the app. First setup creates the owner account and an empty company workspace; it does not import sample records. No default credentials are supplied. Subsequent visits use sign-in. Account setup is restricted to connections originating on the server machine. Both development services bind to loopback.
+
+The server reads an optional local `.env`; `.env.example` documents its settings. The default database is `data/kit.sqlite`, excluded from Git. Company data is stored on this server; sample data stays in browser local storage. A browser refresh or sign-out does not erase company records. The settings page offers an administrator JSON export, not a complete backup/restore service.
+
+To serve a built local app from the API process:
 
 ```sh
 npm run build
-npm run preview
+NODE_ENV=production npm start
+```
+
+Open **http://127.0.0.1:3001**. Public deployment still requires HTTPS, operational backups, account recovery, deployment hardening, and business acceptance; none has been deployed here.
+
+## AI proposal drafting
+
+The app has a server-side OpenAI Responses adapter. Configure **both** `OPENAI_API_KEY` and `KIT_AI_MODEL` in the server environment or ignored `.env`, then restart the server. Use an account-authorized model supporting Responses Structured Outputs. No specific model is silently selected, and no credential belongs in a `VITE_` variable or browser code. Without these settings, the UI reports that AI is unconfigured and preserves manual drafting.
+
+The owner workflow is: create/select a client and event, review the equipment catalog and rates, open **Propuestas → Redactar con IA**, enter requirements, generate a suggestion, review it, and create an editable proposal. The editor supports saving, reopening, preview/PDF printing, and further AI suggestions with explicit selection of which text or line items to replace.
+
+The provider receives the entered brief, selected event summary, client name, and equipment catalog/rates. It does not receive unrelated conversations, contacts, passwords, or the entire workspace. Requests use strict structured output, a timeout, an output-token cap, and per-user/company request limits. Rates are copied from the server catalog; unknown or duplicate equipment and model-supplied prices are rejected. Quantities and rental days remain suggestions requiring business review. The current catalog context is limited to 500 products; larger catalogs need scoped retrieval before live use.
+
+Generation produces a suggestion and audit entry; it does not mutate a proposal until the owner applies and saves it. Internal assumptions and unanswered questions persist with the draft and are omitted from client print views and client account responses. These notes are a review aid, not a claim that model-generated prose is factually guaranteed. The app's general AI sidebar and creative generation remain separate unfinished capabilities.
+
+**Live model generation has not been verified with a company credential.** Automated tests use an explicit substitute at the model boundary while exercising the real UI, API, database, and permission checks. No real client messages or model requests were sent during those tests.
+
+## Access and workflow boundaries
+
+Company mode includes hashed passwords, HTTP-only sessions, request-origin/CSRF checks, user creation/deactivation, server-side role/event scope, explicit client proposal sharing, revision conflict checks, server-authored audit entries, and transactional inventory validation. Technician task access uses account IDs; legacy tasks with display-name-only assignments must be reassigned through company accounts. Password recovery, account invitation delivery, and editing existing role/event grants are still pending.
+
+Issued/accepted proposal revisions are immutable through ordinary edits. Acceptance uses a dedicated owner-only action tied to the exact issued revision. Recording acceptance does not send an acknowledgment, reserve equipment, collect payment, or confirm production readiness. All real sending remains unavailable until the WhatsApp workflow is implemented and an authorized company channel is connected. Sample inbound messages are illustrative fixtures.
+
+Commercial rules remain provisional: USD, daily catalog rates, cent rounding, and discount before tax. The business must validate pricing, taxes, deposits, and reservation buffers before live operation. The 2D/3D workspaces share meter-based geometry but are still incomplete design tools, with no claim of engineering certification or calibrated lighting/acoustic simulation.
+
+## Verification
+
+```sh
+npm run build
 npm test
 npm run test:browser
 ```
 
-The browser suite uses an isolated headless installation of Google Chrome through Playwright. Install Chrome if it is not available. It does not use an existing browser profile, account, or customer session. Browser tests start or reuse the local Vite server and write ignored screenshots/traces to `artifacts/`.
-
-## Current implementation
-
-- Responsive app shell with 12 primary destinations, global search, notifications, and a collapsible contextual assistant panel.
-- Connected sample events, client profiles, venue rooms, and event detail tabs.
-- Editable proposal records, catalog pricing, totals, preserved revisions, internal review, and a print/PDF review view.
-- Client inbox with sample threads, message drafts, exact proposal revision context, and an explicit owner acceptance review flow.
-- Owned equipment catalog, dated availability, conflict-checked reservations, and fulfillment statuses.
-- Production task board, crew assignment summaries, event timelines, and handoff views.
-- Structured 2D layout editing, object properties, layers, undo/redo, geometry revisions, JSON export, and a lazy-loaded 3D preview of the same geometry.
-- Creative brief workspace, report summaries, company preferences, and integration/readiness screens.
-
-## Data and service boundaries
-
-This implementation currently runs as a **local sample workspace**. Records are illustrative and changes are saved in browser local storage on the current device. It does not yet provide a shared database, real accounts, server authorization, protected audit records, or a production backup service. Do not enter sensitive business data in this preview.
-
-The AI and WhatsApp experiences clearly indicate that they are not connected. Assistant requests do not invoke a model. Outgoing messages cannot be sent. Sample inbound messages are seeded examples, not real client responses. Owner review changes only local sample records.
-
-The owner must confirm every outgoing client message and every client acceptance. A recorded acceptance does not automatically send an acknowledgment, collect payment, reserve equipment, or confirm production readiness.
-
-Tax and discount conventions are provisional: USD, daily catalog rates, line totals rounded to cents, discount before tax. They require business validation before live use. The availability preview counts holds and confirmed/dispatch allocations across inclusive preparation/return dates; returned and cancelled allocations are released.
-
-2D and 3D use meters and shared object dimensions. 3D objects are geometric representations, not calibrated equipment models, lighting simulation, acoustic prediction, or engineering certification. Venue dimensions in the seed are unverified examples.
+Browser tests use isolated headless Google Chrome through Playwright, without an existing browser profile. They start/reuse the local Vite server and write ignored screenshots/traces to `artifacts/`. Company workflow tests start isolated API instances with in-memory databases; no actual company account is created by the test suite.
 
 ## Source organization
 
-- `src/application/` — navigation, workspace frame, assistant, search, and notifications.
-- `src/modules/` — dashboard, records, proposals, inbox, inventory, production, settings, and design workspaces.
-- `src/shared/` — typed domain records, business calculations, local persistence, common UI, and sample data.
-- `tests/browser/` — isolated end-to-end workflow, responsive, print, and automated accessibility checks.
-- `docs/` — the original plan, current progress, and technical decision notes.
+- `src/application/` — app frame, navigation, session entry, contextual assistant.
+- `src/modules/` — business workspaces, proposal editor and AI suggestion review.
+- `src/shared/` — domain records/calculations, access policy, API/store boundary, interface labels, sample data and common UI.
+- `server/` — authenticated API, validation, SQLite persistence, authorization, proposal generation adapter and tests.
+- `tests/browser/` — sample/company journeys, responsive/print and accessibility checks.
+- `docs/` — product plan, technical decisions and implementation evidence.
 
-The current stack is React, TypeScript, Vite, React Router, Lucide icons, and Three.js. Three.js loads only when opening the 3D view. The business model and calculations are separated from screen components to support a future authenticated server boundary.
-
-No external accounts have been configured and no app deployment, commits, or pushes have been performed in this implementation pass.
+No deployment, commits, pushes, real customer messages, or live AI calls were performed in this pass.

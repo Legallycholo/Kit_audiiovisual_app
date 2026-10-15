@@ -1,4 +1,6 @@
+import { uiLabel } from "./i18n";
 import {
+  Children,
   useEffect,
   useId,
   useRef,
@@ -14,6 +16,13 @@ import {
   Plus,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+
+function localize(children: ReactNode) {
+  return Children.map(children, (child) =>
+    typeof child === "string" ? uiLabel(child) : child,
+  );
+}
+
 export function Button({
   children,
   variant = "primary",
@@ -23,7 +32,7 @@ export function Button({
 }) {
   return (
     <button {...props} className={`button ${variant} ${props.className || ""}`}>
-      {children}
+      {localize(children)}
     </button>
   );
 }
@@ -41,9 +50,9 @@ export function PageHeader({
   return (
     <header className="page-header">
       <div>
-        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-        <h1>{title}</h1>
-        {description && <p>{description}</p>}
+        {eyebrow && <div className="eyebrow">{uiLabel(eyebrow)}</div>}
+        <h1>{uiLabel(title)}</h1>
+        {description && <p>{uiLabel(description)}</p>}
       </div>
       <div className="header-actions">{actions}</div>
     </header>
@@ -71,7 +80,7 @@ export function Badge({
   return (
     <span className={`badge ${color}`}>
       <span className="badge-dot" />
-      {children}
+      {typeof children === "string" ? uiLabel(children) : children}
     </span>
   );
 }
@@ -106,13 +115,13 @@ export function Panel({
       {title && (
         <div className="panel-heading">
           <div>
-            <h2>{title}</h2>
-            {subtitle && <p>{subtitle}</p>}
+            <h2>{uiLabel(title)}</h2>
+            {subtitle && <p>{uiLabel(subtitle)}</p>}
           </div>
           {action}
         </div>
       )}
-      {children}
+      {localize(children)}
     </section>
   );
 }
@@ -144,8 +153,8 @@ export function Empty({
       <span className="empty-icon">
         <FolderOpen size={28} />
       </span>
-      <h3>{title}</h3>
-      <p>{description}</p>
+      <h3>{uiLabel(title)}</h3>
+      <p>{uiLabel(description)}</p>
       {action}
     </div>
   );
@@ -163,8 +172,8 @@ export function SearchField({
     <label className="search-field">
       <Search size={17} />
       <input
-        aria-label={placeholder}
-        placeholder={placeholder}
+        aria-label={uiLabel(placeholder)}
+        placeholder={uiLabel(placeholder)}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -190,7 +199,7 @@ export function Tabs({
           key={item}
           onClick={() => onChange(item)}
         >
-          {item}
+          {uiLabel(item)}
         </button>
       ))}
     </div>
@@ -207,9 +216,9 @@ export function Field({
 }) {
   return (
     <label className="field">
-      <span>{label}</span>
+      <span>{uiLabel(label)}</span>
       {children}
-      {hint && <small>{hint}</small>}
+      {hint && <small>{uiLabel(hint)}</small>}
     </label>
   );
 }
@@ -247,12 +256,12 @@ export function Modal({
     >
       <div className="modal-heading">
         <div>
-          <h2 id={titleId}>{title}</h2>
-          {description && <p>{description}</p>}
+          <h2 id={titleId}>{uiLabel(title)}</h2>
+          {description && <p>{uiLabel(description)}</p>}
         </div>
         <button
           className="icon-button"
-          aria-label="Close dialog"
+          aria-label={uiLabel("Close dialog")}
           onClick={onClose}
         >
           <X size={20} />
@@ -273,8 +282,8 @@ export function Placeholder({
     <div className="future-note">
       <Plus size={18} />
       <div>
-        <strong>{title}</strong>
-        <p>{description}</p>
+        <strong>{uiLabel(title)}</strong>
+        <p>{uiLabel(description)}</p>
       </div>
       <ChevronRight size={18} />
     </div>

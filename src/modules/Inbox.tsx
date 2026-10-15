@@ -23,7 +23,8 @@ import {
 } from "../shared/ui";
 import { acceptConversation, id, money, quoteTotals } from "../shared/domain";
 export function Inbox() {
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, user, confirmAcceptance } = useWorkspace();
+  const ownerReview = !user || user.isOwner;
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All conversations");
@@ -47,18 +48,25 @@ export function Inbox() {
         ?.name.toLowerCase()
         .includes(query.toLowerCase()),
   );
-  function changeReview(state: "Clarification needed" | "Not accepted") {
+  async function changeReview(state: "Clarification needed" | "Not accepted") {
     if (!conversation) return;
-    update((s) => ({
-      ...s,
-      conversations: s.conversations.map((c) =>
-        c.id === conversation.id ? { ...c, review: state } : c,
-      ),
-      activity: [
-        activity("Owner reviewed client response", state, conversation.eventId),
-        ...s.activity,
-      ],
-    }));
+    if (
+      !(await update((s) => ({
+        ...s,
+        conversations: s.conversations.map((c) =>
+          c.id === conversation.id ? { ...c, review: state } : c,
+        ),
+        activity: [
+          activity(
+            "Owner reviewed client response",
+            state,
+            conversation.eventId,
+          ),
+          ...s.activity,
+        ],
+      })))
+    )
+      return;
     if (state === "Clarification needed")
       setDraft(
         `Hi ${client?.contact.split(" ")[0]}, could you confirm that you would like to proceed with ${proposal?.number}, revision ${proposal?.version}?`,
@@ -197,7 +205,7 @@ export function Inbox() {
                     type="button"
                     variant="secondary"
                     disabled={!draft.trim()}
-                    onClick={() => {
+                    onClick={async () => {
                       const message = {
                         id: id(),
                         direction: "out" as const,
@@ -205,14 +213,17 @@ export function Inbox() {
                         at: new Date().toISOString(),
                         status: "Draft" as const,
                       };
-                      update((s) => ({
-                        ...s,
-                        conversations: s.conversations.map((c) =>
-                          c.id === conversation.id
-                            ? { ...c, messages: [...c.messages, message] }
-                            : c,
-                        ),
-                      }));
+                      if (
+                        !(await update((s) => ({
+                          ...s,
+                          conversations: s.conversations.map((c) =>
+                            c.id === conversation.id
+                              ? { ...c, messages: [...c.messages, message] }
+                              : c,
+                          ),
+                        })))
+                      )
+                        return;
                       setDraft("");
                       toast(
                         "Reply saved locally as a draft. Nothing was sent.",
@@ -238,7 +249,7 @@ export function Inbox() {
                 <div className="context-proposal">
                   <FileText size={23} />
                   <h3>{proposal.number}</h3>
-                  <p>Revision {conversation.proposalVersion}</p>
+                  <p>Versión {conversation.proposalVersion}</p>
                   <strong className="context-amount">
                     {money(
                       quoteTotals(
@@ -250,7 +261,7 @@ export function Inbox() {
                   </strong>
                   <Badge>{proposal.status}</Badge>
                   <Link to={`/proposals/${proposal.id}`}>
-                    Open exact revision
+                    Abrir versión exacta
                     <ArrowUpRight size={13} />
                   </Link>
                 </div>
@@ -260,27 +271,32 @@ export function Inbox() {
                   <span className="review-symbol">
                     <ShieldCheck size={23} />
                   </span>
-                  <h3>A response needs your review</h3>
+                  <h3>Una respuesta requiere tu revisión</h3>
                   <p>
-                    The client appears ready to proceed. Review their message
-                    and the exact offer before confirming acceptance.
+                    El cliente parece listo para continuar. Revisa su mensaje y
+                    la oferta exacta antes de confirmar la aceptación.
                   </p>
                   <Badge>Awaiting owner review</Badge>
-                  <Button onClick={() => setReview(true)}>
+                  <Button
+                    disabled={!ownerReview}
+                    onClick={() => setReview(true)}
+                  >
                     <Check size={15} />
-                    Review acceptance
+                    Revisar aceptación
                   </Button>
                   <Button
                     variant="secondary"
+                    disabled={!ownerReview}
                     onClick={() => changeReview("Clarification needed")}
                   >
-                    Request clarification
+                    Solicitar aclaración
                   </Button>
                   <button
                     className="text-button"
+                    disabled={!ownerReview}
                     onClick={() => changeReview("Not accepted")}
                   >
-                    Do not accept
+                    No aceptar
                   </button>
                 </div>
               ) : (
@@ -292,14 +308,14 @@ export function Inbox() {
                   </Badge>
                   <p>
                     {conversation.review === "Confirmed"
-                      ? "Owner decision recorded. Resource availability and production readiness are separate checks."
-                      : "The conversation remains available for follow-up."}
+                      ? "Decisión del propietario registrada. La disponibilidad de recursos y la preparación de producción se verifican por separado."
+                      : "La conversación permanece disponible para seguimiento."}
                   </p>
                 </div>
               )}
               <div className="context-footnote">
                 <ShieldCheck size={16} />
-                No automatic sending or acceptance.
+                No hay envíos ni aceptaciones automáticas.
               </div>
             </aside>
           </>
@@ -331,7 +347,7 @@ export function Inbox() {
             </div>
             <div className="simple-row">
               <strong>
-                {proposal.number} · revision {conversation.proposalVersion}
+                {proposal.number} · versión {conversation.proposalVersion}
               </strong>
               <span>
                 {money(
@@ -341,19 +357,18 @@ export function Inbox() {
               </span>
             </div>
             <p>
-              Confirm that this is the correct customer, offer, and revision.
-              Stock, payment, and scheduling still need to be verified before
-              production.
+              Confirma que este sea el cliente, la oferta y la versión correctos.
+              El inventario, el pago y el calendario aún deben verificarse antes
+              de producción.
             </p>
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setReview(false)}>
                 Keep pending
               </Button>
               <Button
-                onClick={() => {
+                onClick={async () => {
                   try {
-                    const next = acceptConversation(data, conversation.id);
-                    update(() => next);
+                    if (!(await confirmAcceptance(conversation.id))) return;
                     setReview(false);
                     toast(
                       "Acceptance confirmed by the owner. No message was sent.",

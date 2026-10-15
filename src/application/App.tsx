@@ -1,3 +1,6 @@
+import { uiLabel } from "../shared/i18n";
+import { canSeeModule } from "../shared/access";
+import { initials } from "../shared/domain";
 import { useEffect, useState } from "react";
 import {
   Link,
@@ -50,34 +53,49 @@ import {
 import { Design } from "../modules/Design";
 const navigation = [
   {
-    label: "Overview",
+    label: uiLabel("Overview"),
     items: [
-      { to: "/", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/events", label: "Events", icon: CalendarDays },
-      { to: "/clients", label: "Clients", icon: Users },
-      { to: "/venues", label: "Venues", icon: MapPin },
+      { to: "/", label: uiLabel("Dashboard"), icon: LayoutDashboard },
+      { to: "/events", label: uiLabel("Events"), icon: CalendarDays },
+      { to: "/clients", label: uiLabel("Clients"), icon: Users },
+      { to: "/venues", label: uiLabel("Venues"), icon: MapPin },
     ],
   },
   {
-    label: "Create & connect",
+    label: uiLabel("Create & connect"),
     items: [
-      { to: "/design", label: "Design Studio", icon: Layers3 },
-      { to: "/creative", label: "AI Creative Studio", icon: WandSparkles },
-      { to: "/proposals", label: "Proposals", icon: FileText },
-      { to: "/inbox", label: "Client Inbox", icon: MessageCircle },
+      { to: "/design", label: uiLabel("Design Studio"), icon: Layers3 },
+      {
+        to: "/creative",
+        label: uiLabel("AI Creative Studio"),
+        icon: WandSparkles,
+      },
+      { to: "/proposals", label: uiLabel("Proposals"), icon: FileText },
+      { to: "/inbox", label: uiLabel("Client Inbox"), icon: MessageCircle },
     ],
   },
   {
-    label: "Production",
+    label: uiLabel("Production"),
     items: [
-      { to: "/inventory", label: "Equipment & Inventory", icon: Box },
-      { to: "/production", label: "Team & Production", icon: Users },
-      { to: "/reports", label: "Reports", icon: ChartNoAxesCombined },
+      { to: "/inventory", label: uiLabel("Equipment & Inventory"), icon: Box },
+      { to: "/production", label: uiLabel("Team & Production"), icon: Users },
+      { to: "/reports", label: uiLabel("Reports"), icon: ChartNoAxesCombined },
     ],
   },
 ];
 export function App() {
-  const { data, notice, toast, storageError } = useWorkspace();
+  const {
+    data,
+    notice,
+    toast,
+    storageError,
+    user,
+    mode,
+    saving,
+    openCompany,
+    signOut,
+    refresh,
+  } = useWorkspace();
   const location = useLocation();
   const navigate = useNavigate();
   const [assistant, setAssistant] = useState(false);
@@ -89,7 +107,9 @@ export function App() {
     navigation
       .flatMap((n) => n.items)
       .find((n) => n.to !== "/" && location.pathname.startsWith(n.to))?.label ||
-    (location.pathname.startsWith("/settings") ? "Settings" : "Dashboard");
+    (location.pathname.startsWith("/settings")
+      ? uiLabel("Settings")
+      : uiLabel("Dashboard"));
   const pending = data.conversations.filter(
     (c) => c.review === "Pending",
   ).length;
@@ -118,32 +138,40 @@ export function App() {
       : [
           ...data.events.map((e) => ({
             title: e.name,
-            type: "Event",
+            type: uiLabel("Event"),
             to: `/events/${e.id}`,
           })),
           ...data.clients.map((c) => ({
             title: c.name,
-            type: "Client",
+            type: uiLabel("Client"),
             to: `/clients?client=${c.id}`,
           })),
           ...data.proposals.map((p) => ({
             title: `${p.number} · ${p.title}`,
-            type: "Proposal",
+            type: uiLabel("Proposal"),
             to: `/proposals/${p.id}`,
           })),
           ...navigation
             .flatMap((n) => n.items)
-            .map((n) => ({ title: n.label, type: "Workspace", to: n.to })),
-        ].filter((r) => r.title.toLowerCase().includes(search.toLowerCase()));
+            .map((n) => ({
+              title: n.label,
+              type: uiLabel("Workspace"),
+              to: n.to,
+            })),
+        ].filter(
+          (r) =>
+            canSeeModule(user, r.to) &&
+            r.title.toLowerCase().includes(search.toLowerCase()),
+        );
   return (
     <div className={`app ${assistant ? "assistant-open" : ""}`}>
       <a href="#main" className="skip-link">
-        Skip to workspace
+        {uiLabel("Skip to workspace")}
       </a>
       {mobileNav && (
         <button
           className="nav-backdrop"
-          aria-label="Close navigation"
+          aria-label={uiLabel("Close navigation")}
           onClick={() => setMobileNav(false)}
         />
       )}
@@ -162,23 +190,25 @@ export function App() {
           <span className="workspace-icon">K</span>
           <div>
             <strong>{data.settings.company}</strong>
-            <small>Company workspace</small>
+            <small>Espacio de empresa</small>
           </div>
           <ChevronDown size={14} />
         </div>
-        <nav aria-label="Main navigation">
+        <nav aria-label={uiLabel("Main navigation")}>
           {navigation.map((group) => (
             <div className="nav-group" key={group.label}>
               <div className="nav-label">{group.label}</div>
-              {group.items.map((item) => (
-                <NavLink end={item.to === "/"} key={item.to} to={item.to}>
-                  <item.icon size={18} strokeWidth={1.7} />
-                  <span>{item.label}</span>
-                  {item.to === "/inbox" && pending > 0 && (
-                    <span className="nav-count">{pending}</span>
-                  )}
-                </NavLink>
-              ))}
+              {group.items
+                .filter((item) => canSeeModule(user, item.to))
+                .map((item) => (
+                  <NavLink end={item.to === "/"} key={item.to} to={item.to}>
+                    <item.icon size={18} strokeWidth={1.7} />
+                    <span>{item.label}</span>
+                    {item.to === "/inbox" && pending > 0 && (
+                      <span className="nav-count">{pending}</span>
+                    )}
+                  </NavLink>
+                ))}
             </div>
           ))}
         </nav>
@@ -189,23 +219,30 @@ export function App() {
           >
             <Sparkles size={18} />
             <span>
-              Your production copilot<small>Plan a little smarter</small>
+              {uiLabel("Your production copilot")}
+              <small>{uiLabel("Plan a little smarter")}</small>
             </span>
             <ArrowUpRight size={15} />
           </button>
           <NavLink to="/settings">
             <Settings size={18} />
-            Settings
+            {uiLabel("Settings")}
           </NavLink>
           <button className="sidebar-help" onClick={() => setHelp(true)}>
             <CircleHelp size={18} />
-            Help & workspace guide
+            {uiLabel("Help & workspace guide")}
           </button>
           <div className="sidebar-profile">
-            <Avatar label="AM" />
+            <Avatar label={user ? initials(user.name) : "AM"} />
             <div>
-              <strong>Alex Morgan</strong>
-              <small>Owner · sample profile</small>
+              <strong>{user?.name || "Alex Morgan"}</strong>
+              <small>
+                {user
+                  ? user.isOwner
+                    ? "Propietario"
+                    : uiLabel(user.role)
+                  : "Propietario · perfil de ejemplo"}
+              </small>
             </div>
           </div>
         </div>
@@ -215,24 +252,24 @@ export function App() {
           <div className="breadcrumbs">
             <button
               className="icon-button menu-toggle"
-              aria-label="Open navigation"
+              aria-label={uiLabel("Open navigation")}
               onClick={() => setMobileNav(true)}
             >
               <Menu size={20} />
             </button>
-            <span className="desktop-only">Workspace</span>
+            <span className="desktop-only">{uiLabel("Workspace")}</span>
             <span className="breadcrumb-divider">/</span>
             <strong>{currentLabel}</strong>
           </div>
           <div className="topbar-actions">
             <button className="global-search" onClick={() => setSearch("")}>
               <Search size={16} />
-              <span>Search anything…</span>
+              <span>{uiLabel("Search anything\u2026")}</span>
               <kbd>⌘ K</kbd>
             </button>
             <button
               className="icon-button notification-button"
-              aria-label={`Notifications, ${pending} awaiting review`}
+              aria-label={`Notificaciones: ${pending} pendientes de revisión`}
               onClick={() => setNotifications(!notifications)}
             >
               <Bell size={19} />
@@ -244,54 +281,84 @@ export function App() {
               onClick={() => setAssistant(!assistant)}
             >
               <Sparkles size={16} />
-              <span>Ask KIT</span>
+              <span>{uiLabel("Ask KIT")}</span>
             </button>
           </div>
         </header>
         <div className="sample-banner">
           <span>
             <span className="live-dot" />
-            Sample workspace
+            {mode === "sample" ? "Espacio de ejemplo" : data.settings.company}
           </span>
-          <span>Illustrative records · saved on this device</span>
-          <Link to="/settings">
-            Manage workspace
-            <ArrowUpRight size={12} />
-          </Link>
+          <span>
+            {mode === "sample"
+              ? "Datos ilustrativos · guardados en este dispositivo"
+              : saving
+                ? "Guardando…"
+                : "Espacio de empresa · datos en el servidor"}
+          </span>
+          {mode === "sample" ? (
+            <button onClick={openCompany}>
+              Abrir espacio de empresa <ArrowUpRight size={12} />
+            </button>
+          ) : (
+            <span className="workspace-actions">
+              <button disabled={saving} onClick={refresh}>
+                Actualizar
+              </button>
+              <button disabled={saving} onClick={signOut}>
+                Cerrar sesión
+              </button>
+            </span>
+          )}
         </div>
         {storageError && (
           <div className="error-note" role="alert">
             {storageError}
+            {mode === "company" && (
+              <button onClick={refresh}>Actualizar datos</button>
+            )}
           </div>
         )}
         <main id="main" className="main-workspace">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/events/:eventId" element={<EventDetail />} />
-            <Route path="/clients" element={<Clients />} />
-            <Route path="/venues" element={<Venues />} />
-            <Route path="/design" element={<Design />} />
-            <Route path="/creative" element={<Creative />} />
-            <Route path="/proposals" element={<Proposals />} />
-            <Route path="/proposals/:proposalId" element={<ProposalEditor />} />
-            <Route path="/inbox" element={<Inbox />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/production" element={<Production />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route
-              path="*"
-              element={
-                <div className="empty">
-                  <h1>This page isn't in the workspace.</h1>
-                  <Link className="button primary" to="/">
-                    Back to dashboard
-                  </Link>
-                </div>
-              }
-            />
-          </Routes>
+          {canSeeModule(user, location.pathname) ? (
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/events/:eventId" element={<EventDetail />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/venues" element={<Venues />} />
+              <Route path="/design" element={<Design />} />
+              <Route path="/creative" element={<Creative />} />
+              <Route path="/proposals" element={<Proposals />} />
+              <Route
+                path="/proposals/:proposalId"
+                element={<ProposalEditor />}
+              />
+              <Route path="/inbox" element={<Inbox />} />
+              <Route path="/inventory" element={<Inventory />} />
+              <Route path="/production" element={<Production />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route
+                path="*"
+                element={
+                  <div className="empty">
+                    <h1>{uiLabel("This page isn't in the workspace.")}</h1>
+                    <Link className="button primary" to="/">
+                      {uiLabel("Back to dashboard")}
+                    </Link>
+                  </div>
+                }
+              />
+            </Routes>
+          ) : (
+            <div className="empty">
+              <h1>Acceso restringido</h1>
+              <p>Tu cuenta no tiene acceso a esta sección.</p>
+              <Link to="/">Volver al inicio</Link>
+            </div>
+          )}
         </main>
       </div>
       {assistant && (
@@ -301,7 +368,10 @@ export function App() {
         <div className="toast" role="status">
           <Check size={17} />
           {notice}
-          <button aria-label="Dismiss notification" onClick={() => toast("")}>
+          <button
+            aria-label={uiLabel("Dismiss notification")}
+            onClick={() => toast("")}
+          >
             <X size={16} />
           </button>
         </div>
@@ -309,10 +379,10 @@ export function App() {
       {notifications && (
         <div className="notification-popover">
           <div className="panel-heading">
-            <h2>Needs your attention</h2>
+            <h2>{uiLabel("Needs your attention")}</h2>
             <button
               className="icon-button"
-              aria-label="Close notifications"
+              aria-label={uiLabel("Close notifications")}
               onClick={() => setNotifications(false)}
             >
               <X size={18} />
@@ -333,15 +403,15 @@ export function App() {
                   <MessageCircle size={19} />
                 </span>
                 <span>
-                  <strong>Review client acceptance</strong>
+                  <strong>{uiLabel("Review client acceptance")}</strong>
                   <small>
                     {
                       data.clients.find((client) => client.id === c.clientId)
                         ?.name
                     }{" "}
-                    · revision {c.proposalVersion}
+                    · versión {c.proposalVersion}
                   </small>
-                  <Badge>Awaiting owner review</Badge>
+                  <Badge>{uiLabel("Awaiting owner review")}</Badge>
                 </span>
                 <ArrowUpRight size={16} />
               </button>
@@ -349,20 +419,23 @@ export function App() {
           {pending === 0 && (
             <div className="empty compact">
               <CheckCheck size={25} />
-              <h3>You're all caught up.</h3>
-              <p>No acceptance requests awaiting review.</p>
+              <h3>{uiLabel("You're all caught up.")}</h3>
+              <p>{uiLabel("No acceptance requests awaiting review.")}</p>
             </div>
           )}
         </div>
       )}
       {search !== null && (
-        <Modal title="Search your workspace" onClose={() => setSearch(null)}>
+        <Modal
+          title={uiLabel("Search your workspace")}
+          onClose={() => setSearch(null)}
+        >
           <label className="command-search">
             <Search size={21} />
             <input
               autoFocus
-              placeholder="Events, clients, proposals, pages…"
-              aria-label="Search workspace records"
+              placeholder={uiLabel("Events, clients, proposals, pages\u2026")}
+              aria-label={uiLabel("Search workspace records")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -385,28 +458,30 @@ export function App() {
               </button>
             ))}
             {results.length === 0 && (
-              <p className="muted">No results. Try a customer or event name.</p>
+              <p className="muted">
+                No hay resultados. Prueba con un cliente o evento.
+              </p>
             )}
           </div>
         </Modal>
       )}
       {help && (
         <Modal
-          title="Welcome to your production workspace"
+          title={uiLabel("Welcome to your production workspace")}
           onClose={() => setHelp(false)}
         >
           <div className="modal-body">
             <p>
-              Start with a client and event. Add the venue and equipment,
-              prepare a proposal, then coordinate your production team.
+              Comienza con un cliente y un evento. Agrega el lugar y los equipos,
+              prepara una propuesta y coordina al equipo de producción.
             </p>
             <p className="muted">
-              This local workspace uses illustrative records. AI, WhatsApp,
-              authentication, and shared cloud storage are not connected yet. No
-              messages leave the app.
+              Este espacio de ejemplo usa datos ilustrativos. La mensajería real
+              y el almacenamiento de archivos todavía no están conectados. Ningún
+              mensaje sale de la aplicación.
             </p>
             <Button onClick={() => setHelp(false)}>
-              Explore the workspace
+              {uiLabel("Explore the workspace")}
             </Button>
           </div>
         </Modal>
@@ -423,11 +498,11 @@ function Assistant({ page, onClose }: { page: string; onClose: () => void }) {
       <header>
         <div>
           <Sparkles size={20} />
-          <strong>KIT assistant</strong>
+          <strong>{uiLabel("KIT assistant")}</strong>
         </div>
         <button
           className="icon-button"
-          aria-label="Close assistant"
+          aria-label={uiLabel("Close assistant")}
           onClick={onClose}
         >
           <PanelLeftClose size={18} />
@@ -435,7 +510,7 @@ function Assistant({ page, onClose }: { page: string; onClose: () => void }) {
       </header>
       <div className="assistant-context">
         <span className="live-dot" />
-        Context: {page}
+        {uiLabel("Context:")} {page}
         <small>{location.pathname}</small>
       </div>
       <div className="assistant-content">
@@ -443,14 +518,19 @@ function Assistant({ page, onClose }: { page: string; onClose: () => void }) {
           <Sparkles size={26} />
         </div>
         <h2>
-          A little help.
-          <br />A better production.
+          {uiLabel("A little help.")}
+          <br />
+          {uiLabel("A better production.")}
         </h2>
         <p>
-          Bring your next event into focus with a copilot that understands your
-          workspace.
+          {uiLabel(
+            "Bring your next event into focus with a copilot that understands your workspace.",
+          )}
         </p>
-        <Badge tone="neutral">AI not connected</Badge>
+        <Badge tone="neutral">Asistente general pendiente</Badge>
+        <Link className="button secondary" to="/proposals" onClick={onClose}>
+          Redactar una propuesta con IA
+        </Link>
         <div className="prompt-suggestions">
           {[
             "Draft a proposal for this event",
@@ -458,21 +538,21 @@ function Assistant({ page, onClose }: { page: string; onClose: () => void }) {
             "Help me plan an equipment list",
           ].map((text) => (
             <button key={text} onClick={() => setPrompt(text)}>
-              {text}
+              {uiLabel(text)}
               <ArrowUpRight size={15} />
             </button>
           ))}
         </div>
         {messages.map((message, i) => (
           <div className="assistant-message" key={i}>
-            <strong>You</strong>
+            <strong>{uiLabel("You")}</strong>
             <p>{message}</p>
             <div className="assistant-response">
-              Your request is saved in this session. Connect an AI service to
-              generate a response. You can prepare and edit proposals in the
-              meantime.
+              Esta solicitud permanece en esta sesión. El asistente general
+              todavía no ejecuta acciones. La redacción con IA está disponible
+              desde Propuestas cuando la conexión de empresa está configurada.
               <Link to="/proposals">
-                Open proposals <ArrowUpRight size={13} />
+                {uiLabel("Open proposals")} <ArrowUpRight size={13} />
               </Link>
             </div>
           </div>
@@ -489,16 +569,16 @@ function Assistant({ page, onClose }: { page: string; onClose: () => void }) {
         }}
       >
         <textarea
-          aria-label="Ask KIT"
-          placeholder="What are we working on?"
+          aria-label={uiLabel("Ask KIT")}
+          placeholder={uiLabel("What are we working on?")}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
         <div>
-          <small>Drafts always stay in your control.</small>
+          <small>{uiLabel("Drafts always stay in your control.")}</small>
           <button
             className="icon-button"
-            aria-label="Save assistant request"
+            aria-label={uiLabel("Save assistant request")}
             disabled={!prompt.trim()}
           >
             <Send size={17} />

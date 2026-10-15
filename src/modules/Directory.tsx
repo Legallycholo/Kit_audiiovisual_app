@@ -201,7 +201,7 @@ export function Clients() {
         >
           <form
             className="modal-body"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               const next = {
                 ...draft,
@@ -209,16 +209,19 @@ export function Clients() {
                 initials: initials(draft.name),
               };
               if (!next.name) return;
-              update((s) => ({
-                ...s,
-                clients: s.clients.some((c) => c.id === next.id)
-                  ? s.clients.map((c) => (c.id === next.id ? next : c))
-                  : [...s.clients, next],
-                activity: [
-                  activity("Client profile saved", next.name),
-                  ...s.activity,
-                ],
-              }));
+              if (
+                !(await update((s) => ({
+                  ...s,
+                  clients: s.clients.some((c) => c.id === next.id)
+                    ? s.clients.map((c) => (c.id === next.id ? next : c))
+                    : [...s.clients, next],
+                  activity: [
+                    activity("Client profile saved", next.name),
+                    ...s.activity,
+                  ],
+                })))
+              )
+                return;
               toast("Client profile saved.");
               setDraft(null);
             }}
@@ -441,23 +444,26 @@ export function Venues() {
         <Modal title="Add a venue" onClose={() => setAdding(false)}>
           <form
             className="modal-body"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              update((s) => ({
-                ...s,
-                venues: [
-                  ...s.venues,
-                  {
-                    id: id(),
-                    name,
-                    city,
-                    rooms: [],
-                    notes: "",
-                    color: "sage",
-                    category: "Event venue",
-                  },
-                ],
-              }));
+              if (
+                !(await update((s) => ({
+                  ...s,
+                  venues: [
+                    ...s.venues,
+                    {
+                      id: id(),
+                      name,
+                      city,
+                      rooms: [],
+                      notes: "",
+                      color: "sage",
+                      category: "Event venue",
+                    },
+                  ],
+                })))
+              )
+                return;
               setAdding(false);
               setName("");
               setCity("");

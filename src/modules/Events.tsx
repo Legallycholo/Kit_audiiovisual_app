@@ -1,3 +1,4 @@
+import { canEditCollection } from "../shared/access";
 import { useState } from "react";
 import {
   Link,
@@ -204,7 +205,7 @@ export function EventForm({
   onClose: () => void;
   event?: ProductionEvent;
 }) {
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, user } = useWorkspace();
   const navigate = useNavigate();
   const [draft, setDraft] = useState<ProductionEvent>(
     event || {
@@ -216,7 +217,7 @@ export function EventForm({
       endDate: "",
       status: "Planning",
       type: "Conference",
-      manager: "Alex Morgan",
+      manager: user?.name || "Alex Morgan",
       budget: 0,
       attendees: 0,
       notes: "",
@@ -235,23 +236,26 @@ export function EventForm({
     >
       <form
         className="modal-body"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           if (draft.endDate < draft.date) return;
-          update((s) => ({
-            ...s,
-            events: event
-              ? s.events.map((ev) => (ev.id === event.id ? draft : ev))
-              : [...s.events, draft],
-            activity: [
-              activity(
-                event ? "Event updated" : "Event created",
-                draft.name,
-                draft.id,
-              ),
-              ...s.activity,
-            ],
-          }));
+          if (
+            !(await update((s) => ({
+              ...s,
+              events: event
+                ? s.events.map((ev) => (ev.id === event.id ? draft : ev))
+                : [...s.events, draft],
+              activity: [
+                activity(
+                  event ? "Event updated" : "Event created",
+                  draft.name,
+                  draft.id,
+                ),
+                ...s.activity,
+              ],
+            })))
+          )
+            return;
           toast(event ? "Event updated." : "Your event is ready to plan.");
           onClose();
           navigate(`/events/${draft.id}`);
@@ -380,8 +384,10 @@ export function EventForm({
 }
 export function EventDetail() {
   const { eventId } = useParams();
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, user } = useWorkspace();
   const [tab, setTab] = useState("Overview");
+  const commercial =
+    !user || ["Administrator", "Sales Manager"].includes(user.role);
   const [editing, setEditing] = useState(false);
   const event = data.events.find((e) => e.id === eventId);
   if (!event)
@@ -409,7 +415,11 @@ export function EventDetail() {
         actions={
           <>
             <Badge>{event.status}</Badge>
-            <Button variant="secondary" onClick={() => setEditing(true)}>
+            <Button
+              disabled={!commercial}
+              variant="secondary"
+              onClick={() => setEditing(true)}
+            >
               Edit event
             </Button>
           </>
@@ -429,7 +439,9 @@ export function EventDetail() {
           "Messages",
           "Documents",
           "Activity",
-        ]}
+        ].filter(
+          (item) => commercial || !["Commercial", "Messages"].includes(item),
+        )}
       />
       {tab === "Overview" && (
         <div className="detail-grid">
@@ -458,32 +470,38 @@ export function EventDetail() {
                   <span>Attendees</span>
                   <strong>{event.attendees}</strong>
                 </div>
-                <div>
-                  <span>Estimated budget</span>
-                  <strong>{money(event.budget)}</strong>
-                </div>
+                {commercial && (
+                  <div>
+                    <span>Estimated budget</span>
+                    <strong>{money(event.budget)}</strong>
+                  </div>
+                )}
                 <div>
                   <span>Status</span>
                   <select
+                    disabled={!canEditCollection(user, "events")}
                     aria-label="Event status"
                     value={event.status}
-                    onChange={(e) => {
-                      update((s) => ({
-                        ...s,
-                        events: s.events.map((ev) =>
-                          ev.id === event.id
-                            ? { ...ev, status: e.target.value as EventStatus }
-                            : ev,
-                        ),
-                        activity: [
-                          activity(
-                            "Event status updated",
-                            `${event.name}: ${e.target.value}`,
-                            event.id,
+                    onChange={async (e) => {
+                      if (
+                        !(await update((s) => ({
+                          ...s,
+                          events: s.events.map((ev) =>
+                            ev.id === event.id
+                              ? { ...ev, status: e.target.value as EventStatus }
+                              : ev,
                           ),
-                          ...s.activity,
-                        ],
-                      }));
+                          activity: [
+                            activity(
+                              "Event status updated",
+                              `${event.name}: ${e.target.value}`,
+                              event.id,
+                            ),
+                            ...s.activity,
+                          ],
+                        })))
+                      )
+                        return;
                       toast(
                         "Event status updated. Equipment and approvals are managed separately.",
                       );
