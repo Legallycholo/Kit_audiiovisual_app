@@ -246,7 +246,8 @@ export const spanish: Record<string, string> = {
   "Creative concepts and approved brand assets will stay linked to this event.":
     "Los conceptos creativos y recursos de marca aprobados permanecerán vinculados a este evento.",
   "Client conversations": "Conversaciones con el cliente",
-  "A home for every production document": "Un lugar para cada documento de producción",
+  "A home for every production document":
+    "Un lugar para cada documento de producción",
   "File upload, revision tracking, and client sharing will be connected in the document-management phase.":
     "La carga de archivos, el control de versiones y el intercambio con clientes se conectarán en la fase documental.",
   "Event history": "Historial del evento",
@@ -272,14 +273,16 @@ export const spanish: Record<string, string> = {
   "Needs review": "Requiere revisión",
   "All clear": "Todo al día",
   "No conversations match this view.": "No hay conversaciones para esta vista.",
-  "Your client conversations belong here": "Aquí estarán tus conversaciones con clientes",
+  "Your client conversations belong here":
+    "Aquí estarán tus conversaciones con clientes",
   "Connect WhatsApp to receive client messages in this workspace.":
     "Conecta WhatsApp para recibir mensajes de clientes en este espacio.",
   "Review outgoing message": "Revisar mensaje para enviar",
   "Confirm client acceptance": "Confirmar aceptación del cliente",
   "This records your review of the client's response. It does not send a reply or reserve equipment.":
     "Esto registra tu revisión de la respuesta. No envía un mensaje ni reserva equipos.",
-  "THE RIGHT GEAR. IN THE RIGHT PLACE.": "EL EQUIPO CORRECTO. EN EL LUGAR CORRECTO.",
+  "THE RIGHT GEAR. IN THE RIGHT PLACE.":
+    "EL EQUIPO CORRECTO. EN EL LUGAR CORRECTO.",
   "Your owned equipment, availability, and event allocations.":
     "Tus equipos, su disponibilidad y las asignaciones por evento.",
   Catalog: "Catálogo",
@@ -299,7 +302,8 @@ export const spanish: Record<string, string> = {
   "No equipment in this view": "No hay equipos en esta vista",
   "Adjust your filters or add an equipment record.":
     "Ajusta los filtros o agrega un equipo.",
-  "Build repeatable equipment packages": "Crea paquetes de equipos reutilizables",
+  "Build repeatable equipment packages":
+    "Crea paquetes de equipos reutilizables",
   "Package composition and package pricing will be added after your stock and rental conventions are confirmed.":
     "La composición y precio de los paquetes se agregarán cuando se confirmen las reglas de inventario y alquiler.",
   "Reserve equipment": "Reservar equipos",
@@ -322,6 +326,7 @@ export const spanish: Record<string, string> = {
   "Crew schedule": "Calendario del equipo",
   "Run of show": "Programa del evento",
   "Preparation & returns": "Preparación y devoluciones",
+  "Production readiness": "Preparación para producción",
   "Add a production task": "Agregar tarea de producción",
   Task: "Tarea",
   Assignee: "Persona asignada",
@@ -374,11 +379,13 @@ export const spanish: Record<string, string> = {
   "Minimum 12 characters.": "Mínimo 12 caracteres.",
   Role: "Rol",
   "Commercial defaults": "Valores comerciales predeterminados",
-  "Branded templates and commercial terms": "Plantillas de marca y términos comerciales",
+  "Branded templates and commercial terms":
+    "Plantillas de marca y términos comerciales",
   "Company-wide template editing will follow the core proposal workflow.":
     "La edición de plantillas se agregará después del flujo principal de propuestas.",
   "Event defaults": "Valores predeterminados de eventos",
-  "Custom event types and transition rules": "Tipos de evento y reglas de transición",
+  "Custom event types and transition rules":
+    "Tipos de evento y reglas de transición",
   "Further configuration will follow validation of the production workflow.":
     "La configuración adicional seguirá a la validación del flujo de producción.",
   "Notification preferences": "Preferencias de notificaciones",
@@ -386,7 +393,8 @@ export const spanish: Record<string, string> = {
   "The owner reviews each client acceptance notification before the offer is marked accepted.":
     "El propietario revisa cada aceptación antes de marcar la propuesta como aceptada.",
   "AI controls": "Controles de IA",
-  "Model, usage limits, and permitted context": "Modelo, límites de uso y contexto permitido",
+  "Model, usage limits, and permitted context":
+    "Modelo, límites de uso y contexto permitido",
   "These settings will be available when an AI service is connected.":
     "Estas opciones estarán disponibles cuando se conecte el servicio de IA.",
   Connections: "Conexiones",
@@ -402,7 +410,8 @@ export const spanish: Record<string, string> = {
   "You're all caught up.": "Todo está al día.",
   "No acceptance requests awaiting review.":
     "No hay solicitudes de aceptación pendientes.",
-  "Welcome to your production workspace": "Bienvenido a tu espacio de producción",
+  "Welcome to your production workspace":
+    "Bienvenido a tu espacio de producción",
   "Explore the workspace": "Explorar el espacio",
   "KIT assistant": "Asistente KIT",
   "Context:": "Contexto:",
@@ -411,7 +420,8 @@ export const spanish: Record<string, string> = {
   "Bring your next event into focus with a copilot that understands your workspace.":
     "Enfoca tu próximo evento con un asistente que entiende tu espacio de trabajo.",
   "Draft a proposal for this event": "Redactar una propuesta para este evento",
-  "Summarize upcoming production tasks": "Resumir las próximas tareas de producción",
+  "Summarize upcoming production tasks":
+    "Resumir las próximas tareas de producción",
   "Help me plan an equipment list": "Ayudarme a preparar una lista de equipos",
   You: "Tú",
   "Open proposals": "Abrir propuestas",

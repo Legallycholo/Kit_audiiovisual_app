@@ -515,7 +515,18 @@ export function EventDetail() {
                       "Completed",
                       "Cancelled",
                     ].map((status) => (
-                      <option key={status}>{status}</option>
+                      <option
+                        key={status}
+                        disabled={
+                          [
+                            "Preparation",
+                            "In production",
+                            "Completed",
+                          ].includes(status) && status !== event.status
+                        }
+                      >
+                        {status}
+                      </option>
                     ))}
                   </select>
                 </div>

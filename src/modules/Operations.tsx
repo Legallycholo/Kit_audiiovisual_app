@@ -35,10 +35,11 @@ import {
   id,
   initials,
   money,
+  productionReadiness,
   quoteTotals,
   shortDate,
 } from "../shared/domain";
-import type { Task } from "../shared/types";
+import type { EventStatus, Task } from "../shared/types";
 export function Production() {
   const { data, update, toast, mode, user, request } = useWorkspace();
   const [params] = useSearchParams();
@@ -75,6 +76,41 @@ export function Production() {
     (t) => eventFilter === "all" || t.eventId === eventFilter,
   );
   const crew = Array.from(new Set(data.tasks.map((t) => t.assignee)));
+  const readinessEvents = data.events.filter(
+    (event) => eventFilter === "all" || event.id === eventFilter,
+  );
+  const canManageProduction =
+    !user || ["Administrator", "Production Manager"].includes(user.role);
+  const changeProductionStatus = async (
+    eventId: string,
+    status: EventStatus,
+  ) => {
+    const event = data.events.find((item) => item.id === eventId);
+    if (!event) return;
+    if (
+      await update((workspace) => ({
+        ...workspace,
+        events: workspace.events.map((item) =>
+          item.id === eventId ? { ...item, status } : item,
+        ),
+        activity: [
+          activity(
+            status === "Completed"
+              ? "Production closeout confirmed"
+              : "Production status confirmed",
+            `${event.name}: ${status}`,
+            eventId,
+          ),
+          ...workspace.activity,
+        ],
+      }))
+    )
+      toast(
+        status === "Completed"
+          ? "Cierre de producción confirmado."
+          : "Estado de producción confirmado.",
+      );
+  };
   return (
     <>
       <PageHeader
@@ -115,6 +151,7 @@ export function Production() {
             "Crew schedule",
             "Run of show",
             "Preparation & returns",
+            "Production readiness",
           ]}
           value={tab}
           onChange={setTab}
@@ -283,6 +320,131 @@ export function Production() {
             />
           </div>
         </Panel>
+      )}
+      {tab === "Production readiness" && (
+        <div className="readiness-grid">
+          {readinessEvents.map((event) => {
+            const readiness = productionReadiness(data, event.id);
+            const nextStatus =
+              event.status === "Preparation"
+                ? "In production"
+                : event.status === "In production"
+                  ? "Completed"
+                  : "Preparation";
+            const actionReady =
+              nextStatus === "Completed"
+                ? readiness.closeoutReady
+                : readiness.ready;
+            return (
+              <Panel
+                key={event.id}
+                title={event.name}
+                subtitle={`${shortDate(event.date)}–${shortDate(event.endDate)}`}
+                action={<Badge>{event.status}</Badge>}
+              >
+                <div className="panel-body readiness-checklist">
+                  <div className="simple-row">
+                    <ShieldCheck size={20} />
+                    <div>
+                      <strong>Alcance comercial aceptado</strong>
+                      <small>
+                        {readiness.acceptedProposal
+                          ? `${readiness.acceptedProposal.number} · versión ${readiness.acceptedProposal.version}`
+                          : "No hay una propuesta aceptada por el propietario."}
+                      </small>
+                    </div>
+                    <Badge
+                      tone={readiness.acceptedScopeReady ? "green" : "amber"}
+                    >
+                      {readiness.acceptedScopeReady ? "Listo" : "Pendiente"}
+                    </Badge>
+                  </div>
+                  <div className="simple-row">
+                    <Box size={20} />
+                    <div>
+                      <strong>Equipos confirmados</strong>
+                      <small>
+                        {readiness.requirements.length
+                          ? `${readiness.requirements.filter((item) => item.confirmed >= item.required).length}/${readiness.requirements.length} artículos cubiertos para las fechas del evento`
+                          : "El alcance aceptado no incluye equipos del catálogo."}
+                      </small>
+                    </div>
+                    <Badge tone={readiness.equipmentReady ? "green" : "amber"}>
+                      {readiness.equipmentReady ? "Listo" : "Pendiente"}
+                    </Badge>
+                  </div>
+                  <div className="simple-row">
+                    <Users size={20} />
+                    <div>
+                      <strong>Responsables de producción</strong>
+                      <small>
+                        {
+                          data.tasks.filter((task) => task.eventId === event.id)
+                            .length
+                        }{" "}
+                        tareas de producción
+                      </small>
+                    </div>
+                    <Badge tone={readiness.crewReady ? "green" : "amber"}>
+                      {readiness.crewReady ? "Listo" : "Pendiente"}
+                    </Badge>
+                  </div>
+                  {(nextStatus === "Completed"
+                    ? readiness.closeoutBlockers
+                    : readiness.blockers
+                  ).length > 0 && (
+                    <div className="readiness-blockers">
+                      <strong>
+                        {nextStatus === "Completed"
+                          ? "Antes de cerrar"
+                          : "Antes de confirmar preparación"}
+                      </strong>
+                      <ul>
+                        {(nextStatus === "Completed"
+                          ? readiness.closeoutBlockers
+                          : readiness.blockers
+                        ).map((blocker) => (
+                          <li key={blocker}>{blocker}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {readiness.acceptedProposal && (
+                    <Link
+                      className="text-link"
+                      to={`/proposals/${readiness.acceptedProposal.id}`}
+                    >
+                      Revisar alcance aceptado
+                      <ArrowUpRight size={15} />
+                    </Link>
+                  )}
+                  {!(["Completed", "Cancelled"] as EventStatus[]).includes(
+                    event.status,
+                  ) && (
+                    <Button
+                      disabled={!canManageProduction || !actionReady}
+                      onClick={() =>
+                        void changeProductionStatus(event.id, nextStatus)
+                      }
+                    >
+                      {nextStatus === "Preparation"
+                        ? "Confirmar preparación"
+                        : nextStatus === "In production"
+                          ? "Iniciar producción"
+                          : "Confirmar cierre"}
+                    </Button>
+                  )}
+                </div>
+              </Panel>
+            );
+          })}
+          {readinessEvents.length === 0 && (
+            <Empty
+              title="No hay eventos"
+              description="Selecciona un evento para revisar su preparación."
+            />
+          )}
+        </div>
       )}
       {draft && (
         <Modal title="Add a production task" onClose={() => setDraft(null)}>

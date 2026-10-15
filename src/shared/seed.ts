@@ -136,7 +136,7 @@ export const createSeed = (): Workspace => ({
       venueId: "v1",
       date: day(3),
       endDate: day(4),
-      status: "Preparation",
+      status: "Confirmed",
       type: "Conference",
       manager: "Alex Morgan",
       budget: 18000,
@@ -369,6 +369,7 @@ export const createSeed = (): Workspace => ({
       proposalId: "p1",
       proposalVersion: 2,
       review: "Pending",
+      reviewMessageId: "msg2",
       messages: [
         {
           id: "msg1",

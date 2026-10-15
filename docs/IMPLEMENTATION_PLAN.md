@@ -1,6 +1,6 @@
 # Audiovisual Event Production Platform — Implementation Plan
 
-Status: **Phase 1 (application structure) completed and accepted on October 15, 2026. Phase 3A (AI proposal drafting and editing) is the next release track. See `IMPLEMENTATION_PROGRESS.md` for verified delivery status and remaining work.**
+Status: **Phase 1 and the Phase 3A–3D local showcases are complete. Live provider validation is deferred until API tools, credentials, and business examples are selected. Phase 4 is the next product track. See `IMPLEMENTATION_PROGRESS.md` for evidence and remaining work.**
 
 Prepared: October 15, 2026
 
@@ -34,6 +34,7 @@ Candidate success measures are time to prepare a proposal, time to create a reus
 - The owner needs a section where they can ask AI to draft a proposal and then edit it inside the application.
 - Staff need to send proposals to clients and see incoming and outgoing client messages inside the application.
 - WhatsApp is a requested channel, with Meta for Developers identified by the user as the intended integration direction. Configuration and technical design remain outside this planning task.
+- External AI, messaging, storage, and other API tools have not been finalized. The business will provide approved tools and API keys later. Local fixtures and replaceable adapters may demonstrate workflows in the meantime; a showcase adapter does not commit the product to that provider.
 - **Structure comes first:** the first milestone is the complete application structure, into which functionality can be added later.
 - **The first functional milestone after structure approval is AI proposal drafting and in-app editing.** WhatsApp delivery, client-response review, and operational fulfillment follow as separate milestones.
 - **The owner reviews and confirms every outgoing client message.** AI prepares drafts; it does not send autonomously.
@@ -46,16 +47,16 @@ These confirmations override earlier provisional alternatives. The structure-fir
 
 The workspace was inspected read-only for this planning update. The repository now contains application code and work in progress; the earlier empty-repository assessment is no longer current. File presence is evidence of existing work, not proof that a feature is complete or production-ready. No application or server was run, and no tests were executed during this planning review.
 
-| Area | Observed state | Planning implication |
-| --- | --- | --- |
-| Repository | `/Users/legallycholo/Kit only repo/Kit_audiiovisual_app` | This is the intended project root. |
-| Git | Existing commits and uncommitted changes; latest inspected commit `b300715` | Preserve existing work. This review does not approve or complete unfinished implementation. |
-| Working files | `src/`, `server/`, `tests/browser/`, `public/`, manifests, and planning/progress documents | Review the existing structure against this product plan before authorizing additional work. |
-| Application sections and navigation | `src/application/App.tsx` defines dashboard, events, clients, venues, design, creative, proposals, inbox, inventory, production, reports, and settings | Reuse the navigation inventory as a review starting point; compare each destination with the page requirements below. |
-| Components and business logic | Shared UI, domain types, pricing, availability, acceptance/revision logic, and sample records exist under `src/shared/` | Candidate reuse areas exist. Their business rules still require owner validation. |
-| Styling conventions | `src/styles.css` defines shared colors, typography, spacing, and interface styles | Existing cream/green visual conventions are a review candidate, not a newly selected design direction. |
-| Dependencies and services | Manifest lists client and server dependencies; server/session/access files are present as work in progress | Observed technologies are not a recommendation or endorsement. This task makes no stack selection and configures no services. |
-| Repository instructions | No applicable `AGENTS.md` found in the repository or checked ancestor directories | No additional local planning requirements were discovered. |
+| Area                                | Observed state                                                                                                                                         | Planning implication                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Repository                          | `/Users/legallycholo/Kit only repo/Kit_audiiovisual_app`                                                                                               | This is the intended project root.                                                                                            |
+| Git                                 | Existing commits and uncommitted changes; latest inspected commit `b300715`                                                                            | Preserve existing work. This review does not approve or complete unfinished implementation.                                   |
+| Working files                       | `src/`, `server/`, `tests/browser/`, `public/`, manifests, and planning/progress documents                                                             | Review the existing structure against this product plan before authorizing additional work.                                   |
+| Application sections and navigation | `src/application/App.tsx` defines dashboard, events, clients, venues, design, creative, proposals, inbox, inventory, production, reports, and settings | Reuse the navigation inventory as a review starting point; compare each destination with the page requirements below.         |
+| Components and business logic       | Shared UI, domain types, pricing, availability, acceptance/revision logic, and sample records exist under `src/shared/`                                | Candidate reuse areas exist. Their business rules still require owner validation.                                             |
+| Styling conventions                 | `src/styles.css` defines shared colors, typography, spacing, and interface styles                                                                      | Existing cream/green visual conventions are a review candidate, not a newly selected design direction.                        |
+| Dependencies and services           | Manifest lists client and server dependencies; server/session/access files are present as work in progress                                             | Observed technologies are not a recommendation or endorsement. This task makes no stack selection and configures no services. |
+| Repository instructions             | No applicable `AGENTS.md` found in the repository or checked ancestor directories                                                                      | No additional local planning requirements were discovered.                                                                    |
 
 The existing source covers the main module names, but complete workflows are not established by that coverage. The README describes a sample workspace and disconnected external integrations; newer uncommitted server/session files indicate that documentation and implementation are at different stages. Reconcile those descriptions during any later authorized implementation review. Live AI, WhatsApp, production access controls, deployment readiness, and complete operational fulfillment are not verified here.
 
@@ -67,13 +68,13 @@ The brief references an exhibition floor-plan example, but no image or floor-pla
 
 ### Top five decisions before development
 
-| Priority | Question | Why it changes the plan | Suggested decision owner |
-| --- | --- | --- | --- |
-| 1 | Confirmed: one company at launch. Who will use it, how many users/branches are involved, and which staff can see prices, costs, conversations, and client approvals? | Defines launch access without unnecessary SaaS administration. | Business owner |
-| 2 | With structure first and AI proposal drafting/editing next confirmed, which representative screens and existing proposal example should define approval? | Defines shell completion and a concrete acceptance example for the first functional milestone. | Business owner and operations lead |
-| 3 | Confirmed: owned equipment rented to customers. Are equipment-only rentals included, and what rate periods, stock tracking, packages, and preparation/return buffers apply? | Defines rental operations, costing, quotation lines, and reservation behavior. | Production and sales leads |
-| 4 | With owner approval of every outgoing message and every acceptance confirmed, what evidence should the owner review, and are signatures, deposits, or purchase orders also required? | Completes the review experience and distinguishes accepted scope from permission to begin fulfillment. | Business owner and sales lead |
-| 5 | What must 2D/3D achieve at launch: presentation layouts, dimensionally accurate production plans, or specialist design exchange? Which sample files, units, exports, and tablet tasks matter? | Defines editor scope, geometry accuracy, file compatibility, and performance expectations. | Design and production leads |
+| Priority | Question                                                                                                                                                                                      | Why it changes the plan                                                                                | Suggested decision owner           |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| 1        | Confirmed: one company at launch. Who will use it, how many users/branches are involved, and which staff can see prices, costs, conversations, and client approvals?                          | Defines launch access without unnecessary SaaS administration.                                         | Business owner                     |
+| 2        | With structure first and AI proposal drafting/editing next confirmed, which representative screens and existing proposal example should define approval?                                      | Defines shell completion and a concrete acceptance example for the first functional milestone.         | Business owner and operations lead |
+| 3        | Confirmed: owned equipment rented to customers. Are equipment-only rentals included, and what rate periods, stock tracking, packages, and preparation/return buffers apply?                   | Defines rental operations, costing, quotation lines, and reservation behavior.                         | Production and sales leads         |
+| 4        | With owner approval of every outgoing message and every acceptance confirmed, what evidence should the owner review, and are signatures, deposits, or purchase orders also required?          | Completes the review experience and distinguishes accepted scope from permission to begin fulfillment. | Business owner and sales lead      |
+| 5        | What must 2D/3D achieve at launch: presentation layouts, dimensionally accurate production plans, or specialist design exchange? Which sample files, units, exports, and tablet tasks matter? | Defines editor scope, geometry accuracy, file compatibility, and performance expectations.             | Design and production leads        |
 
 ### Provisional assumptions, not confirmed requirements
 
@@ -101,15 +102,15 @@ Payroll, a full accounting ledger, payment processing, ticketing, attendee regis
 
 The first milestone is a connected application structure. Use this checklist for the later shell review; this planning task creates only the document.
 
-| Review area | What the owner should be able to inspect | Later dependency |
-| --- | --- | --- |
-| Navigation and context | Every primary destination, event tabs, breadcrumbs, selected client/event, desktop and tablet arrangements, with Spanish user-facing labels | Approved Spanish terminology and visual direction |
-| Shared record screens | Directory, empty state, detail, creation/editing form structure, and related-record links for clients, venues, events, and equipment | Core records and access rules |
-| Proposal workspace | Draft with AI entry point, editable sections, itemized quotation, revision history, preview, and owner send-review area | Pricing rules, proposal records, AI, delivery channel |
-| Client Inbox | Conversation list, thread, composer, attachments, linked proposal, outgoing review queue, and acceptance notification/detail | Client/contact matching and messaging integration |
-| Design workspaces | 2D canvas region, object library, properties, layers, version controls, and connected 3D view structure | Verified dimensions, structured layouts, rendering capabilities |
-| Operations and creative | Stock availability views, preparation/returns, crew/tasks, creative asset gallery, and report categories | Reliable inventory, task, media, and commercial data |
-| Common states | Illustrative content labels, loading/empty/error/conflict states, unsaved-change behavior, access-denied screens, and disconnected-service indicators | Later module-specific behavior |
+| Review area             | What the owner should be able to inspect                                                                                                              | Later dependency                                                |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Navigation and context  | Every primary destination, event tabs, breadcrumbs, selected client/event, desktop and tablet arrangements, with Spanish user-facing labels           | Approved Spanish terminology and visual direction               |
+| Shared record screens   | Directory, empty state, detail, creation/editing form structure, and related-record links for clients, venues, events, and equipment                  | Core records and access rules                                   |
+| Proposal workspace      | Draft with AI entry point, editable sections, itemized quotation, revision history, preview, and owner send-review area                               | Pricing rules, proposal records, AI, delivery channel           |
+| Client Inbox            | Conversation list, thread, composer, attachments, linked proposal, outgoing review queue, and acceptance notification/detail                          | Client/contact matching and messaging integration               |
+| Design workspaces       | 2D canvas region, object library, properties, layers, version controls, and connected 3D view structure                                               | Verified dimensions, structured layouts, rendering capabilities |
+| Operations and creative | Stock availability views, preparation/returns, crew/tasks, creative asset gallery, and report categories                                              | Reliable inventory, task, media, and commercial data            |
+| Common states           | Illustrative content labels, loading/empty/error/conflict states, unsaved-change behavior, access-denied screens, and disconnected-service indicators | Later module-specific behavior                                  |
 
 Review one connected illustrative journey: open an existing client → open their event → inspect venue/design and equipment context → open a proposal draft → inspect the outgoing owner-review screen → open a client response notification → inspect the owner's acceptance decision. At this milestone, the journey demonstrates information organization; it must not imply that AI generation, real delivery, acceptance recording, or reservations are connected.
 
@@ -117,11 +118,11 @@ Structure review can proceed while equipment-only rental scope is undecided. Kee
 
 ### Answers and remaining questions from this review
 
-| Question | Status | What depends on it |
-| --- | --- | --- |
-| Should screens use Spanish, English, or both? | Confirmed: Spanish is primary/default; development and internal planning use English. An optional English interface is undecided. | Spanish navigation, representative content, and interface review; English development terminology |
-| After structure approval, should the first functional focus be AI proposal drafting, the WhatsApp inbox, or client/equipment records? | Confirmed: AI proposal drafting and in-app editing | Prioritize minimum client, equipment/pricing, access, and draft-persistence foundations; messaging follows |
-| Does owner-confirmed acceptance only accept the proposal, also confirm the event, or additionally reserve equipment? | Asked; awaiting answer | Acceptance action consequences and stock checks |
+| Question                                                                                                                              | Status                                                                                                                            | What depends on it                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Should screens use Spanish, English, or both?                                                                                         | Confirmed: Spanish is primary/default; development and internal planning use English. An optional English interface is undecided. | Spanish navigation, representative content, and interface review; English development terminology          |
+| After structure approval, should the first functional focus be AI proposal drafting, the WhatsApp inbox, or client/equipment records? | Confirmed: AI proposal drafting and in-app editing                                                                                | Prioritize minimum client, equipment/pricing, access, and draft-persistence foundations; messaging follows |
+| Does owner-confirmed acceptance only accept the proposal, also confirm the event, or additionally reserve equipment?                  | Asked; awaiting answer                                                                                                            | Acceptance action consequences and stock checks                                                            |
 
 Until the acceptance consequence is decided, the planning assumption is that proposal acceptance, event confirmation, and equipment reservation are separate actions. Any later combined action must check stock and other agreed booking gates before reporting success. This assumption does not weaken the confirmed requirement that the owner makes the acceptance decision.
 
@@ -218,18 +219,18 @@ An event contains name, type, customer, contacts, venue/rooms, event time zone, 
 
 Recommended event tabs:
 
-| Tab | Contents |
-| --- | --- |
-| Overview | Summary, owner, status, requirements, next actions, missing information |
-| Schedule | Sessions, setup, rehearsals, show time, teardown, transport windows |
-| Venue & Design | Rooms, references, layouts, versions, 2D/3D entry points |
-| Equipment | Requirements, mapped products, quantities, shortages, reservations |
-| Commercial | Budget, quotations, approvals, changes, cost summary; permission restricted |
-| Team & Production | Assignments, tasks, run of show, preparation and return checklists |
-| Creative Assets | Concepts, branding, selected proposal visuals |
-| Messages | Client conversations linked to the event and exact shared proposal versions |
-| Documents | Files and exported deliverables with revision references |
-| Activity | Status changes, approvals, comments, and audit history |
+| Tab               | Contents                                                                    |
+| ----------------- | --------------------------------------------------------------------------- |
+| Overview          | Summary, owner, status, requirements, next actions, missing information     |
+| Schedule          | Sessions, setup, rehearsals, show time, teardown, transport windows         |
+| Venue & Design    | Rooms, references, layouts, versions, 2D/3D entry points                    |
+| Equipment         | Requirements, mapped products, quantities, shortages, reservations          |
+| Commercial        | Budget, quotations, approvals, changes, cost summary; permission restricted |
+| Team & Production | Assignments, tasks, run of show, preparation and return checklists          |
+| Creative Assets   | Concepts, branding, selected proposal visuals                               |
+| Messages          | Client conversations linked to the event and exact shared proposal versions |
+| Documents         | Files and exported deliverables with revision references                    |
+| Activity          | Status changes, approvals, comments, and audit history                      |
 
 Candidate lifecycle: inquiry → planning → confirmed → preparation → in production → completed → archived, with cancellation handled separately. Proposal approval, payment, layout publication, and equipment fulfillment have their own states. Confirm transition rules before implementation.
 
@@ -355,21 +356,21 @@ Use configurable role permissions plus organization, event-assignment, record-st
 
 Permission legend: **V** view, **C** create, **E** edit, **A** approve/publish in the stated domain, **X** export, **D** archive/delete subject to retention rules. **Own** means assigned records; **Shared** means deliberately published client material. A dash denies access by default. This matrix is a proposed starting policy, not a confirmed business rule.
 
-| Module | Super Administrator | Administrator | Sales Manager | Event Designer | Production Manager | Technician | Client / Guest |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Dashboard | V, aggregate scope | VX | VX commercial scope | V Own | VX Own | V Own | V Shared event summary |
-| Events | Delegated organization access | VCEAXD | VCEX | VE Own design fields | VCEAX Own production fields | V Own; assigned updates | V Shared |
-| Clients / opportunities | Delegated organization access | VCEXD | VCEX | V Own essential contacts | V Own essential contacts | V Own onsite contacts | V Shared own profile |
-| Venues / rooms | Delegated organization access | VCEAXD | VX | VCEX | VCEAX | V Own | V Shared |
-| 2D / 3D layouts | Delegated organization access | VCEAXD | VX approved revisions | VCEX | VEAX Own | V Own published revisions | VX Shared |
-| Creative assets | Delegated organization access | VCEAXD | VCEX | VCEX | VX Own | V Shared | VX Shared |
-| Proposals / prices | Delegated organization access | VCEAXD | VCEX; A only if delegated | V Own nonfinancial scope | V Own scope; costs if granted | — | VX Shared; A own proposal |
-| Client inbox | Deferred at launch | VCEAXD; sending and acceptance confirmation owner-only | VCE Own drafts; submit for owner review | V Own if granted | VCE Own operational drafts if granted | — by default | Own external conversation only |
-| Inventory / reservations | Delegated organization access | VCEAXD | V availability; C requests | V availability; C requirements | VCEAX | VE Own custody/checklists | V Shared equipment scope |
-| Team / production | Delegated organization access | VCEAXD | V Own milestones | V Own; E own tasks | VCEAX | VE Own tasks | V Shared milestones |
-| AI assistant | Platform policy, no automatic content access | VCE within access scope | VCE within access scope | VCE within access scope | VCE within access scope | VCE Own permitted tasks | Disabled initially |
-| Reports | V platform aggregates | VX | VX commercial scope | V Own design scope | VX operations scope | — | — |
-| Settings / audit | VCEAD platform administration | VCEX organization administration | V own preferences | V own preferences | V own preferences | V own preferences | V own preferences |
+| Module                   | Super Administrator                          | Administrator                                          | Sales Manager                           | Event Designer                 | Production Manager                    | Technician                | Client / Guest                 |
+| ------------------------ | -------------------------------------------- | ------------------------------------------------------ | --------------------------------------- | ------------------------------ | ------------------------------------- | ------------------------- | ------------------------------ |
+| Dashboard                | V, aggregate scope                           | VX                                                     | VX commercial scope                     | V Own                          | VX Own                                | V Own                     | V Shared event summary         |
+| Events                   | Delegated organization access                | VCEAXD                                                 | VCEX                                    | VE Own design fields           | VCEAX Own production fields           | V Own; assigned updates   | V Shared                       |
+| Clients / opportunities  | Delegated organization access                | VCEXD                                                  | VCEX                                    | V Own essential contacts       | V Own essential contacts              | V Own onsite contacts     | V Shared own profile           |
+| Venues / rooms           | Delegated organization access                | VCEAXD                                                 | VX                                      | VCEX                           | VCEAX                                 | V Own                     | V Shared                       |
+| 2D / 3D layouts          | Delegated organization access                | VCEAXD                                                 | VX approved revisions                   | VCEX                           | VEAX Own                              | V Own published revisions | VX Shared                      |
+| Creative assets          | Delegated organization access                | VCEAXD                                                 | VCEX                                    | VCEX                           | VX Own                                | V Shared                  | VX Shared                      |
+| Proposals / prices       | Delegated organization access                | VCEAXD                                                 | VCEX; A only if delegated               | V Own nonfinancial scope       | V Own scope; costs if granted         | —                         | VX Shared; A own proposal      |
+| Client inbox             | Deferred at launch                           | VCEAXD; sending and acceptance confirmation owner-only | VCE Own drafts; submit for owner review | V Own if granted               | VCE Own operational drafts if granted | — by default              | Own external conversation only |
+| Inventory / reservations | Delegated organization access                | VCEAXD                                                 | V availability; C requests              | V availability; C requirements | VCEAX                                 | VE Own custody/checklists | V Shared equipment scope       |
+| Team / production        | Delegated organization access                | VCEAXD                                                 | V Own milestones                        | V Own; E own tasks             | VCEAX                                 | VE Own tasks              | V Shared milestones            |
+| AI assistant             | Platform policy, no automatic content access | VCE within access scope                                | VCE within access scope                 | VCE within access scope        | VCE within access scope               | VCE Own permitted tasks   | Disabled initially             |
+| Reports                  | V platform aggregates                        | VX                                                     | VX commercial scope                     | V Own design scope             | VX operations scope                   | —                         | —                              |
+| Settings / audit         | VCEAD platform administration                | VCEX organization administration                       | V own preferences                       | V own preferences              | V own preferences                     | V own preferences         | V own preferences              |
 
 Production approval does not grant commercial approval. Inbox edit permission applies to unsent drafts and internal metadata, not rewriting sent client messages. Model separate permissions to prepare messages, confirm sending, confirm acceptance, export conversations, and manage the channel connection. In the confirmed launch policy, only the owner confirms outgoing messages and acceptance; staff may prepare drafts. No role or AI process gains autonomous sending from this matrix.
 
@@ -411,40 +412,40 @@ No Meta account, API, webhook, AI integration, message sending, or client commun
 
 This section describes business concepts and relationships, not physical tables or storage design.
 
-| Entity | Information owned | Key relationships |
-| --- | --- | --- |
-| Organization | Business identity, branding, operating policies | Owns business records; contains memberships |
-| User | Person/account identity, personal preferences | Participates through organization memberships |
-| Membership and role | Organization participation, permissions, access scope | Connects user, organization, roles, and assignments |
-| Customer and contact | Company/person details, billing/approval contacts | Customer has contacts, opportunities, events, proposals |
-| Opportunity | Inquiry, requirements, expected value, sales stage | Belongs to customer; may convert to event |
-| Venue | Location, contacts, shared restrictions | Contains rooms; reused by many events |
-| Venue room | Dimensions, units, infrastructure, references | Belongs to venue; used by schedules and layouts |
-| Project | Optional umbrella scope and owner | Groups related events if needed |
-| Event | Operational identity, requirements, customer, dates, budget, status | Links rooms, team, layouts, proposals, requirements, and tasks |
-| Schedule block | Session or operational interval, time zone, location | Belongs to event; informs crew/equipment windows |
-| Floor-plan reference | Original file, source, scale calibration, verified dimensions | Referenced by a room or event layout |
-| Layout | Named design belonging to an event/room or reusable template | Has layout versions |
-| Layout version | Structured geometry, object identities, dimensions, annotations, revision status | References venue snapshot, objects, mappings, and validation state |
-| Layout object | Position, orientation, dimensions, label, semantic type | Belongs to layout version; may map to equipment |
-| 3D scene/view | Scene presentation settings, asset mappings, cameras, snapshots | References a specific layout version; does not own a competing geometry copy |
-| Equipment catalog item | Product specifications, rate references, visuals, category | Maps to stock, packages, layout objects, requirements, and quote lines |
-| Stock unit/pool and package | Physical identity or counted stock; package composition | Supplies reservations and fulfillment |
-| Equipment requirement | Needed product/function, quantity, timing, source | Belongs to event; may originate from layout or manual planning |
-| Equipment reservation | Allocation, quantity/units, occupied interval, hold/confirmation state | Connects event requirements to stock or supplier commitments |
-| Proposal | Commercial document identity, customer/event linkage | Has proposal versions and review history |
-| Proposal version and line item | Frozen commercial content, prices, terms, visual references | Tied to selected event/design information and approval decisions |
-| Approval and change request | Actor, authority, decision, time, exact revision, requested change | References proposal, design, or production decision |
-| Creative asset | Media, references, provenance, versions, review/share status | Links event, brand assets, conversations, and proposal sections |
-| AI conversation | Scope, messages, context references, proposed actions | Belongs to workspace/event; restricted to permitted participants |
-| Client conversation | Channel, customer/contact, assigned staff, event/booking links, attention state | Contains external messages; separate from internal AI chat |
-| Client message | Direction, sender, content/attachments, channel reference, timestamp, delivery state | Belongs to conversation; may reference an exact proposal version |
-| Acceptance evidence | Responding contact, source message/review action, proposal revision, review decision | Supports an approval; ambiguous replies remain unconfirmed |
-| Rental booking, if approved | Equipment-only scope, dates, pickup/delivery, return conditions | Links customer, quotation, reservations, and custody without mandatory venue/design |
-| Crew assignment | Person, role, location, shift, availability state | Connects event/schedule to user or approved external crew record |
-| Production task | Owner, deadline, dependencies, state, completion evidence | Belongs to event and optionally an assignment or fulfillment step |
-| Document/attachment | File identity, owner, version, visibility, source | Linked to records without implying universal access |
-| Activity/audit entry | Actor, action, target, timestamp, revision references | Records business changes and decisions; protected from casual edits |
+| Entity                         | Information owned                                                                    | Key relationships                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Organization                   | Business identity, branding, operating policies                                      | Owns business records; contains memberships                                         |
+| User                           | Person/account identity, personal preferences                                        | Participates through organization memberships                                       |
+| Membership and role            | Organization participation, permissions, access scope                                | Connects user, organization, roles, and assignments                                 |
+| Customer and contact           | Company/person details, billing/approval contacts                                    | Customer has contacts, opportunities, events, proposals                             |
+| Opportunity                    | Inquiry, requirements, expected value, sales stage                                   | Belongs to customer; may convert to event                                           |
+| Venue                          | Location, contacts, shared restrictions                                              | Contains rooms; reused by many events                                               |
+| Venue room                     | Dimensions, units, infrastructure, references                                        | Belongs to venue; used by schedules and layouts                                     |
+| Project                        | Optional umbrella scope and owner                                                    | Groups related events if needed                                                     |
+| Event                          | Operational identity, requirements, customer, dates, budget, status                  | Links rooms, team, layouts, proposals, requirements, and tasks                      |
+| Schedule block                 | Session or operational interval, time zone, location                                 | Belongs to event; informs crew/equipment windows                                    |
+| Floor-plan reference           | Original file, source, scale calibration, verified dimensions                        | Referenced by a room or event layout                                                |
+| Layout                         | Named design belonging to an event/room or reusable template                         | Has layout versions                                                                 |
+| Layout version                 | Structured geometry, object identities, dimensions, annotations, revision status     | References venue snapshot, objects, mappings, and validation state                  |
+| Layout object                  | Position, orientation, dimensions, label, semantic type                              | Belongs to layout version; may map to equipment                                     |
+| 3D scene/view                  | Scene presentation settings, asset mappings, cameras, snapshots                      | References a specific layout version; does not own a competing geometry copy        |
+| Equipment catalog item         | Product specifications, rate references, visuals, category                           | Maps to stock, packages, layout objects, requirements, and quote lines              |
+| Stock unit/pool and package    | Physical identity or counted stock; package composition                              | Supplies reservations and fulfillment                                               |
+| Equipment requirement          | Needed product/function, quantity, timing, source                                    | Belongs to event; may originate from layout or manual planning                      |
+| Equipment reservation          | Allocation, quantity/units, occupied interval, hold/confirmation state               | Connects event requirements to stock or supplier commitments                        |
+| Proposal                       | Commercial document identity, customer/event linkage                                 | Has proposal versions and review history                                            |
+| Proposal version and line item | Frozen commercial content, prices, terms, visual references                          | Tied to selected event/design information and approval decisions                    |
+| Approval and change request    | Actor, authority, decision, time, exact revision, requested change                   | References proposal, design, or production decision                                 |
+| Creative asset                 | Media, references, provenance, versions, review/share status                         | Links event, brand assets, conversations, and proposal sections                     |
+| AI conversation                | Scope, messages, context references, proposed actions                                | Belongs to workspace/event; restricted to permitted participants                    |
+| Client conversation            | Channel, customer/contact, assigned staff, event/booking links, attention state      | Contains external messages; separate from internal AI chat                          |
+| Client message                 | Direction, sender, content/attachments, channel reference, timestamp, delivery state | Belongs to conversation; may reference an exact proposal version                    |
+| Acceptance evidence            | Responding contact, source message/review action, proposal revision, review decision | Supports an approval; ambiguous replies remain unconfirmed                          |
+| Rental booking, if approved    | Equipment-only scope, dates, pickup/delivery, return conditions                      | Links customer, quotation, reservations, and custody without mandatory venue/design |
+| Crew assignment                | Person, role, location, shift, availability state                                    | Connects event/schedule to user or approved external crew record                    |
+| Production task                | Owner, deadline, dependencies, state, completion evidence                            | Belongs to event and optionally an assignment or fulfillment step                   |
+| Document/attachment            | File identity, owner, version, visibility, source                                    | Linked to records without implying universal access                                 |
+| Activity/audit entry           | Actor, action, target, timestamp, revision references                                | Records business changes and decisions; protected from casual edits                 |
 
 ### Relationship and ownership rules
 
@@ -519,19 +520,19 @@ Acceptance of an older revision, multiple offers in one conversation, a changed 
 
 These are requirements to refine before selecting implementation tools.
 
-| Area | Planned expectation | Decision/evidence needed |
-| --- | --- | --- |
-| Access and isolation | Organization, assignment, and sharing boundaries apply to records, files, search, exports, and AI context | Approved access scenarios and tenant model |
-| Collaboration | Clear revision conflicts and ownership; no silent lost changes | Whether real-time coediting is needed at launch |
-| Recovery | Recover drafts and retain approved business history | Acceptable data-loss and restoration targets |
-| Performance | Usable directories, editor interaction, scene navigation, and export | Typical/worst-case events, objects, files, users, devices, and measurable targets |
-| Reliability | AI or export failure does not lose core event data; partial actions are visible | Failure/retry expectations and operational support model |
-| Audit | Approval, sharing, permission changes, reservations, and significant edits have attributable history | Retention, export, and authorized audit readership |
-| Privacy | Client sharing exposes selected materials only; AI context respects record access | Retention, data-location, and approved AI usage policies |
-| Accessibility | Keyboard and touch workflows; readable states and alternatives to color-only meaning | Acceptance tasks and supported devices |
-| Localization | Spanish primary/default interface; English development documentation; explicit units, event time zones, currency, and date formats | Regional Spanish terminology, optional English interface, client document languages, tax rules, and rounding examples |
-| Data onboarding | Identify import sources, duplicates, mandatory fields, and validation | Representative customer, equipment, price, and venue files |
-| Portability | Export approved documents and business data with permission checks | Required file formats and handoff destinations |
+| Area                 | Planned expectation                                                                                                                | Decision/evidence needed                                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Access and isolation | Organization, assignment, and sharing boundaries apply to records, files, search, exports, and AI context                          | Approved access scenarios and tenant model                                                                            |
+| Collaboration        | Clear revision conflicts and ownership; no silent lost changes                                                                     | Whether real-time coediting is needed at launch                                                                       |
+| Recovery             | Recover drafts and retain approved business history                                                                                | Acceptable data-loss and restoration targets                                                                          |
+| Performance          | Usable directories, editor interaction, scene navigation, and export                                                               | Typical/worst-case events, objects, files, users, devices, and measurable targets                                     |
+| Reliability          | AI or export failure does not lose core event data; partial actions are visible                                                    | Failure/retry expectations and operational support model                                                              |
+| Audit                | Approval, sharing, permission changes, reservations, and significant edits have attributable history                               | Retention, export, and authorized audit readership                                                                    |
+| Privacy              | Client sharing exposes selected materials only; AI context respects record access                                                  | Retention, data-location, and approved AI usage policies                                                              |
+| Accessibility        | Keyboard and touch workflows; readable states and alternatives to color-only meaning                                               | Acceptance tasks and supported devices                                                                                |
+| Localization         | Spanish primary/default interface; English development documentation; explicit units, event time zones, currency, and date formats | Regional Spanish terminology, optional English interface, client document languages, tax rules, and rounding examples |
+| Data onboarding      | Identify import sources, duplicates, mandatory fields, and validation                                                              | Representative customer, equipment, price, and venue files                                                            |
+| Portability          | Export approved documents and business data with permission checks                                                                 | Required file formats and handoff destinations                                                                        |
 
 ## 9. Conceptual future folder organization
 
@@ -539,29 +540,29 @@ The repository already uses `src/application/`, `src/modules/`, `src/shared/`, `
 
 For example, shell responsibilities map to `src/application/`; business modules currently live in `src/modules/`; shared experience and business concepts map to `src/shared/`; future server-side access and integration responsibilities belong behind the existing `server/` boundary; verification maps to the existing tests. No file moves or folder creation are part of this plan.
 
-| Proposed area | Responsibility |
-| --- | --- |
-| `docs/` | Product plan, decision records, workflow specifications, later acceptance evidence |
-| `application/shell/` | Navigation, workspace context, page framing, global search entry points |
-| `application/modules/dashboard/` | Role-relevant overview |
-| `application/modules/events/` | Events, schedules, project grouping, connected event workspace |
-| `application/modules/clients/` | Customers, contacts, opportunities |
-| `application/modules/venues/` | Reusable venue and room library |
-| `application/modules/design/` | Shared layout concepts and separate 2D/3D workspaces |
-| `application/modules/creative/` | Creative briefs, assets, reviews |
-| `application/modules/proposals/` | Commercial drafts, templates, versions, approval presentation |
-| `application/modules/messaging/` | Client inbox, external messages, send/review authority, acceptance evidence |
-| `application/modules/inventory/` | Catalog, availability, allocations, stock lifecycle |
-| `application/modules/production/` | Crew, tasks, run of show, fulfillment |
-| `application/modules/assistant/` | Conversations, context visibility, proposed action presentation |
-| `application/modules/settings/` | Organization settings and administrative experiences |
-| `application/modules/reports/` | Permission-scoped reporting when definitions stabilize |
-| `shared/experience/` | Reusable record views, selectors, status displays, forms, editor patterns |
-| `shared/business/` | Shared money, time, units, lifecycle, ownership, and revision concepts |
-| `shared/access/` | Common permission and sharing rules |
-| `shared/documents/` | Attachment, media reference, and export responsibilities |
-| `integrations/` | Future boundaries for approved external capabilities; no provider selected |
-| `verification/` | Later cross-module acceptance scenarios and representative fixtures |
+| Proposed area                     | Responsibility                                                                     |
+| --------------------------------- | ---------------------------------------------------------------------------------- |
+| `docs/`                           | Product plan, decision records, workflow specifications, later acceptance evidence |
+| `application/shell/`              | Navigation, workspace context, page framing, global search entry points            |
+| `application/modules/dashboard/`  | Role-relevant overview                                                             |
+| `application/modules/events/`     | Events, schedules, project grouping, connected event workspace                     |
+| `application/modules/clients/`    | Customers, contacts, opportunities                                                 |
+| `application/modules/venues/`     | Reusable venue and room library                                                    |
+| `application/modules/design/`     | Shared layout concepts and separate 2D/3D workspaces                               |
+| `application/modules/creative/`   | Creative briefs, assets, reviews                                                   |
+| `application/modules/proposals/`  | Commercial drafts, templates, versions, approval presentation                      |
+| `application/modules/messaging/`  | Client inbox, external messages, send/review authority, acceptance evidence        |
+| `application/modules/inventory/`  | Catalog, availability, allocations, stock lifecycle                                |
+| `application/modules/production/` | Crew, tasks, run of show, fulfillment                                              |
+| `application/modules/assistant/`  | Conversations, context visibility, proposed action presentation                    |
+| `application/modules/settings/`   | Organization settings and administrative experiences                               |
+| `application/modules/reports/`    | Permission-scoped reporting when definitions stabilize                             |
+| `shared/experience/`              | Reusable record views, selectors, status displays, forms, editor patterns          |
+| `shared/business/`                | Shared money, time, units, lifecycle, ownership, and revision concepts             |
+| `shared/access/`                  | Common permission and sharing rules                                                |
+| `shared/documents/`               | Attachment, media reference, and export responsibilities                           |
+| `integrations/`                   | Future boundaries for approved external capabilities; no provider selected         |
+| `verification/`                   | Later cross-module acceptance scenarios and representative fixtures                |
 
 Keep commercial calculations and access rules consistent across modules. Separate shared spatial data from rendering views, and keep AI suggestions from becoming an alternative source of business truth. Do not physically scaffold this structure during planning.
 
@@ -622,7 +623,7 @@ Completion recorded October 15, 2026: all primary destinations, event tabs, reco
 
 Phase 3 is delivered through separately reviewable milestones: **3A — AI proposal drafting and editing (confirmed first functional release)**; 3B — owner-confirmed outbound sending and an inbound/outbound inbox; 3C — version-specific acceptance and notifications; 3D — confirmed operational handoff. Completion of 3A does not depend on completion of 3B–3D.
 
-#### Phase 3A — First functional release: AI proposal drafting and editing
+#### Phase 3A — First functional release: AI proposal drafting and editing — **Local showcase complete**
 
 - **Objective:** let the owner turn an event request into a saved, editable proposal inside the app.
 - **Scope:** select an existing client, enter an event brief, request a draft, resolve missing information, edit proposal sections and itemized pricing, save/reopen drafts, and preview the result. The interface uses Spanish; Spanish draft content is the proposed default pending client-language requirements.
@@ -632,7 +633,25 @@ Phase 3 is delivered through separately reviewable milestones: **3A — AI propo
 - **Risks:** unsupported prices, missing client context, AI overwriting edits, incorrect totals, and expanding the milestone into full CRM or messaging delivery.
 - **Completion:** the owner approves the representative draft-to-edit-to-save workflow and its error recovery. WhatsApp delivery, client acceptance review, advanced visual editing, and operational fulfillment remain tracked in their subsequent milestones.
 
-### Phase 4 — Structured 2D floor-plan editor
+Local completion recorded October 15, 2026: the Spanish workflow generates a reviewable suggestion through a replaceable server adapter, flags missing information and catalog rates, shows model/date provenance and generation history, applies only owner-selected replacements, saves and reopens edits, verifies totals, and keeps manual drafting available after provider failure. Automated tests use an explicit local model substitute. Live quality approval remains a deployment checkpoint after the company chooses its tools, supplies API credentials, and provides representative proposals and pricing.
+
+#### Phase 3B — Owner-reviewed messaging and inbox — **Local showcase complete**
+
+- **Objective:** prepare an exact outgoing message, require owner confirmation, and preserve inbound/outbound history and delivery state without committing to a messaging provider.
+- **Local completion:** staff-authorable drafts, an owner review queue, exact proposal revision links, a provider-neutral transport contract, durable queued/sent/delivered/failed states, immutable stored messages, duplicate-send rejection, and sample inbound conversations are implemented. A proposal becomes issued only after the transport reports success. Local and automated transport substitutes make the workflow demonstrable without contacting clients.
+- **Live checkpoint:** choose the approved messaging tool, provide credentials and channel information, validate recipient and consent rules, implement the provider adapter and signed inbound webhook, and test delivery events with controlled recipients. No showcase result is evidence of real delivery.
+
+#### Phase 3C — Version-specific acceptance and notifications — **Local showcase complete**
+
+The local showcase accepts verified provider-neutral intake events through an owner-only demonstration boundary, deduplicates external message IDs, and preserves incoming content and channel references. Acceptance signals linked to the exact issued proposal revision enter owner review; ambiguous signals enter a linking queue and expose no acceptance action. Notifications open the relevant conversation, and confirmed decisions preserve the exact source message, proposal revision, owner and decision time. Live inbound delivery remains deferred until the approved channel and signed webhook requirements are known.
+
+#### Phase 3D — Confirmed operational handoff — **Local showcase complete**
+
+Connect an owner-confirmed accepted proposal to explicit availability confirmation, equipment allocation, crew ownership, production readiness and closeout states. Acceptance alone must continue to avoid reserving stock, collecting payment, assigning staff or confirming production.
+
+Local completion recorded October 15, 2026: the production workspace evaluates an accepted current proposal revision, confirmed equipment quantities covering the complete event window, and named production task owners before enabling preparation or execution. The same rules are enforced at the server boundary. Closeout requires the event to be in production, every task complete, and every allocation returned or cancelled. Acceptance remains a separate action and creates none of these operational records. Detailed shifts, custody, partial returns, damage, transport, actual costs, and company-specific deposit or contract gates remain later operational work.
+
+### Phase 4 — Structured 2D floor-plan editor — **Next**
 
 - **Objective:** produce reusable, dimensioned event layouts.
 - **Scope:** reference upload/calibration, room geometry, object placement/manipulation, layers, labels, dimensions, versioning, equipment mapping, and agreed exports.
@@ -715,20 +734,20 @@ Each development phase finishes with evidence appropriate to its scope, document
 
 ### Principal architectural risks
 
-| Risk | Consequence | Planned mitigation |
-| --- | --- | --- |
-| Disconnected module records | Different prices, quantities, dates, or client details across views | Shared ownership rules and version references |
-| Independent 2D/3D geometry | Visual plans disagree with production dimensions | Shared structured layout; explicit derived views |
-| Full product attempted before a pilot | Long development with no validated operational value | Approve a narrow complete workflow first |
-| Mutable approved proposals | Disputes over scope and pricing | Immutable issued/accepted revisions and traceable changes |
-| Naive availability counts | Double booking or unavailable gear at dispatch | Time-window allocations and confirmation-time conflict checks |
-| Unreviewed AI actions or context | Incorrect scope, disclosure, or unauthorized changes | Permission-aware context, previews, human authority, activity history |
-| Unverified imported geometry | Misleading drawings and scenes | Calibration, source provenance, verification state, manual correction |
-| Weak organization/client boundaries | Exposure of another company's or client's information | Explicit tenant, assignment, and sharing rules across every access path |
-| Expensive media and large scenes | Unpredictable cost and unusable workspaces | Agreed usage limits, object/device targets, staged media capabilities |
-| Unclear financial definitions | Misleading dashboards and proposals | Approved rate, tax, rounding, and reporting examples before implementation |
-| Ambiguous or mislinked WhatsApp acceptance | Wrong offer or superseded revision treated as accepted | Exact revision links, explicit acceptance policy, and review for uncertainty |
-| Uncontrolled outgoing AI messages | Unapproved prices, commitments, or duplicate messages | Separate sending authority, editable previews, staff takeover, and duplicate handling |
+| Risk                                       | Consequence                                                         | Planned mitigation                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Disconnected module records                | Different prices, quantities, dates, or client details across views | Shared ownership rules and version references                                         |
+| Independent 2D/3D geometry                 | Visual plans disagree with production dimensions                    | Shared structured layout; explicit derived views                                      |
+| Full product attempted before a pilot      | Long development with no validated operational value                | Approve a narrow complete workflow first                                              |
+| Mutable approved proposals                 | Disputes over scope and pricing                                     | Immutable issued/accepted revisions and traceable changes                             |
+| Naive availability counts                  | Double booking or unavailable gear at dispatch                      | Time-window allocations and confirmation-time conflict checks                         |
+| Unreviewed AI actions or context           | Incorrect scope, disclosure, or unauthorized changes                | Permission-aware context, previews, human authority, activity history                 |
+| Unverified imported geometry               | Misleading drawings and scenes                                      | Calibration, source provenance, verification state, manual correction                 |
+| Weak organization/client boundaries        | Exposure of another company's or client's information               | Explicit tenant, assignment, and sharing rules across every access path               |
+| Expensive media and large scenes           | Unpredictable cost and unusable workspaces                          | Agreed usage limits, object/device targets, staged media capabilities                 |
+| Unclear financial definitions              | Misleading dashboards and proposals                                 | Approved rate, tax, rounding, and reporting examples before implementation            |
+| Ambiguous or mislinked WhatsApp acceptance | Wrong offer or superseded revision treated as accepted              | Exact revision links, explicit acceptance policy, and review for uncertainty          |
+| Uncontrolled outgoing AI messages          | Unapproved prices, commitments, or duplicate messages               | Separate sending authority, editable previews, staff takeover, and duplicate handling |
 
 ## 12. Questions for business review
 

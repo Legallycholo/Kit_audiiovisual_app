@@ -96,6 +96,144 @@ export function validateReservation(
   if (candidate.quantity > available)
     throw new Error(`Only ${available} units are available for this window.`);
 }
+
+export interface ProductionReadiness {
+  acceptedProposal?: Proposal;
+  acceptedScopeReady: boolean;
+  equipmentReady: boolean;
+  crewReady: boolean;
+  ready: boolean;
+  blockers: string[];
+  requirements: {
+    equipmentId: string;
+    required: number;
+    confirmed: number;
+  }[];
+  closeoutReady: boolean;
+  closeoutBlockers: string[];
+}
+
+/**
+ * Evaluates the explicit gates between commercial acceptance and operations.
+ * It never mutates the workspace or creates reservations or assignments.
+ */
+export function productionReadiness(
+  workspace: Workspace,
+  eventId: string,
+): ProductionReadiness {
+  const event = workspace.events.find((item) => item.id === eventId);
+  if (!event) throw new Error("Event not found.");
+
+  const accepted = workspace.proposals
+    .filter(
+      (proposal) =>
+        proposal.eventId === eventId && proposal.status === "Accepted",
+    )
+    .sort(
+      (a, b) =>
+        (b.acceptedAt || "").localeCompare(a.acceptedAt || "") ||
+        b.version - a.version,
+    )[0];
+  const hasNewerRevision = Boolean(
+    accepted &&
+    workspace.proposals.some(
+      (proposal) =>
+        proposal.number === accepted.number &&
+        proposal.version > accepted.version,
+    ),
+  );
+  const acceptedScopeReady = Boolean(accepted && !hasNewerRevision);
+
+  const requiredByEquipment = new Map<string, number>();
+  for (const line of accepted?.lines || []) {
+    if (!line.equipmentId) continue;
+    requiredByEquipment.set(
+      line.equipmentId,
+      (requiredByEquipment.get(line.equipmentId) || 0) + line.quantity,
+    );
+  }
+  const requirements = [...requiredByEquipment].map(
+    ([equipmentId, required]) => ({
+      equipmentId,
+      required,
+      confirmed: workspace.reservations
+        .filter(
+          (reservation) =>
+            reservation.eventId === eventId &&
+            reservation.equipmentId === equipmentId &&
+            ["Confirmed", "Dispatched"].includes(reservation.status) &&
+            reservation.start <= event.date &&
+            reservation.end >= event.endDate,
+        )
+        .reduce((sum, reservation) => sum + reservation.quantity, 0),
+    }),
+  );
+  const equipmentReady =
+    acceptedScopeReady &&
+    requirements.every((item) => item.confirmed >= item.required);
+  const tasks = workspace.tasks.filter((task) => task.eventId === eventId);
+  const crewReady =
+    tasks.length > 0 &&
+    tasks.every((task) => Boolean(task.assignee.trim() && task.role.trim()));
+
+  const blockers: string[] = [];
+  if (!accepted)
+    blockers.push(
+      "Se requiere una propuesta aceptada y confirmada por el propietario.",
+    );
+  else if (hasNewerRevision)
+    blockers.push(
+      "Reconcilia el alcance aceptado con la versión más reciente de la propuesta.",
+    );
+  if (acceptedScopeReady)
+    for (const item of requirements.filter(
+      (requirement) => requirement.confirmed < requirement.required,
+    )) {
+      const equipment = workspace.equipment.find(
+        (record) => record.id === item.equipmentId,
+      );
+      blockers.push(
+        `Confirma ${item.required - item.confirmed} más × ${equipment?.name || item.equipmentId} para las fechas del evento.`,
+      );
+    }
+  if (!tasks.length)
+    blockers.push(
+      "Agrega al menos una tarea de producción con una persona responsable.",
+    );
+  else if (!crewReady)
+    blockers.push("Asigna una persona y un rol a cada tarea de producción.");
+  if (["Cancelled", "Completed"].includes(event.status))
+    blockers.push("Este evento no está en un estado de producción activo.");
+
+  const eventReservations = workspace.reservations.filter(
+    (reservation) => reservation.eventId === eventId,
+  );
+  const closeoutBlockers: string[] = [];
+  if (!["In production", "Completed"].includes(event.status))
+    closeoutBlockers.push("Mueve el evento a producción antes del cierre.");
+  if (tasks.some((task) => !task.done))
+    closeoutBlockers.push("Completa todas las tareas de producción.");
+  if (
+    eventReservations.some(
+      (reservation) => !["Returned", "Cancelled"].includes(reservation.status),
+    )
+  )
+    closeoutBlockers.push(
+      "Devuelve o cancela todas las asignaciones de equipos.",
+    );
+
+  return {
+    acceptedProposal: accepted,
+    acceptedScopeReady,
+    equipmentReady,
+    crewReady,
+    ready: blockers.length === 0,
+    blockers,
+    requirements,
+    closeoutReady: closeoutBlockers.length === 0,
+    closeoutBlockers,
+  };
+}
 export function acceptConversation(
   workspace: Workspace,
   conversationId: string,
@@ -116,6 +254,22 @@ export function acceptConversation(
     throw new Error(
       "This response does not reference the current issued proposal. Review the correct revision first.",
     );
+  const sourceMessage = conversation.reviewMessageId
+    ? conversation.messages.find(
+        (message) => message.id === conversation.reviewMessageId,
+      )
+    : conversation.messages
+        .filter((message) => message.direction === "in")
+        .at(-1);
+  if (
+    !sourceMessage ||
+    sourceMessage.direction !== "in" ||
+    sourceMessage.proposalId !== conversation.proposalId ||
+    sourceMessage.proposalVersion !== conversation.proposalVersion
+  )
+    throw new Error(
+      "This response is not linked to the exact proposal revision under review.",
+    );
   if (
     workspace.proposals.some(
       (p) => p.number === proposal.number && p.version > proposal.version,
@@ -131,7 +285,19 @@ export function acceptConversation(
       p.id === proposal.id ? { ...p, status: "Accepted", acceptedAt: now } : p,
     ),
     conversations: workspace.conversations.map((c) =>
-      c.id === conversation.id ? { ...c, review: "Confirmed" } : c,
+      c.id === conversation.id
+        ? {
+            ...c,
+            review: "Confirmed",
+            reviewMessageId: sourceMessage.id,
+            acceptanceEvidence: {
+              messageId: sourceMessage.id,
+              proposalId: proposal.id,
+              proposalVersion: proposal.version,
+              decidedAt: now,
+            },
+          }
+        : c,
     ),
     activity: [
       {

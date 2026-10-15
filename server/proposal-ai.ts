@@ -115,6 +115,14 @@ export function materializeSuggestion(
     };
   });
   const questions = [...suggestion.questions];
+  if (!context.event.type.trim())
+    questions.push("Confirmar el tipo de evento.");
+  if (!context.event.notes.trim())
+    questions.push("Confirmar los requisitos y notas operativas del evento.");
+  if (context.event.attendees < 1)
+    questions.push("Confirmar la cantidad estimada de asistentes.");
+  if (!context.event.date || !context.event.endDate)
+    questions.push("Confirmar las fechas de inicio y finalización.");
   for (const line of lines)
     if (line.rate === 0)
       questions.push(
@@ -131,7 +139,7 @@ export function materializeSuggestion(
     aiReview: {
       brief: context.brief,
       assumptions: suggestion.assumptions,
-      questions,
+      questions: [...new Set(questions)],
       generatedAt: new Date().toISOString(),
       model,
     },

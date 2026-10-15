@@ -65,7 +65,22 @@ const message = z
     at: z.string().datetime({ offset: true }),
     proposalId: identifier.optional(),
     proposalVersion: z.number().int().positive().optional(),
-    status: z.enum(["Received", "Sample sent", "Draft"]),
+    status: z.enum([
+      "Received",
+      "Sample sent",
+      "Draft",
+      "Queued",
+      "Sent",
+      "Delivered",
+      "Failed",
+    ]),
+    channel: name.optional(),
+    createdBy: identifier.optional(),
+    approvedBy: identifier.optional(),
+    approvedAt: z.string().datetime().optional(),
+    sentAt: z.string().datetime().optional(),
+    providerMessageId: z.string().max(500).optional(),
+    failureReason: z.string().max(2000).optional(),
   })
   .strict();
 export const schemas = {
@@ -197,6 +212,7 @@ export const schemas = {
       messages: z.array(message).max(10000),
       review: z.enum([
         "Pending",
+        "Needs linking",
         "Confirmed",
         "Clarification needed",
         "Not accepted",
@@ -204,6 +220,17 @@ export const schemas = {
       ]),
       proposalId: identifier.optional(),
       proposalVersion: z.number().int().positive().optional(),
+      reviewMessageId: identifier.optional(),
+      acceptanceEvidence: z
+        .object({
+          messageId: identifier,
+          proposalId: identifier,
+          proposalVersion: z.number().int().positive(),
+          decidedAt: z.string().datetime(),
+          ownerId: identifier.optional(),
+        })
+        .strict()
+        .optional(),
     })
     .strict(),
   tasks: z

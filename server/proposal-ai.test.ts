@@ -1,5 +1,9 @@
 import { expect, it, vi } from "vitest";
-import { openAIProposalGenerator, proposalContext } from "./proposal-ai";
+import {
+  materializeSuggestion,
+  openAIProposalGenerator,
+  proposalContext,
+} from "./proposal-ai";
 import { createSeed } from "../src/shared/seed";
 const context = proposalContext(
   createSeed(),
@@ -106,4 +110,28 @@ it("reports provider transport failure without dropping the manual drafting path
       context,
     ),
   ).rejects.toMatchObject({ status: 503 });
+});
+
+it("flags missing requirements and catalog rates in the review notes", () => {
+  const incomplete = structuredClone(context);
+  incomplete.event.type = "";
+  incomplete.event.notes = "";
+  incomplete.event.attendees = 0;
+  incomplete.equipment[0].rate = 0;
+  const result = materializeSuggestion(
+    {
+      ...payload,
+      items: [{ equipmentId: incomplete.equipment[0].id, quantity: 1, days: 1 }],
+    },
+    incomplete,
+    "test-model",
+  );
+  expect(result.aiReview.questions).toEqual(
+    expect.arrayContaining([
+      "Confirmar el tipo de evento.",
+      "Confirmar los requisitos y notas operativas del evento.",
+      "Confirmar la cantidad estimada de asistentes.",
+      expect.stringContaining("el catálogo indica cero"),
+    ]),
+  );
 });

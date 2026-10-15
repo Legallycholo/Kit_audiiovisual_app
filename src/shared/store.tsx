@@ -36,6 +36,10 @@ type Store = {
     options?: { method?: string; body?: unknown },
   ) => Promise<T>;
   confirmAcceptance: (conversationId: string) => Promise<boolean>;
+  confirmMessageSend: (
+    conversationId: string,
+    messageId: string,
+  ) => Promise<boolean>;
 };
 const Context = createContext<Store | null>(null);
 function readSample(): Workspace {
@@ -231,6 +235,60 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setSaving(false);
     }
   };
+  const confirmMessageSend = async (
+    conversationId: string,
+    messageId: string,
+  ) => {
+    if (savingRef.current) return false;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      if (modeRef.current === "sample") {
+        const next = structuredClone(current.current);
+        const conversation = next.conversations.find(
+          (item) => item.id === conversationId,
+        );
+        const message = conversation?.messages.find(
+          (item) => item.id === messageId,
+        );
+        if (!message || message.status !== "Draft") return false;
+        const now = new Date().toISOString();
+        Object.assign(message, {
+          status: "Delivered" as const,
+          channel: "Canal de demostración local",
+          approvedAt: now,
+          sentAt: now,
+          providerMessageId: `showcase-${message.id}`,
+        });
+        const linkedProposal = message.proposalId
+          ? next.proposals.find((item) => item.id === message.proposalId)
+          : undefined;
+        if (linkedProposal?.status === "Ready to send")
+          linkedProposal.status = "Issued";
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        current.current = next;
+        setData(next);
+        toast("Envío de demostración registrado. No se contactó a ningún cliente.");
+        return true;
+      }
+      receive(
+        await request<WorkspaceResponse>(
+          `/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/send`,
+          { method: "POST", body: { revision: version.current } },
+        ),
+      );
+      setStorageError("");
+      toast("El canal confirmó el mensaje.");
+      return true;
+    } catch (error) {
+      setStorageError((error as Error).message);
+      await refresh();
+      return false;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
   const reset = () => {
     if (modeRef.current !== "sample") {
       toast("Sample reset is unavailable in the company workspace.");
@@ -257,6 +315,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         refresh,
         request,
         confirmAcceptance,
+        confirmMessageSend,
       }}
     >
       {gate ? (

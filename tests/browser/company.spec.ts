@@ -3,13 +3,16 @@ import type { Server } from "node:http";
 import { createApp } from "../../server/app";
 import { Repository, HttpError } from "../../server/database";
 import { createSeed } from "../../src/shared/seed";
+import { ingestInboundMessage } from "../../server/messaging";
 import AxeBuilder from "@axe-core/playwright";
 let repo: Repository;
 let server: Server;
 let root: string;
 let failGeneration = false;
+const deliveredMessages: string[] = [];
 test.beforeEach(async ({ page }) => {
   failGeneration = false;
+  deliveredMessages.length = 0;
   repo = new Repository(":memory:");
   server = createApp(repo, {
     origins: ["http://127.0.0.1:5173"],
@@ -27,6 +30,16 @@ test.beforeEach(async ({ page }) => {
           items: [{ equipmentId: "q1", quantity: 2, days: 1 }],
           assumptions: ["Un día de uso."],
           questions: ["Confirmar los horarios de montaje."],
+        };
+      },
+    },
+    messageTransport: {
+      label: "Canal de demostración",
+      send: async (message) => {
+        deliveredMessages.push(message.text);
+        return {
+          externalId: `showcase-${message.idempotencyKey}`,
+          status: "Delivered",
         };
       },
     },
@@ -130,6 +143,10 @@ test("owner reviews AI suggestion, edits, saves, reopens and preserves manual ed
   await expect(
     page.getByRole("region", { name: "Sugerencia de propuesta" }),
   ).toBeVisible();
+  await expect(page.getByText("Generada por IA", { exact: false })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Historial de generación" }),
+  ).toContainText("test-model");
   const before = repo.read().workspace.proposals.length;
   await page
     .getByRole("button", {
@@ -243,4 +260,133 @@ test("provider failure preserves the brief and unsaved manual proposal edits", a
   expect(
     repo.read().workspace.proposals.find((p) => p.id === "p2")?.introduction,
   ).toBe("Conservar este cambio manual sin guardar.");
+});
+
+test("owner reviews an exact outgoing message and sees its delivery state", async ({
+  page,
+}) => {
+  await setup(page);
+  const seed = createSeed();
+  seed.conversations.forEach((conversation) =>
+    conversation.messages.forEach(
+      (message) => (message.at = new Date(message.at).toISOString()),
+    ),
+  );
+  repo.save(seed, 0);
+  await page.getByRole("button", { name: "Actualizar", exact: true }).click();
+  await page.goto("/inbox?conversation=m2");
+  await expect(page.getByText("Canal de demostración", { exact: true })).toBeVisible();
+  await page
+    .getByLabel("Responder al cliente")
+    .fill("Podemos incluir una segunda pantalla. Confirmaremos la tarifa antes de emitir la oferta.");
+  await page.getByRole("button", { name: "Revisar", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Podemos incluir una segunda pantalla");
+  await page
+    .getByRole("button", { name: "Confirmar y enviar", exact: true })
+    .click();
+  await expect(page.getByText("Entregado", { exact: false })).toBeVisible();
+  expect(deliveredMessages).toEqual([
+    "Podemos incluir una segunda pantalla. Confirmaremos la tarifa antes de emitir la oferta.",
+  ]);
+});
+
+test("proposal review creates an exact message and issues only after delivery", async ({
+  page,
+}) => {
+  await setup(page);
+  const seed = createSeed();
+  seed.conversations.forEach((conversation) =>
+    conversation.messages.forEach(
+      (message) => (message.at = new Date(message.at).toISOString()),
+    ),
+  );
+  repo.save(seed, 0);
+  await page.getByRole("button", { name: "Actualizar", exact: true }).click();
+  await page.goto("/proposals/p2");
+  await page
+    .getByRole("button", { name: "Revisar y enviar", exact: true })
+    .click();
+  await page.getByLabel("Mensaje al cliente").fill(
+    "Te compartimos esta versión exacta para revisión.",
+  );
+  await page
+    .getByRole("button", { name: "Preparar en mensajes", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/inbox\?conversation=/);
+  await expect(
+    page.locator(".messages").getByText(
+      "Te compartimos esta versión exacta para revisión.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  expect(
+    repo.read().workspace.proposals.find((proposal) => proposal.id === "p2")
+      ?.status,
+  ).toBe("Ready to send");
+  await page
+    .getByRole("button", { name: "Revisar envío", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Confirmar y enviar", exact: true })
+    .click();
+  await expect(page.getByText("Entregado", { exact: false })).toBeVisible();
+  expect(
+    repo.read().workspace.proposals.find((proposal) => proposal.id === "p2")
+      ?.status,
+  ).toBe("Issued");
+});
+
+test("ambiguous inbound acceptance is deduplicated into a linking review", async ({
+  page,
+}) => {
+  await setup(page);
+  const seed = createSeed();
+  seed.conversations.forEach((conversation) =>
+    conversation.messages.forEach(
+      (message) => (message.at = new Date(message.at).toISOString()),
+    ),
+  );
+  repo.save(seed, 0);
+  const current = repo.read();
+  const first = ingestInboundMessage(current.workspace, {
+    externalId: "ambiguous-browser-1",
+    channel: "Canal de demostración",
+    conversationId: "m2",
+    text: "Sí, adelante con la oferta.",
+    receivedAt: new Date().toISOString(),
+    acceptanceSignal: true,
+  });
+  const duplicate = ingestInboundMessage(first.workspace, {
+    externalId: "ambiguous-browser-1",
+    channel: "Canal de demostración",
+    conversationId: "m2",
+    text: "Sí, adelante con la oferta.",
+    receivedAt: new Date().toISOString(),
+    acceptanceSignal: true,
+  });
+  expect(duplicate.duplicate).toBe(true);
+  repo.save(first.workspace, current.revision);
+  await page.getByRole("button", { name: "Actualizar", exact: true }).click();
+  await page
+    .getByRole("button", { name: /Notificaciones: 2 pendientes/ })
+    .click();
+  await page
+    .getByRole("button", { name: /Vincular respuesta con una oferta/ })
+    .click();
+  await expect(page).toHaveURL(/\/inbox\?conversation=m2/);
+  await expect(
+    page.getByRole("heading", {
+      name: "Esta respuesta necesita vinculación",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Confirmar aceptación", exact: true }),
+  ).not.toBeVisible();
+  await expect(
+    page.locator(".messages").getByText("Sí, adelante con la oferta.", {
+      exact: true,
+    }),
+  ).toHaveCount(1);
 });

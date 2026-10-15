@@ -273,6 +273,7 @@ function Editor({ original }: { original: Proposal }) {
   const [error, setError] = useState("");
   const [preview, setPreview] = useState(false);
   const [sending, setSending] = useState(false);
+  const [outgoingMessage, setOutgoingMessage] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [section, setSection] = useState("Introduction");
   const editable = canEditCollection(user, "proposals");
@@ -343,6 +344,68 @@ function Editor({ original }: { original: Proposal }) {
     toast(
       "Nueva versión abierta. Las versiones y aceptaciones anteriores se conservan.",
     );
+  }
+  async function prepareOutgoingMessage() {
+    if (!client || !outgoingMessage.trim()) return;
+    const existingConversation = data.conversations.find(
+      (conversation) =>
+        conversation.eventId === draft.eventId &&
+        conversation.proposalId === draft.id &&
+        conversation.proposalVersion === draft.version,
+    );
+    const conversationId = existingConversation?.id || id();
+    const message = {
+      id: id(),
+      direction: "out" as const,
+      text: outgoingMessage.trim(),
+      at: new Date().toISOString(),
+      proposalId: draft.id,
+      proposalVersion: draft.version,
+      status: "Draft" as const,
+    };
+    const ready: Proposal = { ...draft, status: "Ready to send" };
+    if (
+      !(await update((workspace) => ({
+        ...workspace,
+        proposals: workspace.proposals.map((proposal) =>
+          proposal.id === ready.id ? ready : proposal,
+        ),
+        conversations: existingConversation
+          ? workspace.conversations.map((conversation) =>
+              conversation.id === conversationId
+                ? {
+                    ...conversation,
+                    messages: [...conversation.messages, message],
+                  }
+                : conversation,
+            )
+          : [
+              ...workspace.conversations,
+              {
+                id: conversationId,
+                clientId: client.id,
+                eventId: draft.eventId,
+                proposalId: draft.id,
+                proposalVersion: draft.version,
+                review: "None" as const,
+                messages: [message],
+              },
+            ],
+        activity: [
+          activity(
+            "Outgoing proposal message prepared",
+            `${draft.number} · revision ${draft.version}`,
+            draft.eventId,
+          ),
+          ...workspace.activity,
+        ],
+      })))
+    )
+      return;
+    setDraft(ready);
+    setSending(false);
+    navigate(`/inbox?conversation=${conversationId}`);
+    toast("Mensaje preparado para revisión del propietario. No se envió todavía.");
   }
   return (
     <>
@@ -711,7 +774,12 @@ function Editor({ original }: { original: Proposal }) {
               )}
               <Button
                 disabled={dirty || Boolean(user && !user.isOwner)}
-                onClick={() => setSending(true)}
+                onClick={() => {
+                  setOutgoingMessage(
+                    `Hola ${client?.contact.split(" ")[0]}, te compartimos la propuesta para ${event?.name}. Quedamos atentos a tus preguntas.`,
+                  );
+                  setSending(true);
+                }}
               >
                 <Send size={15} />
                 {uiLabel("Review & send")}
@@ -776,22 +844,26 @@ function Editor({ original }: { original: Proposal }) {
             <Field label={uiLabel("Message to client")}>
               <textarea
                 rows={4}
-                defaultValue={`Hola ${client?.contact.split(" ")[0]}, te compartimos la propuesta para ${event?.name}. Quedamos atentos a tus preguntas.`}
+                value={outgoingMessage}
+                onChange={(event) => setOutgoingMessage(event.target.value)}
               />
             </Field>
             <div className="connection-note">
               <Send size={20} />
               <div>
-                <strong>{uiLabel("WhatsApp is not connected")}</strong>
+                <strong>Revisión antes del envío</strong>
                 <p>
-                  {uiLabel(
-                    "No message will be sent. Your proposal stays available in the app while the messaging integration is added.",
-                  )}
+                  El mensaje se guardará con esta versión exacta y se abrirá en
+                  Mensajes de clientes. El envío requiere una segunda
+                  confirmación del propietario.
                 </p>
               </div>
             </div>
-            <Button disabled>
-              {uiLabel("Confirm & send \u00B7 connection required")}
+            <Button
+              disabled={!outgoingMessage.trim()}
+              onClick={prepareOutgoingMessage}
+            >
+              Preparar en mensajes
             </Button>
           </div>
         </Modal>

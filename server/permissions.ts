@@ -6,7 +6,11 @@ import {
   type WorkspaceUser,
 } from "../src/shared/access";
 import type { Workspace, Proposal, Conversation } from "../src/shared/types";
-import { quoteTotals, validateReservation } from "../src/shared/domain";
+import {
+  productionReadiness,
+  quoteTotals,
+  validateReservation,
+} from "../src/shared/domain";
 import { HttpError } from "./database";
 import { schemas } from "./schema";
 
@@ -227,7 +231,9 @@ export function applyChanges(
         invalid(
           c.clientId !== old.clientId ||
             c.proposalId !== old.proposalId ||
-            c.proposalVersion !== old.proposalVersion,
+            c.proposalVersion !== old.proposalVersion ||
+            c.reviewMessageId !== old.reviewMessageId ||
+            !same(c.acceptanceEvidence, old.acceptanceEvidence),
           "Conversation links cannot be changed by a draft edit.",
         );
         forbid(
@@ -245,11 +251,24 @@ export function applyChanges(
           );
         for (const m of c.messages.filter(
           (m) => !old.messages.some((n) => n.id === m.id),
-        ))
+        )) {
           invalid(
             m.direction !== "out" || m.status !== "Draft",
             "Only outgoing drafts can be added here.",
           );
+          invalid(
+            Boolean(
+              m.approvedBy ||
+              m.approvedAt ||
+              m.sentAt ||
+              m.providerMessageId ||
+              m.failureReason ||
+              m.channel,
+            ),
+            "Delivery metadata is written by the messaging service.",
+          );
+          m.createdBy = user.id;
+        }
       }
     }
     if (collection === "layouts" && before) {
@@ -305,6 +324,26 @@ export function validateWorkspace(next: Workspace, before: Workspace) {
       ) && allocations.length > 0,
       "Reconcile or release reservations before changing event dates.",
     );
+    if (old && old.status !== event.status) {
+      const readiness = productionReadiness(next, event.id);
+      invalid(
+        event.status === "In production" && old.status !== "Preparation",
+        "Confirm preparation before starting production.",
+      );
+      invalid(
+        event.status === "Completed" && old.status !== "In production",
+        "Only an event in production can be closed out.",
+      );
+      invalid(
+        ["Preparation", "In production"].includes(event.status) &&
+          !readiness.ready,
+        `Production readiness is incomplete: ${readiness.blockers.join(" ")}`,
+      );
+      invalid(
+        event.status === "Completed" && !readiness.closeoutReady,
+        `Production closeout is incomplete: ${readiness.closeoutBlockers.join(" ")}`,
+      );
+    }
   }
   const sku = new Set<string>();
   for (const item of next.equipment) {
@@ -367,6 +406,25 @@ export function validateWorkspace(next: Workspace, before: Workspace) {
     for (const m of c.messages) {
       invalid(ids.has(m.id), "Duplicate message identity.");
       ids.add(m.id);
+    }
+    if (c.reviewMessageId) {
+      const source = c.messages.find((m) => m.id === c.reviewMessageId);
+      invalid(
+        !source || source.direction !== "in",
+        "Review evidence must reference an inbound message.",
+      );
+    }
+    if (c.acceptanceEvidence) {
+      const evidence = c.acceptanceEvidence;
+      const source = c.messages.find((m) => m.id === evidence.messageId);
+      invalid(
+        c.review !== "Confirmed" ||
+          !source ||
+          source.direction !== "in" ||
+          evidence.proposalId !== c.proposalId ||
+          evidence.proposalVersion !== c.proposalVersion,
+        "Acceptance evidence must preserve the reviewed message and exact proposal revision.",
+      );
     }
   }
 }

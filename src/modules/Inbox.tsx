@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -21,16 +21,33 @@ import {
   PageHeader,
   SearchField,
 } from "../shared/ui";
-import { acceptConversation, id, money, quoteTotals } from "../shared/domain";
+import { id, money, quoteTotals } from "../shared/domain";
+import type { Message } from "../shared/types";
 export function Inbox() {
-  const { data, update, toast, user, confirmAcceptance } = useWorkspace();
+  const {
+    data,
+    update,
+    toast,
+    user,
+    mode,
+    request,
+    confirmAcceptance,
+    confirmMessageSend,
+  } = useWorkspace();
   const ownerReview = !user || user.isOwner;
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All conversations");
   const [draft, setDraft] = useState("");
   const [review, setReview] = useState(false);
-  const [sendPreview, setSendPreview] = useState(false);
+  const [sendPreview, setSendPreview] = useState<Message | null>(null);
+  const [channel, setChannel] = useState<{
+    configured: boolean;
+    label: string | null;
+  }>({
+    configured: mode === "sample",
+    label: mode === "sample" ? "Canal de demostración local" : null,
+  });
   const [error, setError] = useState("");
   const conversation =
     data.conversations.find((c) => c.id === params.get("conversation")) ||
@@ -42,12 +59,62 @@ export function Inbox() {
   );
   const conversations = data.conversations.filter(
     (c) =>
-      (filter !== "Needs review" || c.review === "Pending") &&
+      (filter !== "Needs review" ||
+        ["Pending", "Needs linking"].includes(c.review)) &&
+      (filter !== "Send review" ||
+        c.messages.some(
+          (message) =>
+            message.direction === "out" &&
+            ["Draft", "Failed"].includes(message.status),
+        )) &&
       data.clients
         .find((client) => client.id === c.clientId)
         ?.name.toLowerCase()
         .includes(query.toLowerCase()),
   );
+  useEffect(() => {
+    let active = true;
+    if (mode === "sample") {
+      setChannel({ configured: true, label: "Canal de demostración local" });
+      return;
+    }
+    request<{ configured: boolean; label: string | null }>("/messaging/status")
+      .then((result) => {
+        if (active) setChannel(result);
+      })
+      .catch((caught) => {
+        if (active) setError((caught as Error).message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [mode, request]);
+  function outgoingDraft(text: string): Message {
+    return {
+      id: id(),
+      direction: "out",
+      text: text.trim(),
+      at: new Date().toISOString(),
+      status: "Draft",
+      ...(conversation?.proposalId
+        ? {
+            proposalId: conversation.proposalId,
+            proposalVersion: conversation.proposalVersion,
+          }
+        : {}),
+    };
+  }
+  async function saveDraft(message: Message) {
+    if (!conversation) return false;
+    return update((s) => ({
+      ...s,
+      conversations: s.conversations.map((c) =>
+        c.id === conversation.id
+          ? { ...c, messages: [...c.messages, message] }
+          : c,
+      ),
+    }));
+  }
   async function changeReview(state: "Clarification needed" | "Not accepted") {
     if (!conversation) return;
     if (
@@ -83,7 +150,13 @@ export function Inbox() {
         eyebrow="KEEP THE CONVERSATION CONNECTED"
         title="Client Inbox"
         description="Every client exchange, with the right event and proposal alongside it."
-        actions={<Badge tone="neutral">WhatsApp not connected</Badge>}
+        actions={
+          <Badge tone={channel.configured ? "green" : "neutral"}>
+            {channel.configured
+              ? channel.label || "Canal configurado"
+              : "Canal no conectado"}
+          </Badge>
+        }
       />
       <div className="inbox-workspace">
         <aside className="conversation-list">
@@ -94,12 +167,13 @@ export function Inbox() {
               placeholder="Search conversations…"
             />
             <select
-              aria-label="Filter conversations"
+              aria-label="Filtrar conversaciones"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             >
-              <option>All conversations</option>
-              <option>Needs review</option>
+              <option value="All conversations">Todas las conversaciones</option>
+              <option value="Needs review">Aceptaciones pendientes</option>
+              <option value="Send review">Mensajes por revisar</option>
             </select>
           </div>
           {conversations.map((c) => {
@@ -123,7 +197,8 @@ export function Inbox() {
                   <small>{c.messages.at(-1)?.text}</small>
                   <span className="conversation-meta">
                     <MessageCircle size={12} />
-                    Sample WhatsApp {c.review === "Pending" && <i />}
+                    WhatsApp de muestra{" "}
+                    {["Pending", "Needs linking"].includes(c.review) && <i />}
                   </span>
                 </span>
               </button>
@@ -150,11 +225,11 @@ export function Inbox() {
                     {client?.name} · {client?.phone}
                   </small>
                 </div>
-                <Badge tone="neutral">Sample thread</Badge>
+                <Badge tone="neutral">Conversación de muestra</Badge>
               </header>
               <div className="messages">
                 <div className="message-date">
-                  Illustrative conversation · no live messages
+                  Conversación ilustrativa · sin mensajes reales
                 </div>
                 {conversation.messages.map((m) => (
                   <div key={m.id} className={`message ${m.direction}`}>
@@ -173,26 +248,41 @@ export function Inbox() {
                       </Link>
                     )}
                     <small>
-                      {new Date(m.at).toLocaleTimeString("en-US", {
+                      {new Date(m.at).toLocaleTimeString("es-PR", {
                         hour: "numeric",
                         minute: "2-digit",
                       })}
                       {m.direction === "out" && <CheckCheck size={13} />}
-                      {m.status === "Draft" && " · Local draft"}
+                      {` · ${messageStatus(m)}`}
                     </small>
+                    {m.direction === "out" && m.status === "Draft" && (
+                      <Button
+                        variant="secondary"
+                        disabled={!ownerReview}
+                        onClick={() => setSendPreview(m)}
+                      >
+                        Revisar envío
+                      </Button>
+                    )}
+                    {m.status === "Failed" && m.failureReason && (
+                      <p className="message-failure">{m.failureReason}</p>
+                    )}
                   </div>
                 ))}
               </div>
               <form
                 className="message-composer"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  setSendPreview(true);
+                  const message = outgoingDraft(draft);
+                  if (!(await saveDraft(message))) return;
+                  setDraft("");
+                  setSendPreview(message);
                 }}
               >
                 <textarea
-                  aria-label="Reply to client"
-                  placeholder="Write a reply for owner review…"
+                  aria-label="Responder al cliente"
+                  placeholder="Escribe una respuesta para revisión…"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                 />
@@ -206,35 +296,18 @@ export function Inbox() {
                     variant="secondary"
                     disabled={!draft.trim()}
                     onClick={async () => {
-                      const message = {
-                        id: id(),
-                        direction: "out" as const,
-                        text: draft,
-                        at: new Date().toISOString(),
-                        status: "Draft" as const,
-                      };
-                      if (
-                        !(await update((s) => ({
-                          ...s,
-                          conversations: s.conversations.map((c) =>
-                            c.id === conversation.id
-                              ? { ...c, messages: [...c.messages, message] }
-                              : c,
-                          ),
-                        })))
-                      )
-                        return;
+                      if (!(await saveDraft(outgoingDraft(draft)))) return;
                       setDraft("");
                       toast(
-                        "Reply saved locally as a draft. Nothing was sent.",
+                        "Borrador guardado. No se envió ningún mensaje.",
                       );
                     }}
                   >
-                    Save draft
+                    Guardar borrador
                   </Button>
                   <Button disabled={!draft.trim()}>
                     <Send size={15} />
-                    Review
+                    Revisar
                   </Button>
                 </div>
               </form>
@@ -299,6 +372,26 @@ export function Inbox() {
                     No aceptar
                   </button>
                 </div>
+              ) : conversation.review === "Needs linking" ? (
+                <div className="acceptance-review">
+                  <span className="review-symbol">
+                    <ShieldCheck size={23} />
+                  </span>
+                  <h3>Esta respuesta necesita vinculación</h3>
+                  <p>
+                    El mensaje parece indicar aceptación, pero no identifica la
+                    oferta y versión exactas. No puede confirmarse hasta aclarar
+                    ese vínculo.
+                  </p>
+                  <Badge>Requiere vinculación</Badge>
+                  <Button
+                    variant="secondary"
+                    disabled={!ownerReview}
+                    onClick={() => changeReview("Clarification needed")}
+                  >
+                    Solicitar aclaración
+                  </Button>
+                </div>
               ) : (
                 <div className="review-result">
                   <Badge>
@@ -311,6 +404,12 @@ export function Inbox() {
                       ? "Decisión del propietario registrada. La disponibilidad de recursos y la preparación de producción se verifican por separado."
                       : "La conversación permanece disponible para seguimiento."}
                   </p>
+                  {conversation.acceptanceEvidence && (
+                    <p className="tiny muted">
+                      Evidencia: mensaje {conversation.acceptanceEvidence.messageId}
+                      {" · "}versión {conversation.acceptanceEvidence.proposalVersion}
+                    </p>
+                  )}
                 </div>
               )}
               <div className="context-footnote">
@@ -337,14 +436,25 @@ export function Inbox() {
             <div className="review-quote">
               “
               {
-                conversation.messages.filter((m) => m.direction === "in").at(-1)
-                  ?.text
+                (conversation.reviewMessageId
+                  ? conversation.messages.find(
+                      (message) =>
+                        message.id === conversation.reviewMessageId,
+                    )
+                  : conversation.messages
+                      .filter((message) => message.direction === "in")
+                      .at(-1))?.text
               }
               ”
               <small>
                 {client?.contact} · {client?.name}
               </small>
             </div>
+            {conversation.reviewMessageId && (
+              <p className="tiny muted">
+                Evidencia del mensaje: {conversation.reviewMessageId}
+              </p>
+            )}
             <div className="simple-row">
               <strong>
                 {proposal.number} · versión {conversation.proposalVersion}
@@ -384,28 +494,72 @@ export function Inbox() {
           </div>
         </Modal>
       )}
-      {sendPreview && (
+      {sendPreview && conversation && (
         <Modal
-          title="Review outgoing message"
+          title="Revisar mensaje saliente"
           description={`${client?.contact} · ${client?.phone}`}
-          onClose={() => setSendPreview(false)}
+          onClose={() => setSendPreview(null)}
         >
           <div className="modal-body">
-            <div className="review-quote">{draft}</div>
+            {error && <ErrorNote>{error}</ErrorNote>}
+            <div className="review-quote">{sendPreview.text}</div>
+            {sendPreview.proposalId && (
+              <div className="simple-row">
+                <span>Oferta vinculada</span>
+                <strong>
+                  {proposal?.number} · versión {sendPreview.proposalVersion}
+                </strong>
+              </div>
+            )}
             <div className="connection-note">
               <MessageCircle size={22} />
               <div>
-                <strong>WhatsApp connection required</strong>
+                <strong>
+                  {channel.configured
+                    ? channel.label
+                    : "Se requiere conectar un canal"}
+                </strong>
                 <p>
-                  This message cannot leave the app until the company channel is
-                  connected. You can save it as a local draft.
+                  {mode === "sample"
+                    ? "La demostración registra el flujo sin contactar al cliente."
+                    : channel.configured
+                      ? "Al confirmar, el mensaje pasa al canal configurado con este contenido exacto."
+                      : "El borrador permanecerá en la aplicación hasta conectar el canal aprobado."}
                 </p>
               </div>
             </div>
-            <Button disabled>Confirm & send · not connected</Button>
+            <Button
+              disabled={!ownerReview || !channel.configured}
+              onClick={async () => {
+                setError("");
+                if (
+                  await confirmMessageSend(conversation.id, sendPreview.id)
+                )
+                  setSendPreview(null);
+              }}
+            >
+              {mode === "sample"
+                ? "Confirmar envío de demostración"
+                : channel.configured
+                  ? "Confirmar y enviar"
+                  : "Confirmar y enviar · sin conexión"}
+            </Button>
           </div>
         </Modal>
       )}
     </>
   );
+}
+
+function messageStatus(message: Message) {
+  const labels: Record<Message["status"], string> = {
+    Received: "Recibido",
+    "Sample sent": "Enviado de muestra",
+    Draft: "Borrador",
+    Queued: "En cola",
+    Sent: "Enviado",
+    Delivered: "Entregado",
+    Failed: "Fallido",
+  };
+  return labels[message.status];
 }

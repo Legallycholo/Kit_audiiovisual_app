@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { AlertCircle, History, Sparkles } from "lucide-react";
 import { useWorkspace } from "../shared/store";
 import { Button, ErrorNote, Field } from "../shared/ui";
 import type { Proposal } from "../shared/types";
@@ -16,7 +16,7 @@ export function ProposalAI({
   existing?: Proposal;
   onApply: (suggestion: DraftSuggestion) => void | Promise<void>;
 }) {
-  const { mode, request, openCompany } = useWorkspace();
+  const { data, mode, request, openCompany, refresh } = useWorkspace();
   const [brief, setBrief] = useState(existing?.aiReview?.brief || "");
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -24,6 +24,37 @@ export function ProposalAI({
   const [suggestion, setSuggestion] = useState<DraftSuggestion | null>(null);
   const [replaceText, setReplaceText] = useState(!existing);
   const [replaceLines, setReplaceLines] = useState(!existing);
+  const event = data.events.find((item) => item.id === eventId);
+  const client = data.clients.find((item) => item.id === event?.clientId);
+  const missingInformation = [
+    ...(!client ? ["Vincula un cliente válido al evento."] : []),
+    ...(!event?.date || !event?.endDate
+      ? ["Confirma las fechas de inicio y finalización."]
+      : []),
+    ...(!event?.type.trim() ? ["Indica el tipo de evento."] : []),
+    ...(!event?.notes.trim()
+      ? ["Agrega requisitos o notas operativas al evento."]
+      : []),
+    ...(!event?.attendees || event.attendees < 1
+      ? ["Confirma la cantidad estimada de asistentes."]
+      : []),
+    ...(data.equipment.length === 0
+      ? ["Agrega equipos y tarifas al catálogo."]
+      : []),
+    ...(data.equipment.some((item) => item.rate === 0)
+      ? ["Hay equipos con tarifa cero; revisa cualquier partida seleccionada."]
+      : []),
+    ...(brief.trim().length < 10
+      ? ["Describe el alcance solicitado con al menos 10 caracteres."]
+      : []),
+  ];
+  const history = data.activity
+    .filter(
+      (item) =>
+        item.eventId === eventId &&
+        item.title === "AI proposal suggestion generated",
+    )
+    .slice(0, 5);
   useEffect(() => {
     let active = true;
     if (mode === "company")
@@ -76,6 +107,23 @@ export function ProposalAI({
         cliente y el catálogo de equipos y tarifas. Revisa la sugerencia antes
         de aplicarla.
       </p>
+      {missingInformation.length > 0 && (
+        <section className="ai-readiness" aria-label="Información por confirmar">
+          <div>
+            <AlertCircle size={18} />
+            <strong>Información por confirmar</strong>
+          </div>
+          <ul>
+            {missingInformation.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p>
+            Puedes generar un alcance preliminar. Estas advertencias deben
+            revisarse antes de enviar la propuesta.
+          </p>
+        </section>
+      )}
       {error && <ErrorNote>{error}</ErrorNote>}
       {configured === false && (
         <div className="info-note">
@@ -94,6 +142,7 @@ export function ProposalAI({
               { method: "POST", body: { eventId, brief } },
             );
             setSuggestion(result.suggestion);
+            await refresh();
           } catch (e) {
             setError((e as Error).message);
           } finally {
@@ -188,6 +237,22 @@ export function ProposalAI({
           </Button>
         </section>
       )}
+      {history.length > 0 && (
+        <section className="ai-history" aria-label="Historial de generación">
+          <div>
+            <History size={17} />
+            <strong>Historial de generación</strong>
+          </div>
+          <ul>
+            {history.map((item) => (
+              <li key={item.id}>
+                <time dateTime={item.at}>{formatAIStamp(item.at)}</time>
+                <span>{item.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
@@ -197,6 +262,15 @@ export function AIReview({ review }: { review: Proposal["aiReview"] }) {
     <aside className="ai-review">
       <strong>Revisión interna del borrador de IA</strong>
       <p>Estas notas no aparecen en la vista para el cliente.</p>
+      <p className="ai-provenance">
+        Generada por IA el {formatAIStamp(review.generatedAt)} con el modelo{" "}
+        <strong>{review.model}</strong>. Las tarifas se copiaron del catálogo al
+        crear la sugerencia.
+      </p>
+      <details>
+        <summary>Descripción utilizada para generar</summary>
+        <p className="preserve-lines">{review.brief}</p>
+      </details>
       {review.assumptions.length > 0 && (
         <>
           <h4>Suposiciones por verificar</h4>
@@ -219,4 +293,13 @@ export function AIReview({ review }: { review: Proposal["aiReview"] }) {
       )}
     </aside>
   );
+}
+
+function formatAIStamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("es-PR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }

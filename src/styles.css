@@ -1346,6 +1346,28 @@ td small {
 .simple-row .badge {
   flex: none;
 }
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 18px;
+}
+.readiness-checklist > .text-link {
+  display: inline-flex;
+  margin-top: 16px;
+}
+.readiness-blockers {
+  margin-top: 16px;
+  border: 1px solid #eadfbf;
+  border-radius: 10px;
+  background: #fbf6e8;
+  padding: 14px 16px;
+  color: #625f4f;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.readiness-blockers ul {
+  margin: 7px 0 0 18px;
+}
 .timeline-item {
   display: flex;
   gap: 20px;
@@ -2318,6 +2340,15 @@ td small {
   font-size: 8px;
   color: #626e59;
   margin-top: 9px;
+}
+.message > .button {
+  margin-top: 10px;
+  width: 100%;
+}
+.message-failure {
+  margin-top: 9px;
+  color: #955e48;
+  font-size: 9px;
 }
 .message-attachment {
   display: flex;
@@ -4252,6 +4283,48 @@ td small {
 }
 .ai-review p {
   color: #686654;
+}
+.ai-provenance {
+  margin-top: 10px;
+}
+.ai-review details {
+  margin: 12px 0;
+}
+.ai-review summary {
+  color: #5e7150;
+  cursor: pointer;
+  font-weight: 600;
+}
+.ai-readiness,
+.ai-history {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  font-size: 11px;
+  line-height: 1.65;
+}
+.ai-readiness {
+  background: #fbf6e8;
+  border-color: #eadfbf;
+}
+.ai-readiness > div,
+.ai-history > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #5e7150;
+}
+.ai-readiness ul,
+.ai-history ul {
+  margin: 10px 0 8px 22px;
+}
+.ai-history li {
+  display: grid;
+  grid-template-columns: minmax(125px, auto) 1fr;
+  gap: 12px;
+}
+.ai-history time {
+  color: #6d765f;
 }
 .proposal-ai-actions {
   margin: 0 0 16px;

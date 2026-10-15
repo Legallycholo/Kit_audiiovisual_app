@@ -103,7 +103,21 @@ export interface Message {
   at: string;
   proposalId?: string;
   proposalVersion?: number;
-  status: "Received" | "Sample sent" | "Draft";
+  status:
+    | "Received"
+    | "Sample sent"
+    | "Draft"
+    | "Queued"
+    | "Sent"
+    | "Delivered"
+    | "Failed";
+  channel?: string;
+  createdBy?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  sentAt?: string;
+  providerMessageId?: string;
+  failureReason?: string;
 }
 export interface Conversation {
   id: string;
@@ -111,9 +125,22 @@ export interface Conversation {
   eventId: string;
   messages: Message[];
   review:
-    "Pending" | "Confirmed" | "Clarification needed" | "Not accepted" | "None";
+    | "Pending"
+    | "Needs linking"
+    | "Confirmed"
+    | "Clarification needed"
+    | "Not accepted"
+    | "None";
   proposalId?: string;
   proposalVersion?: number;
+  reviewMessageId?: string;
+  acceptanceEvidence?: {
+    messageId: string;
+    proposalId: string;
+    proposalVersion: number;
+    decidedAt: string;
+    ownerId?: string;
+  };
 }
 export interface Task {
   id: string;

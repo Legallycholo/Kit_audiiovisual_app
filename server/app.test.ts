@@ -8,6 +8,7 @@ import { Repository } from "./database";
 import { createSeed } from "../src/shared/seed";
 import type { WorkspaceResponse, WorkspaceChange } from "../src/shared/access";
 import type { ProposalGenerator } from "./proposal-ai";
+import type { MessageTransport } from "./messaging";
 
 const origin = "http://localhost:5173";
 const password = "only-for-automated-tests-123";
@@ -16,6 +17,7 @@ let server: Server;
 let url: string;
 let owner: { cookie: string; csrf: string };
 const generate = vi.fn<ProposalGenerator["generate"]>();
+const sendMessage = vi.fn<MessageTransport["send"]>();
 async function call(
   path: string,
   method = "GET",
@@ -87,9 +89,15 @@ async function account(role: string, extra: Record<string, unknown> = {}) {
 beforeEach(async () => {
   repo = new Repository(":memory:");
   generate.mockReset();
+  sendMessage.mockReset();
+  sendMessage.mockResolvedValue({
+    externalId: "provider-message-1",
+    status: "Delivered",
+  });
   const app = createApp(repo, {
     origins: [origin],
     proposalGenerator: { model: "test-model", generate },
+    messageTransport: { label: "Test channel", send: sendMessage },
   });
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));
@@ -315,6 +323,130 @@ describe("authenticated company workspace", () => {
       ).status,
     ).toBe(403);
   });
+  it("enforces readiness and closeout gates for event production states", async () => {
+    const initial = await workspace();
+    const accepted = await call("/conversations/m1/accept", "POST", {
+      revision: initial.revision,
+    });
+    expect(accepted.status).toBe(200);
+    const event = accepted.json.workspace.events.find(
+      (item: { id: string }) => item.id === "e1",
+    );
+    const blocked = await patch(
+      [
+        {
+          collection: "events",
+          id: event.id,
+          value: { ...event, status: "Preparation" },
+        },
+      ],
+      accepted.json.revision,
+    );
+    expect(blocked.status).toBe(422);
+    expect(blocked.json.error).toContain("Production readiness is incomplete");
+
+    const reservations = accepted.json.workspace.reservations;
+    const q3 = reservations.find(
+      (reservation: { id: string }) => reservation.id === "res2",
+    );
+    const ready = await patch(
+      [
+        {
+          collection: "reservations",
+          id: q3.id,
+          value: { ...q3, status: "Confirmed" },
+        },
+        {
+          collection: "reservations",
+          id: "res3",
+          value: {
+            id: "res3",
+            eventId: "e1",
+            equipmentId: "q4",
+            quantity: 12,
+            start: event.date,
+            end: event.endDate,
+            status: "Confirmed",
+          },
+        },
+        {
+          collection: "events",
+          id: event.id,
+          value: { ...event, status: "Preparation" },
+        },
+      ],
+      accepted.json.revision,
+    );
+    expect(ready.status).toBe(200);
+    expect(
+      ready.json.workspace.events.find(
+        (item: { id: string }) => item.id === "e1",
+      ).status,
+    ).toBe("Preparation");
+
+    const preparedEvent = ready.json.workspace.events.find(
+      (item: { id: string }) => item.id === "e1",
+    );
+    const started = await patch(
+      [
+        {
+          collection: "events",
+          id: preparedEvent.id,
+          value: { ...preparedEvent, status: "In production" },
+        },
+      ],
+      ready.json.revision,
+    );
+    expect(started.status).toBe(200);
+    const activeEvent = started.json.workspace.events.find(
+      (item: { id: string }) => item.id === "e1",
+    );
+    expect(
+      (
+        await patch(
+          [
+            {
+              collection: "events",
+              id: activeEvent.id,
+              value: { ...activeEvent, status: "Completed" },
+            },
+          ],
+          started.json.revision,
+        )
+      ).status,
+    ).toBe(422);
+
+    const closingChanges: WorkspaceChange[] = [
+      ...started.json.workspace.tasks
+        .filter((task: { eventId: string }) => task.eventId === "e1")
+        .map((task: { id: string }) => ({
+          collection: "tasks" as const,
+          id: task.id,
+          value: { ...task, done: true },
+        })),
+      ...started.json.workspace.reservations
+        .filter(
+          (reservation: { eventId: string }) => reservation.eventId === "e1",
+        )
+        .map((reservation: { id: string }) => ({
+          collection: "reservations" as const,
+          id: reservation.id,
+          value: { ...reservation, status: "Returned" },
+        })),
+      {
+        collection: "events",
+        id: activeEvent.id,
+        value: { ...activeEvent, status: "Completed" },
+      },
+    ];
+    const closed = await patch(closingChanges, started.json.revision);
+    expect(closed.status).toBe(200);
+    expect(
+      closed.json.workspace.events.find(
+        (item: { id: string }) => item.id === "e1",
+      ).status,
+    ).toBe("Completed");
+  });
   it("rejects forged incoming messages and audit writes", async () => {
     const initial = await workspace();
     const c = initial.workspace.conversations[0];
@@ -349,6 +481,193 @@ describe("authenticated company workspace", () => {
         })
       ).status,
     ).toBe(422);
+  });
+  it("requires the owner to send an immutable draft and records delivery", async () => {
+    const initial = await workspace();
+    const conversation = initial.workspace.conversations.find(
+      (item) => item.id === "m1",
+    )!;
+    const draft = {
+      id: "outgoing-test",
+      direction: "out" as const,
+      text: "Mensaje revisado para el cliente.",
+      at: new Date().toISOString(),
+      proposalId: conversation.proposalId,
+      proposalVersion: conversation.proposalVersion,
+      status: "Draft" as const,
+    };
+    const saved = await patch([
+      {
+        collection: "conversations",
+        id: conversation.id,
+        value: {
+          ...conversation,
+          messages: [...conversation.messages, draft],
+        },
+      },
+    ]);
+    expect(saved.status).toBe(200);
+    const sales = await account("Sales Manager");
+    expect(
+      (
+        await call(
+          `/conversations/${conversation.id}/messages/${draft.id}/send`,
+          "POST",
+          { revision: saved.json.revision },
+          sales,
+        )
+      ).status,
+    ).toBe(403);
+    const sent = await call(
+      `/conversations/${conversation.id}/messages/${draft.id}/send`,
+      "POST",
+      { revision: (await workspace()).revision },
+    );
+    expect(sent.status).toBe(200);
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: draft.id,
+        text: draft.text,
+        proposalId: conversation.proposalId,
+        proposalVersion: conversation.proposalVersion,
+      }),
+    );
+    const stored = sent.json.workspace.conversations
+      .find((item: { id: string }) => item.id === conversation.id)
+      .messages.find((item: { id: string }) => item.id === draft.id);
+    expect(stored).toMatchObject({
+      status: "Delivered",
+      channel: "Test channel",
+      providerMessageId: "provider-message-1",
+    });
+    expect(
+      (
+        await call(
+          `/conversations/${conversation.id}/messages/${draft.id}/send`,
+          "POST",
+          { revision: sent.json.revision },
+        )
+      ).status,
+    ).toBe(422);
+  });
+  it("keeps a failed provider attempt visible without changing its content", async () => {
+    sendMessage.mockRejectedValueOnce(new Error("private provider failure"));
+    const initial = await workspace();
+    const conversation = initial.workspace.conversations.find(
+      (item) => item.id === "m2",
+    )!;
+    const draft = {
+      id: "failed-outgoing-test",
+      direction: "out" as const,
+      text: "Este texto debe conservarse.",
+      at: new Date().toISOString(),
+      status: "Draft" as const,
+    };
+    const saved = await patch([
+      {
+        collection: "conversations",
+        id: conversation.id,
+        value: {
+          ...conversation,
+          messages: [...conversation.messages, draft],
+        },
+      },
+    ]);
+    const result = await call(
+      `/conversations/${conversation.id}/messages/${draft.id}/send`,
+      "POST",
+      { revision: saved.json.revision },
+    );
+    expect(result.status).toBe(502);
+    const stored = repo
+      .read()
+      .workspace.conversations.find((item) => item.id === conversation.id)!
+      .messages.find((item) => item.id === draft.id)!;
+    expect(stored).toMatchObject({
+      text: draft.text,
+      status: "Failed",
+      channel: "Test channel",
+    });
+    expect(stored.failureReason).not.toContain("private provider failure");
+  });
+  it("deduplicates inbound acceptance signals and preserves exact evidence", async () => {
+    const current = repo.read();
+    const conversation = current.workspace.conversations.find(
+      (item) => item.id === "m1",
+    )!;
+    conversation.review = "None";
+    conversation.reviewMessageId = undefined;
+    repo.save(current.workspace, current.revision);
+    const body = {
+      externalId: "inbound-exact-1",
+      channel: "Test channel",
+      conversationId: "m1",
+      text: "Aceptamos la versión 2.",
+      receivedAt: new Date().toISOString(),
+      acceptanceSignal: true,
+      proposalId: "p1",
+      proposalVersion: 2,
+    };
+    const first = await call("/messaging/showcase/inbound", "POST", body);
+    expect(first.status).toBe(201);
+    expect(first.json.intake).toEqual({
+      duplicate: false,
+      needsLinking: false,
+    });
+    const pending = first.json.workspace.conversations.find(
+      (item: { id: string }) => item.id === "m1",
+    );
+    expect(pending.review).toBe("Pending");
+    const source = pending.messages.find(
+      (item: { providerMessageId?: string }) =>
+        item.providerMessageId === body.externalId,
+    );
+    expect(pending.reviewMessageId).toBe(source.id);
+    const duplicate = await call("/messaging/showcase/inbound", "POST", body);
+    expect(duplicate.status).toBe(200);
+    expect(duplicate.json.intake.duplicate).toBe(true);
+    expect(
+      duplicate.json.workspace.conversations.find(
+        (item: { id: string }) => item.id === "m1",
+      ).messages,
+    ).toHaveLength(pending.messages.length);
+    const accepted = await call("/conversations/m1/accept", "POST", {
+      revision: duplicate.json.revision,
+    });
+    expect(accepted.status).toBe(200);
+    expect(
+      accepted.json.workspace.conversations.find(
+        (item: { id: string }) => item.id === "m1",
+      ).acceptanceEvidence,
+    ).toMatchObject({
+      messageId: source.id,
+      proposalId: "p1",
+      proposalVersion: 2,
+      ownerId: (await workspace()).user.id,
+    });
+  });
+  it("routes an acceptance signal without an exact offer to linking review", async () => {
+    const sales = await account("Sales Manager");
+    const body = {
+      externalId: "inbound-ambiguous-1",
+      channel: "Test channel",
+      conversationId: "m2",
+      text: "Sí, adelante.",
+      receivedAt: new Date().toISOString(),
+      acceptanceSignal: true,
+    };
+    expect(
+      (await call("/messaging/showcase/inbound", "POST", body, sales)).status,
+    ).toBe(403);
+    const result = await call("/messaging/showcase/inbound", "POST", body);
+    expect(result.status).toBe(201);
+    expect(result.json.intake.needsLinking).toBe(true);
+    const conversation = result.json.workspace.conversations.find(
+      (item: { id: string }) => item.id === "m2",
+    );
+    expect(conversation.review).toBe("Needs linking");
+    expect(conversation.reviewMessageId).toBeTruthy();
+    expect(conversation.acceptanceEvidence).toBeUndefined();
   });
 });
 describe("AI proposal drafting", () => {

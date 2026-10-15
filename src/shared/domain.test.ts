@@ -3,6 +3,7 @@ import {
   acceptConversation,
   availableStock,
   createProposalRevision,
+  productionReadiness,
   quoteTotals,
   reviseProposal,
   validateReservation,
@@ -137,6 +138,11 @@ describe("owner acceptance review", () => {
     expect(before.proposals[0].status).toBe("Issued");
     expect(after.proposals[0].status).toBe("Accepted");
     expect(after.conversations[0].review).toBe("Confirmed");
+    expect(after.conversations[0].acceptanceEvidence).toMatchObject({
+      messageId: "msg2",
+      proposalId: "p1",
+      proposalVersion: 2,
+    });
     expect(after.conversations[0].messages).toEqual(
       before.conversations[0].messages,
     );
@@ -164,5 +170,63 @@ describe("owner acceptance review", () => {
     expect(() => acceptConversation(next.workspace, "m1")).toThrow(
       "newer proposal revision",
     );
+  });
+  it("rejects acceptance when the source message is not linked to the exact offer", () => {
+    const seed = createSeed();
+    seed.conversations[0].reviewMessageId = "msg4";
+    expect(() => acceptConversation(seed, "m1")).toThrow(
+      "exact proposal revision",
+    );
+  });
+});
+
+describe("production readiness and closeout", () => {
+  it("keeps acceptance separate from confirmed equipment and crew gates", () => {
+    const seed = createSeed();
+    const accepted = acceptConversation(seed, "m1");
+    const blocked = productionReadiness(accepted, "e1");
+    expect(blocked.acceptedScopeReady).toBe(true);
+    expect(blocked.equipmentReady).toBe(false);
+    expect(blocked.crewReady).toBe(true);
+    expect(blocked.ready).toBe(false);
+    expect(accepted.events.find((event) => event.id === "e1")?.status).toBe(
+      "Confirmed",
+    );
+
+    accepted.reservations = accepted.reservations.map((reservation) =>
+      reservation.id === "res2"
+        ? { ...reservation, status: "Confirmed" }
+        : reservation,
+    );
+    const event = accepted.events.find((item) => item.id === "e1")!;
+    accepted.reservations.push({
+      id: "res3",
+      eventId: "e1",
+      equipmentId: "q4",
+      quantity: 12,
+      start: event.date,
+      end: event.endDate,
+      status: "Confirmed",
+    });
+    expect(productionReadiness(accepted, "e1").ready).toBe(true);
+  });
+
+  it("blocks a newer unreconciled revision and requires tasks and allocations to close", () => {
+    const accepted = acceptConversation(createSeed(), "m1");
+    const revision = createProposalRevision(accepted, "p1").workspace;
+    expect(productionReadiness(revision, "e1").blockers).toContain(
+      "Reconcilia el alcance aceptado con la versión más reciente de la propuesta.",
+    );
+
+    revision.events.find((event) => event.id === "e1")!.status =
+      "In production";
+    expect(productionReadiness(revision, "e1").closeoutReady).toBe(false);
+    revision.tasks
+      .filter((task) => task.eventId === "e1")
+      .forEach((task) => (task.done = true));
+    revision.reservations
+      .filter((reservation) => reservation.eventId === "e1")
+      .forEach((reservation) => (reservation.status = "Returned"));
+    expect(productionReadiness(revision, "e1").closeoutReady).toBe(true);
   });
 });

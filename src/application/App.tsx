@@ -111,7 +111,7 @@ export function App() {
       ? uiLabel("Settings")
       : uiLabel("Dashboard"));
   const pending = data.conversations.filter(
-    (c) => c.review === "Pending",
+    (c) => ["Pending", "Needs linking"].includes(c.review),
   ).length;
   useEffect(() => {
     setMobileNav(false);
@@ -389,7 +389,7 @@ export function App() {
             </button>
           </div>
           {data.conversations
-            .filter((c) => c.review === "Pending")
+            .filter((c) => ["Pending", "Needs linking"].includes(c.review))
             .map((c) => (
               <button
                 className="notification-item"
@@ -403,15 +403,25 @@ export function App() {
                   <MessageCircle size={19} />
                 </span>
                 <span>
-                  <strong>{uiLabel("Review client acceptance")}</strong>
+                  <strong>
+                    {c.review === "Needs linking"
+                      ? "Vincular respuesta con una oferta"
+                      : uiLabel("Review client acceptance")}
+                  </strong>
                   <small>
                     {
                       data.clients.find((client) => client.id === c.clientId)
                         ?.name
                     }{" "}
-                    · versión {c.proposalVersion}
+                    {c.proposalVersion
+                      ? ` · versión ${c.proposalVersion}`
+                      : " · oferta sin identificar"}
                   </small>
-                  <Badge>{uiLabel("Awaiting owner review")}</Badge>
+                  <Badge>
+                    {c.review === "Needs linking"
+                      ? "Requiere vinculación"
+                      : uiLabel("Awaiting owner review")}
+                  </Badge>
                 </span>
                 <ArrowUpRight size={16} />
               </button>
