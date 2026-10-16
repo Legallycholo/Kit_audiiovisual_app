@@ -283,16 +283,41 @@ describe("structured layout production data", () => {
         expect.stringContaining("requiere fecha"),
       ]),
     );
+    layout.cameras = [
+      {
+        id: "camera-1",
+        name: "Vista 1",
+        position: { x: 1, y: 1, z: 1 },
+        target: { x: 1, y: 1, z: 1 },
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "camera-1",
+        name: "Vista duplicada",
+        position: { x: 5, y: 5, z: 5 },
+        target: { x: 0, y: 0, z: 0 },
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    expect(validateLayoutGeometry(layout)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("identidades únicas"),
+        expect.stringContaining("posición de cámara inválida"),
+      ]),
+    );
   });
 
   it("exports a self-contained dimensioned SVG with escaped labels", () => {
     const workspace = createSeed();
     const layout = structuredClone(workspace.layouts[0]);
     layout.objects[0].label = "Stage <Main>";
+    layout.objects[0].surfaceColor = "#123456";
+    layout.objects[0].surfaceLabel = "KIT & Partners";
     const svg = layoutSvg(layout, workspace.equipment);
     expect(svg).toContain("<svg");
     expect(svg).toContain("24 m × 26 m");
-    expect(svg).toContain("Stage &lt;Main&gt;");
+    expect(svg).toContain("KIT &amp; Partners");
+    expect(svg).toContain("#123456");
     expect(svg).toContain("MEDIDAS NO VERIFICADAS");
   });
 });

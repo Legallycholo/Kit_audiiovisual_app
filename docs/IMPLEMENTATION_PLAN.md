@@ -1,6 +1,6 @@
 # Audiovisual Event Production Platform — Implementation Plan
 
-Status: **Phase 1, the Phase 3A–3D local showcases, and the Phase 4 local showcase are complete. Live provider validation is deferred until API tools, credentials, and business examples are selected. Phase 5 is the next product track. See `IMPLEMENTATION_PROGRESS.md` for evidence and remaining work.**
+Status: **Phase 1, the Phase 3A–3D local showcases, and the Phase 4–5 local showcases are complete. Live provider validation is deferred until API tools, credentials, and business examples are selected. Phase 6 is the next product track. See `IMPLEMENTATION_PROGRESS.md` for evidence and remaining work.**
 
 Prepared: October 15, 2026
 
@@ -663,7 +663,7 @@ Local completion recorded October 15, 2026: the production workspace evaluates a
 
 Local completion recorded October 15, 2026: the shared structured editor supports rectangular room dimensions, labeled and layered objects, precise placement/size/rotation, mouse and touch movement, undo/redo, saved immutable revisions, local unsaved-draft recovery, reusable layout templates, PNG/JPEG/WebP reference images, full-image scale calibration, explicit measurement-source verification, equipment quantities mapped to catalog records, proposal-to-layout reconciliation without reservations, JSON data export, and self-contained dimensioned SVG plan export. Server validation rejects out-of-bounds geometry, incomplete measurement evidence, invalid equipment links, and revision updates that omit an exact prior snapshot. Final source formats, arbitrary room outlines, grouped editing, layer locks, production print standards, maximum plan sizes, and representative venue approval remain business validation checkpoints rather than implied capabilities.
 
-### Phase 5 — Connected 3D event simulator — **Next**
+### Phase 5 — Connected 3D event simulator — **Local showcase complete**
 
 - **Objective:** inspect the shared layout in 3D and produce presentation snapshots.
 - **Scope:** geometry projection, model/placeholder mapping, height/elevation properties, scene navigation, saved cameras, branding surfaces, and revision-linked exports.
@@ -673,7 +673,9 @@ Local completion recorded October 15, 2026: the shared structured editor support
 - **Risks:** geometry drift, poor performance, incomplete assets, unrealistic expectations of simulation accuracy.
 - **Completion:** representative event scenes pass cross-view consistency and usability review within agreed performance limits.
 
-### Phase 6 — AI Creative Studio
+Local completion recorded October 15, 2026: the 3D workspace projects the saved 2D identities, dimensions, height, rotation, visibility layers, surface colors and simple brand labels into a shared Three.js scene. Selection remains connected across views and selected geometry is highlighted. Users can orbit, pan and zoom, save up to 50 named camera records inside versioned layout data, restore or delete those views, and export a PNG whose image footer and filename identify the layout revision and measurement status. Every catalog object is explicitly shown as a geometric placeholder until a detailed asset exists. Interactive rendering is capped at 500 visible objects, reduces pixel density and antialiasing above 250, and reports when a scene is truncated. Detailed manufacturer models, image-textured brand artwork, lighting/acoustic simulation, formal device benchmarks, and approved presentation examples remain later validation work.
+
+### Phase 6 — AI Creative Studio — **Next**
 
 - **Objective:** create reviewable event concepts and branded visual assets.
 - **Scope:** briefs, reference/brand inputs, image generation/editing, versioned gallery, review and selection, event/proposal association; video is a separately gated expansion.

@@ -253,6 +253,19 @@ export function validateLayoutGeometry(layout: Layout): string[] {
     errors.push(
       "La verificación requiere fecha y una nota sobre la fuente de las medidas.",
     );
+  const cameraIds = new Set<string>();
+  for (const camera of layout.cameras || []) {
+    if (cameraIds.has(camera.id))
+      errors.push("Las vistas de cámara deben tener identidades únicas.");
+    cameraIds.add(camera.id);
+    const distance = Math.hypot(
+      camera.position.x - camera.target.x,
+      camera.position.y - camera.target.y,
+      camera.position.z - camera.target.z,
+    );
+    if (distance < 0.1)
+      errors.push(`${camera.name} tiene una posición de cámara inválida.`);
+  }
   return errors;
 }
 
@@ -358,7 +371,7 @@ export function layoutSvg(layout: Layout, equipment: Equipment[]): string {
       const equipmentName = object.equipmentId
         ? equipment.find((item) => item.id === object.equipmentId)?.name
         : undefined;
-      return `<g transform="rotate(${object.rotation} ${x + w / 2} ${y + h / 2})"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${colors[object.kind] || "#d9dfd4"}" stroke="#526156"/><text x="${x + w / 2}" y="${y + h / 2}" text-anchor="middle" dominant-baseline="middle" font-size="11" fill="#26372e">${xml(object.label)}</text>${equipmentName ? `<title>${xml(equipmentName)} × ${object.equipmentQuantity || 1}</title>` : ""}</g>`;
+      return `<g transform="rotate(${object.rotation} ${x + w / 2} ${y + h / 2})"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${object.surfaceColor || colors[object.kind] || "#d9dfd4"}" stroke="#526156"/><text x="${x + w / 2}" y="${y + h / 2}" text-anchor="middle" dominant-baseline="middle" font-size="11" fill="#26372e">${xml(object.surfaceLabel || object.label)}</text>${equipmentName ? `<title>${xml(equipmentName)} × ${object.equipmentQuantity || 1}</title>` : ""}</g>`;
     })
     .join("");
   const reference = layout.reference

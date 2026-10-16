@@ -3158,6 +3158,79 @@ td small {
   min-height: 530px;
   position: relative;
 }
+.scene-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #e0e6dc;
+  background: #f8faf5;
+}
+.scene-toolbar select {
+  min-width: 150px;
+  padding: 7px 9px;
+  font-size: 9px;
+}
+.scene-toolbar .button {
+  min-height: 30px;
+  padding: 7px 9px;
+  font-size: 9px;
+}
+.scene-status {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  left: 12px;
+  display: grid;
+  gap: 3px;
+  max-width: 260px;
+  padding: 9px 11px;
+  border: 1px solid #dce3d8;
+  border-radius: 7px;
+  background: #fffffff0;
+  box-shadow: 0 4px 16px #2235270d;
+  color: #5f6d61;
+  font-size: 9px;
+  pointer-events: none;
+}
+.scene-status strong {
+  color: #31483a;
+  font-size: 10px;
+}
+.scene-error {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  background: #f7f8f3;
+}
+.scene-model-state {
+  display: grid;
+  gap: 7px;
+  margin: -5px 0 15px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f8faf5;
+}
+.scene-model-state small {
+  color: #677264;
+  font-size: 9px;
+}
+.surface-fields {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.surface-fields .field {
+  margin: 0;
+}
+.surface-fields input[type="color"] {
+  min-height: 38px;
+  padding: 3px;
+}
 .scene-container canvas {
   display: block;
   width: 100%;
@@ -4114,6 +4187,12 @@ td small {
   }
   .scene-container {
     min-height: 450px;
+  }
+  .scene-toolbar {
+    overflow-x: auto;
+  }
+  .scene-toolbar > * {
+    flex: none;
   }
   .toast {
     font-size: 11px;

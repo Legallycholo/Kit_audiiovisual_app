@@ -235,11 +235,14 @@ test("reservation conflicts are explained without overbooking", async ({
 test("layout object editing, revision saving, undo and 3D rendering", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/design");
   await page.getByRole("button", { name: "Stand", exact: true }).click();
   await page.getByLabel("Etiqueta", { exact: true }).fill("Booth 101");
+  await page.getByLabel("Color de superficie").fill("#c25b4a");
+  await page.getByLabel("Texto de marca").fill("KIT EXPO");
   await page.getByLabel("Ancho · m", { exact: true }).fill("3");
   await page
     .getByRole("button", { name: "Guardar versión", exact: true })
@@ -248,6 +251,11 @@ test("layout object editing, revision saving, undo and 3D rendering", async ({
   await expect(
     page.getByRole("button", { name: "Seleccionar Booth 101", exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Seleccionar Booth 101", exact: true })
+    .click();
+  await expect(page.getByLabel("Texto de marca")).toHaveValue("KIT EXPO");
+  await page.reload();
   await page.getByLabel("Cargar plano de referencia").setInputFiles({
     name: "salon-reference.png",
     mimeType: "image/png",
@@ -308,12 +316,48 @@ test("layout object editing, revision saving, undo and 3D rendering", async ({
   await expect(
     page.getByRole("button", { name: "Seleccionar Booth 101", exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Seleccionar Booth 101", exact: true })
+    .click();
   await page.getByRole("button", { name: "Vista 3D", exact: true }).click();
   await expect(page.getByLabel("Diseño 3D interactivo del evento")).toBeVisible(
     {
       timeout: 15_000,
     },
   );
+  await expect(
+    page.getByText("Seleccionado: Booth 101", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Modelos detallados no asignados", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Guardar cámara", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Exportar imagen", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Guardar versión", exact: true })
+    .click();
+  const sceneDownload = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Exportar imagen", exact: true })
+    .click();
+  expect((await sceneDownload).suggestedFilename()).toMatch(
+    /scene-layout1-v\d+-vista-1\.png/,
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Vista 3D", exact: true }).click();
+  await expect(page.getByLabel("Diseño 3D interactivo del evento")).toBeVisible(
+    {
+      timeout: 15_000,
+    },
+  );
+  await page
+    .getByLabel("Vista de cámara guardada")
+    .selectOption({ label: "Vista 1" });
+  await expect(page.getByLabel("Vista de cámara guardada")).toHaveValue(/.+/);
   expect(errors).toEqual([]);
   await page.screenshot({
     path: "artifacts/design-desktop.png",

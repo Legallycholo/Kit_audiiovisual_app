@@ -46,6 +46,11 @@ const object = z
     layer: name,
     equipmentId: identifier.optional(),
     equipmentQuantity: z.number().int().positive().max(1_000_000).optional(),
+    surfaceColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/)
+      .optional(),
+    surfaceLabel: z.string().trim().max(200).optional(),
   })
   .strict();
 const layoutReference = z
@@ -60,6 +65,22 @@ const layoutReference = z
     intrinsicHeight: z.number().int().positive().max(50_000),
     opacity: z.number().finite().min(0.05).max(1),
     calibratedAt: z.string().datetime().optional(),
+  })
+  .strict();
+const sceneVector = z
+  .object({
+    x: z.number().finite().min(-100_000).max(100_000),
+    y: z.number().finite().min(-100_000).max(100_000),
+    z: z.number().finite().min(-100_000).max(100_000),
+  })
+  .strict();
+const layoutCamera = z
+  .object({
+    id: identifier,
+    name,
+    position: sceneVector,
+    target: sceneVector,
+    createdAt: z.string().datetime(),
   })
   .strict();
 const line = z
@@ -292,6 +313,7 @@ export const schemas = {
       verifiedAt: z.string().datetime().optional(),
       verificationNote: z.string().trim().max(1000).optional(),
       reference: layoutReference.optional(),
+      cameras: z.array(layoutCamera).max(50).optional(),
       history: z
         .array(
           z
@@ -304,6 +326,7 @@ export const schemas = {
               verified: z.boolean().optional(),
               verifiedAt: z.string().datetime().optional(),
               verificationNote: z.string().trim().max(1000).optional(),
+              cameras: z.array(layoutCamera).max(50).optional(),
             })
             .strict(),
         )

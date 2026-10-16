@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Box,
+  Camera,
   Circle,
   Copy,
   Download,
@@ -10,6 +11,7 @@ import {
   FileImage,
   Grid2X2,
   History,
+  ImageDown,
   Layers3,
   MousePointer2,
   Plus,
@@ -20,6 +22,7 @@ import {
   Trash2,
   Undo2,
   Redo2,
+  Rotate3D,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -34,6 +37,7 @@ import {
 } from "../shared/domain";
 import { uiLabel } from "../shared/i18n";
 import type { Layout, LayoutObject, ObjectKind } from "../shared/types";
+import type { SceneHandle } from "./Scene";
 import { useUnsavedChanges } from "../shared/useUnsavedChanges";
 const Scene = lazy(() => import("./Scene"));
 const palette: Record<string, string> = {
@@ -72,6 +76,7 @@ const editableLayout = (layout: Layout) => ({
   verifiedAt: layout.verifiedAt,
   verificationNote: layout.verificationNote,
   reference: layout.reference,
+  cameras: layout.cameras,
 });
 export function Design() {
   const { data, update, toast } = useWorkspace();
@@ -222,6 +227,7 @@ function LayoutEditor({
   const [zoom, setZoom] = useState(1);
   const [versions, setVersions] = useState(false);
   const [equipmentReview, setEquipmentReview] = useState(false);
+  const [selectedCameraId, setSelectedCameraId] = useState("");
   const [calibrationWidth, setCalibrationWidth] = useState(
     String(initial.current.layout.width),
   );
@@ -235,6 +241,7 @@ function LayoutEditor({
   } | null>(null);
   const svg = useRef<SVGSVGElement>(null);
   const referenceInput = useRef<HTMLInputElement>(null);
+  const scene = useRef<SceneHandle>(null);
   const object = layout.objects.find((o) => o.id === selection);
   const layers = Array.from(new Set(layout.objects.map((o) => o.layer)));
   const visible = layout.objects.filter((o) => !hidden.includes(o.layer));
@@ -325,6 +332,7 @@ function LayoutEditor({
           verified: original.verified,
           verifiedAt: original.verifiedAt,
           verificationNote: original.verificationNote,
+          cameras: structuredClone(original.cameras),
         },
       ],
     };
@@ -426,6 +434,36 @@ function LayoutEditor({
       },
     });
     toast("Referencia calibrada. Verifica la fuente de las medidas.");
+  }
+  function saveCamera() {
+    const current = scene.current?.readCamera();
+    if (!current) return;
+    const camera = {
+      id: id(),
+      name: `Vista ${(layout.cameras?.length || 0) + 1}`,
+      ...current,
+      createdAt: new Date().toISOString(),
+    };
+    setLayout({
+      ...layout,
+      cameras: [...(layout.cameras || []), camera],
+    });
+    setSelectedCameraId(camera.id);
+    toast("Vista de cámara guardada en el borrador del plano.");
+  }
+  function downloadSnapshot() {
+    const camera = layout.cameras?.find((item) => item.id === selectedCameraId);
+    const caption = `${layout.name} · revisión ${layout.version}${camera ? ` · ${camera.name}` : ""}`;
+    const dataUrl = scene.current?.captureSnapshot(caption);
+    if (!dataUrl) {
+      toast("No se pudo generar la imagen 3D.");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = `scene-${layout.id}-v${layout.version}${camera ? `-${camera.name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}` : ""}.png`;
+    link.click();
+    toast(`Imagen exportada desde la revisión ${layout.version}.`);
   }
   function point(clientX: number, clientY: number) {
     const element = svg.current!;
@@ -576,6 +614,73 @@ function LayoutEditor({
             </span>
             <span>Unidades: metros</span>
           </div>
+          {view === "3D" && (
+            <div className="scene-toolbar" aria-label="Controles de cámara 3D">
+              <select
+                aria-label="Vista de cámara guardada"
+                value={selectedCameraId}
+                onChange={(event) => {
+                  const cameraId = event.target.value;
+                  setSelectedCameraId(cameraId);
+                  const camera = layout.cameras?.find(
+                    (item) => item.id === cameraId,
+                  );
+                  if (camera) scene.current?.applyCamera(camera);
+                }}
+              >
+                <option value="">Vista actual sin guardar</option>
+                {(layout.cameras || []).map((camera) => (
+                  <option key={camera.id} value={camera.id}>
+                    {camera.name}
+                  </option>
+                ))}
+              </select>
+              <Button variant="secondary" onClick={saveCamera}>
+                <Camera size={14} />
+                Guardar cámara
+              </Button>
+              <button
+                className="icon-button"
+                aria-label="Restablecer cámara 3D"
+                onClick={() => {
+                  scene.current?.resetCamera();
+                  setSelectedCameraId("");
+                }}
+              >
+                <Rotate3D size={16} />
+              </button>
+              {selectedCameraId && (
+                <button
+                  className="icon-button danger-text"
+                  aria-label="Eliminar cámara guardada"
+                  onClick={() => {
+                    setLayout({
+                      ...layout,
+                      cameras: (layout.cameras || []).filter(
+                        (camera) => camera.id !== selectedCameraId,
+                      ),
+                    });
+                    setSelectedCameraId("");
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+              <Button
+                variant="secondary"
+                disabled={dirty}
+                title={
+                  dirty
+                    ? "Guarda la revisión antes de exportar una imagen vinculada."
+                    : undefined
+                }
+                onClick={downloadSnapshot}
+              >
+                <ImageDown size={14} />
+                Exportar imagen
+              </Button>
+            </div>
+          )}
           {view === "2D" ? (
             <div className="svg-viewport">
               <svg
@@ -721,7 +826,7 @@ function LayoutEditor({
                         cy={o.depth / 2}
                         rx={o.width / 2}
                         ry={o.depth / 2}
-                        fill={palette[o.kind]}
+                        fill={o.surfaceColor || palette[o.kind]}
                         stroke={selection === o.id ? "#2e674a" : "#8b9b85"}
                         strokeWidth={selection === o.id ? ".14" : ".06"}
                       />
@@ -730,7 +835,7 @@ function LayoutEditor({
                         width={o.width}
                         height={o.depth}
                         rx=".06"
-                        fill={palette[o.kind]}
+                        fill={o.surfaceColor || palette[o.kind]}
                         stroke={selection === o.id ? "#2e674a" : "#ffffff"}
                         strokeWidth={selection === o.id ? ".14" : ".04"}
                       />
@@ -747,7 +852,7 @@ function LayoutEditor({
                       }
                       pointerEvents="none"
                     >
-                      {o.label}
+                      {o.surfaceLabel || o.label}
                     </text>
                     {selection === o.id && (
                       <text
@@ -773,7 +878,13 @@ function LayoutEditor({
                 </div>
               }
             >
-              <Scene layout={layout} hidden={hidden} />
+              <Scene
+                ref={scene}
+                layout={layout}
+                hidden={hidden}
+                selection={selection}
+                onSelect={setSelection}
+              />
             </Suspense>
           )}
           <div className="canvas-controls">
@@ -837,6 +948,16 @@ function LayoutEditor({
           {object ? (
             <>
               <h3>{uiLabel(object.kind)}</h3>
+              {view === "3D" && (
+                <div className="scene-model-state">
+                  <Badge tone="neutral">Geometría provisional</Badge>
+                  <small>
+                    {data.equipment.find(
+                      (item) => item.id === object.equipmentId,
+                    )?.name || "Sin modelo de catálogo asignado"}
+                  </small>
+                </div>
+              )}
               <Field label="Label">
                 <input
                   value={object.label}
@@ -940,6 +1061,45 @@ function LayoutEditor({
                     }
                   />
                 </Field>
+              )}
+              {["Stage", "Booth", "LED wall", "Screen", "Decoration"].includes(
+                object.kind,
+              ) && (
+                <div className="surface-fields">
+                  <span className="eyebrow">SUPERFICIE VISUAL</span>
+                  <Field label="Color de superficie">
+                    <input
+                      type="color"
+                      value={object.surfaceColor || palette[object.kind]}
+                      onChange={(event) =>
+                        edit({ surfaceColor: event.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Texto de marca">
+                    <input
+                      maxLength={200}
+                      value={object.surfaceLabel || ""}
+                      placeholder="Nombre o mensaje visible"
+                      onChange={(event) =>
+                        edit({ surfaceLabel: event.target.value || undefined })
+                      }
+                    />
+                  </Field>
+                  {(object.surfaceColor || object.surfaceLabel) && (
+                    <button
+                      className="text-button"
+                      onClick={() =>
+                        edit({
+                          surfaceColor: undefined,
+                          surfaceLabel: undefined,
+                        })
+                      }
+                    >
+                      Restablecer superficie
+                    </button>
+                  )}
+                </div>
               )}
               <p className="tiny muted">
                 El vínculo identifica el equipo. No reserva inventario ni agrega
@@ -1256,6 +1416,7 @@ function LayoutEditor({
                       verified: h.verified || false,
                       verifiedAt: h.verifiedAt,
                       verificationNote: h.verificationNote,
+                      cameras: structuredClone(h.cameras),
                     });
                     setVersions(false);
                     toast("Previous geometry restored as an unsaved draft.");

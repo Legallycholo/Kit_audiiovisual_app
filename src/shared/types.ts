@@ -187,6 +187,8 @@ export interface LayoutObject {
   layer: string;
   equipmentId?: string;
   equipmentQuantity?: number;
+  surfaceColor?: string;
+  surfaceLabel?: string;
 }
 export interface LayoutReference {
   name: string;
@@ -196,6 +198,13 @@ export interface LayoutReference {
   intrinsicHeight: number;
   opacity: number;
   calibratedAt?: string;
+}
+export interface LayoutCamera {
+  id: string;
+  name: string;
+  position: { x: number; y: number; z: number };
+  target: { x: number; y: number; z: number };
+  createdAt: string;
 }
 export interface Layout {
   id: string;
@@ -209,6 +218,7 @@ export interface Layout {
   verifiedAt?: string;
   verificationNote?: string;
   reference?: LayoutReference;
+  cameras?: LayoutCamera[];
   history: {
     version: number;
     objects: LayoutObject[];
@@ -218,6 +228,7 @@ export interface Layout {
     verified?: boolean;
     verifiedAt?: string;
     verificationNote?: string;
+    cameras?: LayoutCamera[];
   }[];
 }
 export interface Activity {

@@ -293,7 +293,8 @@ export function applyChanges(
           snapshot.depth !== old.depth ||
           snapshot.verified !== old.verified ||
           snapshot.verifiedAt !== old.verifiedAt ||
-          snapshot.verificationNote !== old.verificationNote,
+          snapshot.verificationNote !== old.verificationNote ||
+          !same(snapshot.cameras, old.cameras),
         "A layout revision must preserve an exact snapshot of the prior geometry and measurement status.",
       );
     }

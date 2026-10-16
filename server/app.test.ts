@@ -302,6 +302,34 @@ describe("authenticated company workspace", () => {
     );
     expect(invalidGeometry.status).toBe(422);
     expect(invalidGeometry.json.error).toContain("excede el ancho");
+
+    const cameraRevision = await patch(
+      [
+        {
+          collection: "layouts",
+          id: layout.id,
+          value: {
+            ...layout,
+            version: layout.version + 1,
+            cameras: [
+              {
+                id: "camera-test",
+                name: "Vista de prueba",
+                position: { x: 20, y: 18, z: 24 },
+                target: { x: 12, y: 0, z: 13 },
+                createdAt: new Date().toISOString(),
+              },
+            ],
+            history: [...layout.history, snapshot],
+          },
+        },
+      ],
+      initial.revision,
+    );
+    expect(cameraRevision.status).toBe(200);
+    expect(cameraRevision.json.workspace.layouts[0].cameras[0].name).toBe(
+      "Vista de prueba",
+    );
   });
   it("only the owner can confirm exact issued revisions, without sending or reserving", async () => {
     const sales = await account("Sales Manager");
