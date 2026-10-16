@@ -53,14 +53,9 @@ import {
 import { Design } from "../modules/Design";
 import { WorkspaceTabs } from "./WorkspaceTabs";
 import { DraftNavigation } from "./DraftNavigation";
-import {
-  hubs,
-  activeHub,
-  HubNavigation,
-  LibraryHub,
-  KitHub,
-  SearchPage,
-} from "./Hubs";
+import { hubs, activeHub, HubNavigation, LibraryHub, KitHub } from "./Hubs";
+import { SearchPage } from "../modules/UniversalSearch";
+import { FileLibrary, FilePreview } from "../modules/FileLibrary";
 const navigation = [
   {
     label: uiLabel("Overview"),
@@ -147,6 +142,7 @@ export function App() {
     (
       {
         "/library": "Biblioteca",
+        "/library/files": "Archivos del equipo",
         "/kit": "KIT",
         "/search": "Buscar",
       } as Record<string, string>
@@ -154,9 +150,11 @@ export function App() {
     navigation
       .flatMap((n) => n.items)
       .find((n) => n.to !== "/" && location.pathname.startsWith(n.to))?.label ||
-    (location.pathname.startsWith("/settings")
-      ? uiLabel("Settings")
-      : uiLabel("Dashboard"));
+    (location.pathname.startsWith("/files/")
+      ? "Archivo"
+      : location.pathname.startsWith("/settings")
+        ? uiLabel("Settings")
+        : uiLabel("Dashboard"));
   const pending = data.conversations.filter((c) =>
     ["Pending", "Needs linking"].includes(c.review),
   ).length;
@@ -430,10 +428,16 @@ export function App() {
           {canSeeModule(user, location.pathname) ? (
             <Routes>
               <Route path="/library" element={<LibraryHub />} />
+              <Route path="/library/files" element={<FileLibrary />} />
+              <Route path="/files/:id" element={<FilePreview />} />
               <Route path="/kit" element={<KitHub />} />
               <Route
                 path="/search"
-                element={<SearchPage key={location.search} />}
+                element={
+                  <SearchPage
+                    key={`${mode}:${user?.id || "local"}:${new URLSearchParams(location.search).get("q") || ""}`}
+                  />
+                }
               />
               <Route path="/" element={<Dashboard />} />
               <Route path="/events" element={<Events />} />

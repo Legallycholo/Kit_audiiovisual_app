@@ -32,6 +32,24 @@ export function DraftNavigation() {
     };
   }, []);
   useEffect(() => {
+    const companyRoute = (event: Event) => {
+      const route = (event as CustomEvent<unknown>).detail;
+      if (
+        window.location.port !== "3001" ||
+        typeof route !== "string" ||
+        !/^\/(events|clients|proposals|creative|venues|inventory)(\/|\?|$)/.test(
+          route,
+        )
+      )
+        return;
+      const run = () => navigate(route);
+      if (draftGuard.dirty) setPending({ run });
+      else run();
+    };
+    window.addEventListener("kit:company-route", companyRoute);
+    return () => window.removeEventListener("kit:company-route", companyRoute);
+  }, [navigate]);
+  useEffect(() => {
     const request = (e: Event) => {
       const run = (e as CustomEvent<() => void>).detail;
       if (draftGuard.dirty) setPending({ run });

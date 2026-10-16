@@ -1,11 +1,4 @@
-import {
-  Link,
-  NavLink,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
-import { useState } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { useWorkspace } from "../shared/store";
 import { canSeeModule } from "../shared/access";
 export const hubs = [
@@ -89,10 +82,12 @@ export function LibraryHub() {
             </Link>
           ))}
       </div>
-      <p className="muted">
-        La búsqueda de archivos del equipo estará disponible en una fase
-        posterior.
-      </p>
+      <Link className="button" to="/library/files">
+        Archivos del equipo y permisos
+      </Link>
+      <Link className="button" to="/search">
+        Búsqueda universal
+      </Link>
     </section>
   );
 }
@@ -111,76 +106,6 @@ export function KitHub() {
       <p className="muted">
         Disponible con una conexión de empresa configurada.
       </p>
-    </section>
-  );
-}
-export function SearchPage() {
-  const [params] = useSearchParams();
-  const [query, setQuery] = useState(params.get("q") || "");
-  const navigate = useNavigate();
-  const { data, user } = useWorkspace();
-  const entries = [
-    ...data.events.map((e) => ({
-      title: e.name,
-      path: `/events/${e.id}`,
-      type: "Proyecto",
-    })),
-    ...data.clients.map((c) => ({
-      title: c.name,
-      path: `/clients?client=${c.id}`,
-      type: "Cliente",
-    })),
-    ...data.proposals.map((p) => ({
-      title: `${p.number} · ${p.title}`,
-      path: `/proposals/${p.id}`,
-      type: "Propuesta",
-    })),
-  ];
-  const q = params.get("q") || "";
-  return (
-    <section>
-      <h1>{q ? `Búsqueda: ${q}` : "Buscar en KIT"}</h1>
-      <form
-        className="workspace-search"
-        onSubmit={(e) => {
-          e.preventDefault();
-          navigate(`/search?q=${encodeURIComponent(query.trim())}`);
-        }}
-      >
-        <input
-          aria-label="Buscar registros"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <button className="button primary">Buscar</button>
-      </form>
-      <p className="muted">
-        Proyectos, clientes y propuestas de este espacio. La búsqueda de
-        archivos locales llegará en la fase 3.
-      </p>
-      <div className="search-results">
-        {q &&
-          entries
-            .filter(
-              (r) =>
-                canSeeModule(user, r.path) &&
-                r.title.toLowerCase().includes(q.toLowerCase()),
-            )
-            .map((r) => (
-              <button
-                key={r.path}
-                onClick={() => {
-                  window.dispatchEvent(new Event("kit:preview"));
-                  navigate(r.path);
-                }}
-              >
-                <span>
-                  {r.title}
-                  <small>{r.type}</small>
-                </span>
-              </button>
-            ))}
-      </div>
     </section>
   );
 }

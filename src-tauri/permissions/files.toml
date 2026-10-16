@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-scoped-files"
+description = "Manage explicitly consented read-only home indexing and open indexed IDs only."
+commands.allow = ["file_status", "file_policy", "file_scan", "file_search", "file_preview", "file_image", "file_open", "cloud_search"]

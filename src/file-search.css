@@ -1,0 +1,49 @@
+.file-library .panel {
+  padding: 24px;
+  margin: 20px 0;
+}
+.file-library label {
+  display: block;
+  margin: 16px 0;
+}
+.file-library textarea {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+.file-actions input[type="checkbox"],
+.file-library input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+}
+.file-preview-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 24px;
+  max-height: 65vh;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.file-preview-image {
+  display: block;
+  max-width: 100%;
+  max-height: 65vh;
+  object-fit: contain;
+  margin: 24px 0;
+}
+.search-results small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.file-library code {
+  overflow-wrap: anywhere;
+}

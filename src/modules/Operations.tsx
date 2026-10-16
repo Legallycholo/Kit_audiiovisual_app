@@ -2202,7 +2202,8 @@ export function Creative() {
     "Event concept",
   );
   const [referenceIds, setReferenceIds] = useState<string[]>([]);
-  const [selectedAssetId, setSelectedAssetId] = useState("");
+  const [selectedAssetId, setSelectedAssetId] = useState(params.get("asset") || "");
+  useEffect(()=>{if(params.get("event"))setEventId(params.get("event")!);if(params.get("asset"))setSelectedAssetId(params.get("asset")!);},[params]);
   const [revisionParentId, setRevisionParentId] = useState("");
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [generationError, setGenerationError] = useState("");

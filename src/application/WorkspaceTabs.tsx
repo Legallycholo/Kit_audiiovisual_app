@@ -62,6 +62,24 @@ function TabSession({
   const failed = useRef(false);
   const route = location.pathname + location.search;
   useEffect(() => {
+    const rename = (event: Event) => {
+      const detail = (event as CustomEvent<{ route: string; title: string }>)
+        .detail;
+      if (!detail || detail.route !== route) return;
+      setState((s) => ({
+        ...s,
+        tabs: s.tabs.map((t) =>
+          t.route === route ? { ...t, title: detail.title } : t,
+        ),
+        history: s.history.map((h) =>
+          h.route === route ? { ...h, title: detail.title } : h,
+        ),
+      }));
+    };
+    window.addEventListener("kit:resource-title", rename);
+    return () => window.removeEventListener("kit:resource-title", rename);
+  }, [route]);
+  useEffect(() => {
     if (recovery) return;
     if (!started.current) {
       started.current = true;

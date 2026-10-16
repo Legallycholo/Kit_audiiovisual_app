@@ -8,6 +8,7 @@ import "@fontsource-variable/dm-sans";
 import "@fontsource-variable/manrope";
 import "./desktop.css";
 import "./desktop-modules.css";
+import "./file-search.css";
 
 // Set the theme before the first paint so restored dark sessions never animate
 // from light surfaces or briefly display unreadable intermediate colors.

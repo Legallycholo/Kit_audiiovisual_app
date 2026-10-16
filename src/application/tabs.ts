@@ -52,6 +52,7 @@ export function canonicalRoute(route: string) {
   );
 }
 export function resourceKind(route: string): ResourceKind {
+  if (route.startsWith("/files/")) return "file";
   if (route.startsWith("/search")) return "search";
   if (route.startsWith("/events/")) return "project";
   if (route.startsWith("/proposals/")) return "proposal";

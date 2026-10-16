@@ -25,6 +25,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
       - run: npm test
+      - run: cargo test --manifest-path native/file-index/Cargo.toml --locked
+      - run: cargo run --manifest-path native/file-index/Cargo.toml --example fixture --locked
       - run: npx playwright install chromium
       - run: npm run test:browser
         env:

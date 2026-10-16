@@ -1,11 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Window lifecycle only. Filesystem and shell access are not enabled.",
+  "description": "Local main window only: lifecycle and consent-gated file-index commands. No generic filesystem or shell capability.",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-destroy",
-    "allow-open-company-window"
+    "allow-open-company-window",
+    "allow-scoped-files"
   ]
 }

@@ -21,8 +21,8 @@ Spanish is the primary interface language. The Phase 1 shell, account entry, com
 The interface now has five hubs (Inicio, Proyectos, Diseño, Biblioteca, KIT),
 light/dark/system appearance, bundled fonts, persistent workspace tabs, preview
 and pinned tabs, searchable history, recovery, and unsaved-editor confirmation.
-Existing business routes remain available inside their hubs. KIT's full chat and
-computer-file indexing are later phases and are not enabled by this change.
+Existing business routes remain available inside their hubs. KIT's shared full
+chat remains a later phase. File indexing and search are described below.
 
 With the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
 
@@ -39,8 +39,24 @@ its existing cookie and authorization boundary. On Windows PowerShell, set
 `$env:NODE_ENV="production"` before `npm start`. Automatic company synchronization
 is still a later phase.
 
-See [desktop implementation notes](docs/DESKTOP_PHASES_1_2.md) for verification,
-signing prerequisites, and the current native-build limitation.
+See [desktop implementation notes](docs/DESKTOP_PHASES_1_2.md) for the phase 1/2
+verification record and signing prerequisites.
+
+### Desktop design phases 3 and 4
+
+Open **Biblioteca → Archivos del equipo y permisos** in the local desktop
+window to review exclusions and explicitly authorize read-only indexing.
+Nothing is scanned before consent. The index uses SQLCipher and an OS-vault key.
+Search combines app records, local files and optional personal cloud matches,
+with explanations, grouped results, saved searches and safe file-preview tabs.
+Connecting a company device enables role-scoped company record search without
+uploading files. Those records open in the isolated company window.
+
+Cloud uploads require separate consent and an approved provider adapter, region,
+retention policy, encryption key and budget. They are disabled by default.
+See [phase 3 and 4 setup, verification and release gates](docs/DESKTOP_PHASES_3_4.md).
+The macOS native binary now builds; Windows launch, signing and real-provider
+acceptance checks remain required before release.
 
 Use Node.js 22.12 or newer and npm. The current server uses Node's built-in SQLite module, which emits an experimental-feature warning under Node 22.
 
