@@ -1,4 +1,5 @@
 import express from "express";
+import { SearchGateway, type SearchConfig } from "./search";
 import {
   proposalContext,
   materializeSuggestion,
@@ -40,6 +41,7 @@ export function createApp(
     serveStatic?: boolean;
     proposalGenerator?: ProposalGenerator;
     messageTransport?: MessageTransport;
+    search?: SearchConfig;
   },
 ) {
   const app = express();
@@ -54,7 +56,12 @@ export function createApp(
     next();
   });
   app.use(express.json({ limit: "6mb" }));
+  const searchGateway = new SearchGateway(repo, config.search);
+  app.locals.searchGateway = searchGateway;
+  // Native device requests carry revocable bearer tokens instead of browser cookies.
+  searchGateway.mountDevice(app);
   app.use("/api", sessionMiddleware(repo), csrfMiddleware(config.origins));
+  searchGateway.mountSession(app);
   const response = (res: express.Response): WorkspaceResponse => {
     const user = userOf(res);
     const { workspace, revision } = repo.read();
