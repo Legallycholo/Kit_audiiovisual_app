@@ -85,9 +85,54 @@ export function scopeWorkspace(
     reservations: guest
       ? []
       : workspace.reservations.filter((r) => allowed.has(r.eventId)),
+    packages: guest ? [] : workspace.packages,
+    maintenanceRecords:
+      user.role === "Production Manager" ? workspace.maintenanceRecords : [],
+    operations: guest
+      ? []
+      : workspace.operations
+          .filter((operation) => allowed.has(operation.eventId))
+          .map((operation) =>
+            user.role === "Production Manager"
+              ? operation
+              : {
+                  ...operation,
+                  crewShifts:
+                    user.role === "Technician"
+                      ? operation.crewShifts
+                          .filter(
+                            (shift) =>
+                              shift.memberId === user.id ||
+                              (!shift.memberId && shift.person === user.name),
+                          )
+                          .map((shift) => ({ ...shift, cost: 0 }))
+                      : operation.crewShifts.map((shift) => ({
+                          ...shift,
+                          cost: 0,
+                        })),
+                  transports: operation.transports.map((transport) => ({
+                    ...transport,
+                    cost: 0,
+                  })),
+                  changes: [],
+                  costs: [],
+                },
+          ),
+    automations: [],
     layouts: guest
       ? []
       : workspace.layouts.filter((l) => allowed.has(l.eventId)),
+    brandAssets:
+      user.role === "Event Designer"
+        ? workspace.brandAssets.filter((asset) => allowed.has(asset.eventId))
+        : [],
+    creativeAssets: ["Event Designer", "Sales Manager"].includes(user.role)
+      ? workspace.creativeAssets.filter(
+          (asset) =>
+            allowed.has(asset.eventId) &&
+            (user.role === "Event Designer" || asset.status === "Approved"),
+        )
+      : [],
     activity: guest
       ? []
       : workspace.activity.filter(
@@ -171,6 +216,170 @@ export function applyChanges(
         "Technicians may only complete or reopen their own assigned tasks.",
       );
     }
+    if (collection === "reservations") {
+      const reservation = row as Workspace["reservations"][number];
+      const old = before as Workspace["reservations"][number] | undefined;
+      if (!old)
+        invalid(
+          !["Hold", "Confirmed"].includes(reservation.status),
+          "New allocations must begin on hold or confirmed.",
+        );
+      if (old) {
+        invalid(
+          old.equipmentId !== reservation.equipmentId,
+          "Change equipment through a recorded substitution.",
+        );
+        invalid(
+          ["Returned", "Cancelled"].includes(old.status) &&
+            !same(old, reservation),
+          "Completed and cancelled allocations are immutable.",
+        );
+        const allowed: Record<string, string[]> = {
+          Hold: ["Hold", "Confirmed", "Cancelled"],
+          Confirmed: ["Confirmed", "Dispatched", "Returned", "Cancelled"],
+          Dispatched: ["Dispatched", "Returned"],
+          Returned: ["Returned"],
+          Cancelled: ["Cancelled"],
+        };
+        invalid(
+          !allowed[old.status].includes(reservation.status),
+          `Allocation cannot move from ${old.status} to ${reservation.status}.`,
+        );
+      }
+      const dispatched =
+        reservation.dispatchedQuantity ??
+        (["Dispatched", "Returned"].includes(reservation.status)
+          ? reservation.quantity
+          : 0);
+      const returned =
+        reservation.returnedQuantity ??
+        (reservation.status === "Returned"
+          ? dispatched - (reservation.damagedQuantity || 0)
+          : 0);
+      const damaged = reservation.damagedQuantity || 0;
+      invalid(
+        dispatched > reservation.quantity,
+        "Dispatched quantity exceeds the allocation.",
+      );
+      invalid(
+        returned + damaged > dispatched,
+        "Returned and damaged quantities exceed dispatch.",
+      );
+      invalid(
+        reservation.status === "Returned" && returned + damaged !== dispatched,
+        "A returned allocation must reconcile every dispatched unit.",
+      );
+    }
+    if (collection === "maintenanceRecords") {
+      const record = row as Workspace["maintenanceRecords"][number];
+      const old = before as Workspace["maintenanceRecords"][number] | undefined;
+      if (!old)
+        invalid(
+          record.status === "Resolved" || Boolean(record.resolvedAt),
+          "New maintenance records must begin open or in repair.",
+        );
+      else {
+        invalid(
+          old.equipmentId !== record.equipmentId ||
+            old.quantity !== record.quantity ||
+            old.issue !== record.issue ||
+            old.openedAt !== record.openedAt ||
+            old.reservationId !== record.reservationId,
+          "Maintenance origin and quantity are immutable.",
+        );
+        invalid(
+          old.status === "Resolved" && !same(old, record),
+          "Resolved maintenance records are immutable.",
+        );
+      }
+      invalid(
+        record.status === "Resolved"
+          ? !record.resolvedAt
+          : Boolean(record.resolvedAt),
+        "Resolution time must match maintenance status.",
+      );
+    }
+    if (collection === "operations" && before) {
+      const operation = row as Workspace["operations"][number];
+      const old = before as Workspace["operations"][number];
+      for (const entry of old.changes)
+        invalid(
+          !operation.changes.some((candidate) => same(candidate, entry)),
+          "Recorded onsite changes cannot be rewritten or removed.",
+        );
+      for (const entry of old.costs)
+        invalid(
+          !operation.costs.some((candidate) => same(candidate, entry)),
+          "Recorded actual costs cannot be rewritten or removed.",
+        );
+      for (const entry of operation.changes.filter(
+        (candidate) =>
+          !old.changes.some((stored) => stored.id === candidate.id),
+      )) {
+        entry.recordedAt = new Date().toISOString();
+        entry.recordedBy = user.name;
+      }
+    }
+    if (collection === "operations" && !before) {
+      const operation = row as Workspace["operations"][number];
+      for (const entry of operation.changes) {
+        entry.recordedAt = new Date().toISOString();
+        entry.recordedBy = user.name;
+      }
+    }
+    if (collection === "automations") {
+      const automation = row as Workspace["automations"][number];
+      const old = before as Workspace["automations"][number] | undefined;
+      if (!old)
+        invalid(
+          automation.status !== "Open" ||
+            Boolean(
+              automation.decidedAt ||
+              automation.decidedBy ||
+              automation.taskId ||
+              automation.failureReason,
+            ),
+          "New automation suggestions must begin open without decision metadata.",
+        );
+      else {
+        invalid(
+          !same(
+            {
+              ...old,
+              status: automation.status,
+              decidedAt: automation.decidedAt,
+              decidedBy: automation.decidedBy,
+              taskId: automation.taskId,
+              failureReason: automation.failureReason,
+            },
+            automation,
+          ),
+          "Automation trigger evidence is immutable.",
+        );
+        invalid(
+          old.status !== "Open" && !same(old, automation),
+          "A decided automation cannot be changed.",
+        );
+        invalid(
+          automation.status === "Open" && !same(old, automation),
+          "Use an explicit automation decision.",
+        );
+      }
+      if (automation.status !== "Open") {
+        automation.decidedAt = new Date().toISOString();
+        automation.decidedBy = user.name;
+      }
+      invalid(
+        automation.status === "Failed"
+          ? !automation.failureReason
+          : Boolean(automation.failureReason),
+        "Failure details must be present only for a failed automation.",
+      );
+      invalid(
+        automation.status !== "Approved" && Boolean(automation.taskId),
+        "Only an approved automation can link an executed task.",
+      );
+    }
     if (collection === "proposals") {
       const p = row as Proposal;
       const old = before as Proposal | undefined;
@@ -215,7 +424,60 @@ export function applyChanges(
           !same(p, old),
           "Editing an approved draft requires renewed internal review.",
         );
+      if (
+        old &&
+        (!same(old.creativeAssetIds, p.creativeAssetIds) ||
+          !same(old.visuals, p.visuals))
+      )
+        invalid(
+          p.status !== "Draft",
+          "Visual assets can only be changed on a draft proposal.",
+        );
       quoteTotals(p.lines, p.discount, p.tax);
+    }
+    if (collection === "brandAssets") {
+      const asset = row as Workspace["brandAssets"][number];
+      invalid(
+        Boolean(before) && !same(before, asset),
+        "Stored brand references are immutable. Add a new authorized file.",
+      );
+    }
+    if (collection === "creativeAssets") {
+      const asset = row as Workspace["creativeAssets"][number];
+      const old = before as Workspace["creativeAssets"][number] | undefined;
+      if (!old) {
+        invalid(
+          asset.status !== "In review" ||
+            Boolean(asset.reviewedAt || asset.reviewNote),
+          "Generated concepts must begin in review.",
+        );
+      } else {
+        invalid(
+          !same(
+            {
+              ...old,
+              status: asset.status,
+              reviewedAt: asset.reviewedAt,
+              reviewNote: asset.reviewNote,
+            },
+            asset,
+          ),
+          "Creative provenance and generated content are immutable.",
+        );
+        invalid(
+          old.status !== "In review" && !same(old, asset),
+          "A completed creative review cannot be changed.",
+        );
+        invalid(
+          asset.status !== "In review" && !asset.reviewedAt,
+          "A completed creative review requires a review time.",
+        );
+        invalid(
+          asset.status === "In review" &&
+            Boolean(asset.reviewedAt || asset.reviewNote),
+          "A pending creative review cannot contain a decision.",
+        );
+      }
     }
     if (collection === "conversations") {
       const c = row as Conversation;
@@ -372,17 +634,187 @@ export function validateWorkspace(next: Workspace, before: Workspace) {
     invalid(sku.has(item.sku.toLowerCase()), "Equipment SKU must be unique.");
     sku.add(item.sku.toLowerCase());
   }
+  const damageEquipment = new Set(
+    next.maintenanceRecords
+      .filter(
+        (record) =>
+          record.reservationId &&
+          !before.maintenanceRecords.some((stored) => stored.id === record.id),
+      )
+      .map((record) => record.equipmentId),
+  );
   for (const r of next.reservations) {
     const event = requireEvent(r.eventId);
-    const item = next.equipment.find((q) => q.id === r.equipmentId);
+    const item = next.equipment.find(
+      (q) => q.id === (r.substituteEquipmentId || r.equipmentId),
+    );
     invalid(!item, "Reserved equipment does not exist.");
+    invalid(
+      Boolean(
+        r.substituteEquipmentId && r.substituteEquipmentId === r.equipmentId,
+      ),
+      "A substitution must identify different equipment.",
+    );
+    invalid(
+      r.source === "Supplier" && !r.supplier?.trim(),
+      "Supplier rentals require a supplier.",
+    );
+    const beforeDate = new Date(`${event.date}T00:00:00Z`);
+    beforeDate.setUTCDate(beforeDate.getUTCDate() - (r.bufferBeforeDays || 0));
+    const afterDate = new Date(`${event.endDate}T00:00:00Z`);
+    afterDate.setUTCDate(afterDate.getUTCDate() + (r.bufferAfterDays || 0));
+    invalid(
+      (r.bufferBeforeDays !== undefined || r.bufferAfterDays !== undefined) &&
+        (r.start > beforeDate.toISOString().slice(0, 10) ||
+          r.end < afterDate.toISOString().slice(0, 10)),
+      "The occupied window must include the event and its preparation/return buffers.",
+    );
     if (!["Returned", "Cancelled"].includes(r.status)) {
       invalid(
         event.status === "Cancelled",
         "Cancelled events cannot reserve equipment.",
       );
-      validateReservation(item!, next.reservations, r);
+      try {
+        validateReservation(item!, next.reservations, r);
+      } catch (error) {
+        const wasAlreadyAllocated = before.reservations.some(
+          (reservation) => reservation.id === r.id,
+        );
+        if (!wasAlreadyAllocated || !damageEquipment.has(item!.id)) throw error;
+      }
     }
+  }
+  const packageNames = new Set<string>();
+  for (const equipmentPackage of next.packages) {
+    invalid(
+      packageNames.has(equipmentPackage.name.toLowerCase()),
+      "Equipment package names must be unique.",
+    );
+    packageNames.add(equipmentPackage.name.toLowerCase());
+    const packageItems = new Set<string>();
+    for (const item of equipmentPackage.items) {
+      invalid(
+        packageItems.has(item.equipmentId),
+        "Package equipment must be unique.",
+      );
+      packageItems.add(item.equipmentId);
+      invalid(
+        !next.equipment.some((equipment) => equipment.id === item.equipmentId),
+        "Package equipment does not exist.",
+      );
+    }
+  }
+  for (const record of next.maintenanceRecords) {
+    const equipment = next.equipment.find(
+      (item) => item.id === record.equipmentId,
+    );
+    invalid(!equipment, "Maintenance equipment does not exist.");
+    invalid(
+      Boolean(record.reservationId) &&
+        !next.reservations.some(
+          (reservation) =>
+            reservation.id === record.reservationId &&
+            (reservation.substituteEquipmentId || reservation.equipmentId) ===
+              record.equipmentId,
+        ),
+      "Maintenance custody reference does not match the equipment.",
+    );
+  }
+  for (const item of next.equipment) {
+    const activeMaintenance = next.maintenanceRecords
+      .filter(
+        (record) =>
+          record.equipmentId === item.id && record.status !== "Resolved",
+      )
+      .reduce((sum, record) => sum + record.quantity, 0);
+    invalid(
+      activeMaintenance > item.maintenance,
+      "Open maintenance records exceed the equipment quantity marked unavailable.",
+    );
+  }
+  const operationEvents = new Set<string>();
+  const activeShifts: {
+    eventId: string;
+    identity: string;
+    start: string;
+    end: string;
+  }[] = [];
+  for (const operation of next.operations) {
+    requireEvent(operation.eventId);
+    invalid(
+      operationEvents.has(operation.eventId),
+      "An event can have only one operations record.",
+    );
+    operationEvents.add(operation.eventId);
+    for (const key of [
+      "crewShifts",
+      "cues",
+      "transports",
+      "changes",
+      "costs",
+    ] as const) {
+      const ids = new Set<string>();
+      for (const entry of operation[key]) {
+        invalid(ids.has(entry.id), `Duplicate ${key} identity.`);
+        ids.add(entry.id);
+      }
+    }
+    for (const shift of operation.crewShifts) {
+      if (shift.status === "Cancelled") continue;
+      const identity = shift.memberId || shift.person.trim().toLowerCase();
+      invalid(
+        activeShifts.some(
+          (other) =>
+            other.identity === identity &&
+            other.start < shift.end &&
+            other.end > shift.start,
+        ),
+        `${shift.person} has an overlapping crew shift.`,
+      );
+      activeShifts.push({
+        eventId: operation.eventId,
+        identity,
+        start: shift.start,
+        end: shift.end,
+      });
+    }
+  }
+  const automationKeys = new Set<string>();
+  for (const automation of next.automations) {
+    invalid(
+      automationKeys.has(automation.key),
+      "Automation trigger keys must be unique.",
+    );
+    automationKeys.add(automation.key);
+    if (automation.eventId) requireEvent(automation.eventId);
+    if (automation.proposalId) {
+      const proposal = next.proposals.find(
+        (item) => item.id === automation.proposalId,
+      );
+      invalid(
+        !proposal ||
+          Boolean(
+            automation.eventId && proposal.eventId !== automation.eventId,
+          ),
+        "Automation proposal scope does not match its event.",
+      );
+    }
+    if (
+      automation.status === "Approved" &&
+      automation.action === "Create task"
+    ) {
+      const task = next.tasks.find((item) => item.id === automation.taskId);
+      invalid(
+        !task || !automation.eventId || task.eventId !== automation.eventId,
+        "An approved task automation must link one task for the same event.",
+      );
+    }
+    invalid(
+      automation.status === "Approved" &&
+        automation.action === "Review only" &&
+        Boolean(automation.taskId),
+      "Review-only automations cannot create tasks.",
+    );
   }
   const revisions = new Set<string>();
   for (const p of next.proposals) {
@@ -396,8 +828,110 @@ export function validateWorkspace(next: Workspace, before: Workspace) {
           !next.equipment.some((q) => q.id === line.equipmentId),
         "Proposal equipment reference does not exist.",
       );
+    const creativeIds = new Set<string>();
+    for (const assetId of p.creativeAssetIds || []) {
+      invalid(
+        creativeIds.has(assetId),
+        "Proposal creative assets must be unique.",
+      );
+      creativeIds.add(assetId);
+      const asset = next.creativeAssets.find((item) => item.id === assetId);
+      invalid(
+        !asset || asset.eventId !== p.eventId || asset.status !== "Approved",
+        "Proposal creative assets must be approved and belong to the same event.",
+      );
+    }
+    const visualIds = new Set<string>();
+    for (const visual of p.visuals || []) {
+      invalid(
+        visualIds.has(visual.id),
+        "Proposal visual identities must be unique.",
+      );
+      visualIds.add(visual.id);
+      if (visual.sourceType === "Creative") {
+        const asset = next.creativeAssets.find(
+          (item) => item.id === visual.sourceId,
+        );
+        invalid(
+          !asset ||
+            asset.eventId !== p.eventId ||
+            asset.status !== "Approved" ||
+            asset.revision !== visual.sourceRevision ||
+            asset.dataUrl !== visual.dataUrl ||
+            !(p.creativeAssetIds || []).includes(asset.id),
+          "Proposal creative snapshots must match an approved selected asset from the same event.",
+        );
+      } else {
+        const layout = next.layouts.find(
+          (item) => item.id === visual.sourceId && item.eventId === p.eventId,
+        );
+        const revisionVerified = layout
+          ? layout.version === visual.sourceRevision
+            ? layout.verified
+            : layout.history.find(
+                (item) => item.version === visual.sourceRevision,
+              )?.verified
+          : undefined;
+        invalid(
+          !layout ||
+            revisionVerified === undefined ||
+            visual.measurementStatus !==
+              (revisionVerified ? "Verified" : "Unverified"),
+          "Proposal layout snapshots must identify an existing same-event revision and its measurement status.",
+        );
+      }
+    }
   }
   for (const t of next.tasks) requireEvent(t.eventId);
+  for (const reference of next.brandAssets) requireEvent(reference.eventId);
+  const creativeIds = new Set<string>();
+  for (const asset of next.creativeAssets) {
+    requireEvent(asset.eventId);
+    invalid(
+      creativeIds.has(asset.id),
+      "Creative asset identities must be unique.",
+    );
+    creativeIds.add(asset.id);
+    const referenceIds = new Set<string>();
+    for (const referenceId of asset.referenceIds) {
+      invalid(
+        referenceIds.has(referenceId),
+        "Creative references must be unique.",
+      );
+      referenceIds.add(referenceId);
+      const reference = next.brandAssets.find(
+        (item) => item.id === referenceId,
+      );
+      invalid(
+        !reference || reference.eventId !== asset.eventId,
+        "Creative references must belong to the same event.",
+      );
+    }
+    if (asset.parentId) {
+      const parent = next.creativeAssets.find(
+        (item) => item.id === asset.parentId,
+      );
+      invalid(
+        !parent ||
+          parent.eventId !== asset.eventId ||
+          parent.kind !== asset.kind ||
+          asset.revision !== parent.revision + 1,
+        "Creative revisions must follow a concept from the same event and type.",
+      );
+    } else
+      invalid(
+        asset.revision !== 1,
+        "New creative concepts begin at revision one.",
+      );
+  }
+  for (const event of next.events)
+    invalid(
+      next.creativeAssets.filter(
+        (asset) =>
+          asset.eventId === event.id && asset.provider === "Local showcase",
+      ).length > 20,
+      "The local creative showcase is limited to 20 concepts per event.",
+    );
   for (const l of next.layouts) {
     requireEvent(l.eventId);
     const geometryErrors = validateLayoutGeometry(l);

@@ -34,7 +34,13 @@ export const collections: Collection[] = [
   "conversations",
   "tasks",
   "reservations",
+  "packages",
+  "maintenanceRecords",
+  "operations",
+  "automations",
   "layouts",
+  "brandAssets",
+  "creativeAssets",
 ];
 export interface WorkspaceChange {
   collection: Collection | "settings";
@@ -106,12 +112,15 @@ export function canEditCollection(
   const edit: Record<Role, string[]> = {
     Administrator: [],
     "Sales Manager": ["clients", "events", "proposals", "conversations"],
-    "Event Designer": ["venues", "layouts"],
+    "Event Designer": ["venues", "layouts", "brandAssets", "creativeAssets"],
     "Production Manager": [
       "events",
       "venues",
       "equipment",
       "reservations",
+      "packages",
+      "maintenanceRecords",
+      "operations",
       "tasks",
       "layouts",
     ],

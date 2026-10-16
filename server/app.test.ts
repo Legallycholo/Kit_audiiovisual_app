@@ -9,6 +9,11 @@ import { createSeed } from "../src/shared/seed";
 import type { WorkspaceResponse, WorkspaceChange } from "../src/shared/access";
 import type { ProposalGenerator } from "./proposal-ai";
 import type { MessageTransport } from "./messaging";
+import { createShowcaseCreativeAsset } from "../src/shared/creative";
+import {
+  createCreativeProposalVisual,
+  createLayoutProposalVisual,
+} from "../src/shared/proposal-visuals";
 
 const origin = "http://localhost:5173";
 const password = "only-for-automated-tests-123";
@@ -257,6 +262,129 @@ describe("authenticated company workspace", () => {
       ).status,
     ).toBe(422);
   });
+  it("validates advanced fulfillment, packages, and crew conflicts", async () => {
+    const production = await account("Production Manager", {
+      eventIds: ["e1"],
+    });
+    const initial = await workspace(production);
+    const equipmentPackage = {
+      id: "test-package",
+      name: "Test conference kit",
+      description: "Reusable test package",
+      active: true,
+      items: [{ equipmentId: "q1", quantity: 2 }],
+    };
+    const savedPackage = await patch(
+      [
+        {
+          collection: "packages",
+          id: equipmentPackage.id,
+          value: equipmentPackage,
+        },
+      ],
+      initial.revision,
+      production,
+    );
+    expect(savedPackage.status).toBe(200);
+
+    const event = savedPackage.json.workspace.events.find(
+      (item: { id: string }) => item.id === "e1",
+    );
+    const operation = {
+      id: "ops-test-e1",
+      eventId: "e1",
+      crewShifts: [
+        {
+          id: "shift-one",
+          person: "Freelance Tech",
+          role: "Audio",
+          start: `${event.date}T10:00:00.000Z`,
+          end: `${event.date}T14:00:00.000Z`,
+          status: "Scheduled",
+          cost: 200,
+        },
+        {
+          id: "shift-two",
+          person: "Freelance Tech",
+          role: "Video",
+          start: `${event.date}T13:00:00.000Z`,
+          end: `${event.date}T16:00:00.000Z`,
+          status: "Scheduled",
+          cost: 200,
+        },
+      ],
+      cues: [],
+      transports: [],
+      changes: [],
+      costs: [],
+    };
+    expect(
+      (
+        await patch(
+          [{ collection: "operations", id: operation.id, value: operation }],
+          savedPackage.json.revision,
+          production,
+        )
+      ).status,
+    ).toBe(422);
+
+    const validOperation = {
+      ...operation,
+      crewShifts: operation.crewShifts.slice(0, 1),
+      costs: [
+        {
+          id: "private-cost",
+          category: "Other",
+          description: "Private actual cost",
+          amount: 125,
+          incurredAt: event.date,
+        },
+      ],
+    };
+    const savedOperation = await patch(
+      [
+        {
+          collection: "operations",
+          id: validOperation.id,
+          value: validOperation,
+        },
+      ],
+      savedPackage.json.revision,
+      production,
+    );
+    expect(savedOperation.status).toBe(200);
+    const sales = await account("Sales Manager");
+    const salesOperation = (await workspace(sales)).workspace.operations.find(
+      (item) => item.id === validOperation.id,
+    );
+    expect(salesOperation?.costs).toEqual([]);
+    expect(salesOperation?.crewShifts[0].cost).toBe(0);
+
+    const reservation = savedOperation.json.workspace.reservations.find(
+      (item: { id: string }) => item.id === "res1",
+    );
+    expect(
+      (
+        await patch(
+          [
+            {
+              collection: "reservations",
+              id: reservation.id,
+              value: {
+                ...reservation,
+                status: "Returned",
+                dispatchedQuantity: reservation.quantity,
+                returnedQuantity: reservation.quantity - 2,
+                damagedQuantity: 1,
+              },
+            },
+          ],
+          savedOperation.json.revision,
+          production,
+        )
+      ).status,
+    ).toBe(422);
+  });
   it("rejects invalid layout geometry and missing revision snapshots", async () => {
     const initial = await workspace();
     const layout = initial.workspace.layouts[0];
@@ -330,6 +458,186 @@ describe("authenticated company workspace", () => {
     expect(cameraRevision.json.workspace.layouts[0].cameras[0].name).toBe(
       "Vista de prueba",
     );
+  });
+
+  it("preserves creative provenance and only attaches an approved same-event asset", async () => {
+    const initial = await workspace();
+    const reference = {
+      id: "brand-test",
+      eventId: "e2",
+      name: "northstar.png",
+      mimeType: "image/png" as const,
+      dataUrl:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      rightsConfirmed: true as const,
+      createdAt: "2026-10-15T12:00:00.000Z",
+    };
+    const concept = createShowcaseCreativeAsset({
+      id: "creative-test",
+      eventId: "e2",
+      eventName: "Northstar Annual Conference",
+      kind: "Event concept",
+      brief:
+        "A confident conference identity with warm light and clear screens.",
+      referenceIds: [reference.id],
+      referenceNames: [reference.name],
+      generatedAt: "2026-10-15T12:01:00.000Z",
+    });
+    const created = await patch(
+      [
+        { collection: "brandAssets", id: reference.id, value: reference },
+        { collection: "creativeAssets", id: concept.id, value: concept },
+      ],
+      initial.revision,
+    );
+    expect(created.status).toBe(200);
+    const designer = await account("Event Designer", { eventIds: ["e2"] });
+    const production = await account("Production Manager", {
+      eventIds: ["e2"],
+    });
+    const sales = await account("Sales Manager");
+    expect((await workspace(designer)).workspace.brandAssets).toHaveLength(1);
+    expect((await workspace(designer)).workspace.creativeAssets).toHaveLength(
+      1,
+    );
+    expect((await workspace(production)).workspace.brandAssets).toEqual([]);
+    expect((await workspace(production)).workspace.creativeAssets).toEqual([]);
+    expect((await workspace(sales)).workspace.creativeAssets).toEqual([]);
+
+    const beforeReview = await workspace();
+    const rejectedAttachment = await patch(
+      [
+        {
+          collection: "proposals",
+          id: "p2",
+          value: {
+            ...beforeReview.workspace.proposals.find(
+              (item) => item.id === "p2",
+            ),
+            creativeAssetIds: [concept.id],
+          },
+        },
+      ],
+      beforeReview.revision,
+    );
+    expect(rejectedAttachment.status).toBe(422);
+
+    const reviewed = await workspace();
+    const approved = {
+      ...reviewed.workspace.creativeAssets.find(
+        (item) => item.id === concept.id,
+      )!,
+      status: "Approved" as const,
+      reviewedAt: "2026-10-15T12:02:00.000Z",
+    };
+    expect(
+      (
+        await patch(
+          [{ collection: "creativeAssets", id: concept.id, value: approved }],
+          reviewed.revision,
+        )
+      ).status,
+    ).toBe(200);
+    expect((await workspace(sales)).workspace.creativeAssets).toHaveLength(1);
+
+    const ready = await workspace();
+    const approvedAsset = ready.workspace.creativeAssets.find(
+      (item) => item.id === concept.id,
+    )!;
+    const visual = createCreativeProposalVisual({
+      id: "proposal-visual-test",
+      asset: approvedAsset,
+      addedAt: "2026-10-15T12:03:00.000Z",
+    });
+    const mismatched = await patch(
+      [
+        {
+          collection: "proposals",
+          id: "p2",
+          value: {
+            ...ready.workspace.proposals.find((item) => item.id === "p2")!,
+            creativeAssetIds: [concept.id],
+            visuals: [{ ...visual, sourceRevision: 2 }],
+          },
+        },
+      ],
+      ready.revision,
+    );
+    expect(mismatched.status).toBe(422);
+
+    const unchanged = await workspace();
+    expect(
+      (
+        await patch(
+          [
+            {
+              collection: "proposals",
+              id: "p2",
+              value: {
+                ...unchanged.workspace.proposals.find(
+                  (item) => item.id === "p2",
+                )!,
+                creativeAssetIds: [concept.id],
+                presentationTemplate: "Editorial",
+                visualNarrative: "A reviewed visual direction for the event.",
+                visuals: [visual],
+              },
+            },
+          ],
+          unchanged.revision,
+        )
+      ).status,
+    ).toBe(200);
+    const saved = await workspace();
+    expect(
+      saved.workspace.proposals.find((item) => item.id === "p2")
+        ?.creativeAssetIds,
+    ).toEqual([concept.id]);
+    expect(
+      saved.workspace.proposals.find((item) => item.id === "p2")?.visuals,
+    ).toEqual([visual]);
+  });
+  it("accepts an exact layout snapshot only on a new draft revision", async () => {
+    const initial = await workspace();
+    const issued = initial.workspace.proposals.find(
+      (item) => item.id === "p1",
+    )!;
+    const layout = initial.workspace.layouts.find(
+      (item) => item.id === "layout1",
+    )!;
+    const visual = createLayoutProposalVisual({
+      id: "layout-proposal-visual",
+      layout,
+      view: "Layout plan",
+      addedAt: "2026-10-15T12:00:00.000Z",
+    });
+    const draft = {
+      ...issued,
+      id: "p1-layout-draft",
+      version: 3,
+      status: "Draft" as const,
+      acceptedAt: undefined,
+      presentationTemplate: "Spotlight" as const,
+      visualNarrative: "A client-safe view of the proposed room plan.",
+      visuals: [visual],
+    };
+    expect(
+      (
+        await patch(
+          [{ collection: "proposals", id: draft.id, value: draft }],
+          initial.revision,
+        )
+      ).status,
+    ).toBe(200);
+    const saved = await workspace();
+    expect(
+      saved.workspace.proposals.find((item) => item.id === draft.id)
+        ?.visuals?.[0],
+    ).toMatchObject({
+      sourceId: "layout1",
+      sourceRevision: 1,
+      measurementStatus: "Unverified",
+    });
   });
   it("only the owner can confirm exact issued revisions, without sending or reserving", async () => {
     const sales = await account("Sales Manager");
@@ -922,4 +1230,123 @@ it("uses account identity for technician assignments, not a matching display nam
       )
     ).status,
   ).toBe(403);
+});
+
+it("keeps automation suggestions administrator-controlled, unique and auditable", async () => {
+  const sales = await account("Sales Manager");
+  expect((await workspace(sales)).workspace.automations).toEqual([]);
+
+  const suggestion = {
+    id: "automation-phase9",
+    key: "preparation-risk:e1:2030-01-01",
+    eventId: "e1",
+    kind: "Preparation risk",
+    title: "Resolve preparation risk",
+    detail: "Review the remaining production blockers.",
+    dueAt: "2030-01-01T12:00:00.000Z",
+    action: "Create task",
+    status: "Open",
+    createdAt: "2026-10-15T12:00:00.000Z",
+  };
+  expect(
+    (
+      await patch(
+        [
+          {
+            collection: "automations",
+            id: suggestion.id,
+            value: suggestion,
+          },
+        ],
+        undefined,
+        sales,
+      )
+    ).status,
+  ).toBe(403);
+  expect(
+    (
+      await patch([
+        {
+          collection: "automations",
+          id: suggestion.id,
+          value: suggestion,
+        },
+      ])
+    ).status,
+  ).toBe(200);
+
+  const duplicate = {
+    ...suggestion,
+    id: "automation-duplicate",
+  };
+  expect(
+    (
+      await patch([
+        {
+          collection: "automations",
+          id: duplicate.id,
+          value: duplicate,
+        },
+      ])
+    ).status,
+  ).toBe(422);
+  expect(
+    (
+      await patch([
+        {
+          collection: "automations",
+          id: suggestion.id,
+          value: { ...suggestion, status: "Approved" },
+        },
+      ])
+    ).status,
+  ).toBe(422);
+
+  const current = await workspace();
+  const task = {
+    ...current.workspace.tasks.find((item) => item.eventId === "e1")!,
+    id: "automation-task",
+    eventId: "e1",
+    title: suggestion.title,
+    done: false,
+  };
+  expect(
+    (
+      await patch(
+        [
+          { collection: "tasks", id: task.id, value: task },
+          {
+            collection: "automations",
+            id: suggestion.id,
+            value: {
+              ...suggestion,
+              status: "Approved",
+              taskId: task.id,
+            },
+          },
+        ],
+        current.revision,
+      )
+    ).status,
+  ).toBe(200);
+  const approved = (await workspace()).workspace.automations.find(
+    (item) => item.id === suggestion.id,
+  )!;
+  expect(approved).toMatchObject({
+    status: "Approved",
+    taskId: task.id,
+    decidedBy: "Owner",
+  });
+  expect(approved.decidedAt).toBeTruthy();
+  expect(
+    (
+      await patch([
+        {
+          collection: "automations",
+          id: approved.id,
+          value: { ...approved, status: "Dismissed", taskId: undefined },
+        },
+      ])
+    ).status,
+  ).toBe(422);
 });

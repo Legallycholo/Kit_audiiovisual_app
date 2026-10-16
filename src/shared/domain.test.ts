@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   acceptConversation,
+  actualEventCosts,
   availableStock,
+  crewShiftConflicts,
   createProposalRevision,
   layoutSvg,
+  inventoryConflicts,
   productionReadiness,
   quoteTotals,
   reconcileLayoutEquipment,
@@ -12,6 +15,12 @@ import {
   validateReservation,
 } from "./domain";
 import { createSeed } from "./seed";
+import { createShowcaseCreativeAsset } from "./creative";
+import {
+  createCreativeProposalVisual,
+  createLayoutProposalVisual,
+  createVisualNarrative,
+} from "./proposal-visuals";
 import type { Equipment, Reservation } from "./types";
 
 describe("commercial calculations", () => {
@@ -132,6 +141,116 @@ describe("time-window stock allocations", () => {
     expect(() =>
       validateReservation(item, [], { ...r, end: "2026-09-30" }),
     ).toThrow();
+  });
+  it("does not consume owned stock for supplier rentals and reserves substitute stock", () => {
+    const supplier = {
+      ...allocation("supplier", "2026-10-01", "2026-10-05", 10),
+      source: "Supplier" as const,
+      supplier: "Rental partner",
+    };
+    expect(availableStock(item, [supplier], "2026-10-01", "2026-10-05")).toBe(
+      8,
+    );
+    const substitute = {
+      ...allocation("substitute", "2026-10-01", "2026-10-05", 3),
+      equipmentId: "requested-item",
+      substituteEquipmentId: "gear",
+    };
+    expect(availableStock(item, [substitute], "2026-10-01", "2026-10-05")).toBe(
+      5,
+    );
+  });
+  it("identifies the events affected when maintenance reduces committed capacity", () => {
+    const workspace = createSeed();
+    const equipment = workspace.equipment.find((item) => item.id === "q1")!;
+    equipment.maintenance = equipment.quantity - 4;
+    const conflict = inventoryConflicts(workspace).find(
+      (item) => item.equipmentId === "q1",
+    );
+    expect(conflict).toMatchObject({ reserved: 8, capacity: 4 });
+    expect(conflict?.eventIds).toContain("e1");
+  });
+});
+
+describe("advanced production operations", () => {
+  it("detects crew overlaps across events and ignores cancelled shifts", () => {
+    const workspace = createSeed();
+    const existing = workspace.operations[0].crewShifts[0];
+    const conflict = {
+      ...existing,
+      id: "new-shift",
+      start: existing.start,
+      end: existing.end,
+    };
+    expect(
+      crewShiftConflicts(workspace.operations, conflict, "e2"),
+    ).toHaveLength(1);
+    expect(
+      crewShiftConflicts(
+        workspace.operations,
+        { ...conflict, status: "Cancelled" },
+        "e2",
+      ),
+    ).toEqual([]);
+  });
+
+  it("reconciles crew, transport, supplier, repair, and entered actual costs", () => {
+    const workspace = createSeed();
+    const operation = workspace.operations[0];
+    operation.transports.push({
+      id: "transport-cost",
+      kind: "Outbound",
+      provider: "KIT",
+      vehicle: "Truck 1",
+      driver: "Ana",
+      departureAt: operation.crewShifts[0].start,
+      arrivalAt: operation.crewShifts[0].end,
+      status: "Complete",
+      cost: 125,
+      notes: "",
+    });
+    operation.costs.push({
+      id: "other-cost",
+      category: "Other",
+      description: "Consumables",
+      amount: 25,
+      incurredAt: workspace.events.find((event) => event.id === "e3")!.date,
+    });
+    workspace.reservations.push({
+      id: "supplier-cost",
+      eventId: "e3",
+      equipmentId: "q2",
+      quantity: 2,
+      start: workspace.events[2].date,
+      end: workspace.events[2].endDate,
+      status: "Confirmed",
+      source: "Supplier",
+      supplier: "Rental partner",
+      unitCost: 50,
+    });
+    expect(actualEventCosts(workspace, "e3")).toMatchObject({
+      crew: 480,
+      transport: 125,
+      supplierRentals: 100,
+      recorded: 25,
+      total: 730,
+    });
+  });
+
+  it("requires operational cues, shifts, and transport to reconcile before closeout", () => {
+    const workspace = createSeed();
+    workspace.events.find((event) => event.id === "e3")!.status =
+      "In production";
+    workspace.tasks
+      .filter((task) => task.eventId === "e3")
+      .forEach((task) => (task.done = true));
+    const readiness = productionReadiness(workspace, "e3");
+    expect(readiness.closeoutBlockers).toContain(
+      "Completa o cancela todos los turnos de personal.",
+    );
+    expect(readiness.closeoutBlockers).toContain(
+      "Completa u omite todos los cues del run of show.",
+    );
   });
 });
 describe("owner acceptance review", () => {
@@ -319,5 +438,130 @@ describe("structured layout production data", () => {
     expect(svg).toContain("KIT &amp; Partners");
     expect(svg).toContain("#123456");
     expect(svg).toContain("MEDIDAS NO VERIFICADAS");
+  });
+});
+
+describe("creative concept provenance", () => {
+  it("creates labeled local revisions without losing references or the source brief", () => {
+    const first = createShowcaseCreativeAsset({
+      id: "concept-1",
+      eventId: "e2",
+      eventName: "Northstar Annual Conference",
+      kind: "Stage concept",
+      brief: "A warm keynote stage with layered screens and amber light.",
+      referenceIds: ["brand-1", "brand-1"],
+      referenceNames: ["northstar-logo.png"],
+      generatedAt: "2026-10-15T12:00:00.000Z",
+    });
+    const revision = createShowcaseCreativeAsset({
+      id: "concept-2",
+      eventId: "e2",
+      eventName: "Northstar Annual Conference",
+      kind: "Stage concept",
+      brief: "Keep the warm keynote stage and add a centered logo treatment.",
+      referenceIds: ["brand-1"],
+      referenceNames: ["northstar-logo.png"],
+      generatedAt: "2026-10-15T12:05:00.000Z",
+      parent: first,
+    });
+    expect(first).toMatchObject({
+      revision: 1,
+      status: "In review",
+      provider: "Local showcase",
+      model: "local-concept-v1",
+      referenceIds: ["brand-1"],
+      estimatedCost: 0,
+    });
+    expect(first.dataUrl).toContain("LOCAL%20SHOWCASE");
+    expect(revision).toMatchObject({ revision: 2, parentId: "concept-1" });
+    expect(revision.brief).toContain("centered logo treatment");
+
+    const edited = createShowcaseCreativeAsset({
+      id: "concept-3",
+      eventId: "e2",
+      eventName: "Northstar Annual Conference",
+      kind: "Image edit",
+      brief: "Apply the event palette over this authorized reference image.",
+      referenceIds: ["brand-1"],
+      referenceNames: ["northstar-logo.png"],
+      referenceDataUrls: ["data:image/png;base64,c291cmNl"],
+      generatedAt: "2026-10-15T12:10:00.000Z",
+    });
+    expect(decodeURIComponent(edited.dataUrl)).toContain(
+      'href="data:image/png;base64,c291cmNl"',
+    );
+  });
+});
+
+describe("proposal visual snapshots", () => {
+  it("captures exact approved creative and layout revisions for client output", () => {
+    const workspace = createSeed();
+    const concept = createShowcaseCreativeAsset({
+      id: "approved-concept",
+      eventId: "e1",
+      eventName: "Oceanfront Partner Summit",
+      kind: "Event concept",
+      brief: "A warm coastal visual direction with an elegant keynote stage.",
+      referenceIds: [],
+      referenceNames: [],
+      generatedAt: "2026-10-15T12:00:00.000Z",
+    });
+    concept.status = "Approved";
+    concept.reviewedAt = "2026-10-15T12:01:00.000Z";
+    const creative = createCreativeProposalVisual({
+      id: "proposal-creative",
+      asset: concept,
+      addedAt: "2026-10-15T12:02:00.000Z",
+    });
+    const plan = createLayoutProposalVisual({
+      id: "proposal-plan",
+      layout: workspace.layouts[0],
+      view: "Layout plan",
+      addedAt: "2026-10-15T12:03:00.000Z",
+    });
+    const scene = createLayoutProposalVisual({
+      id: "proposal-scene",
+      layout: workspace.layouts[0],
+      view: "Layout 3D",
+      addedAt: "2026-10-15T12:04:00.000Z",
+    });
+    const savedPlan = plan.dataUrl;
+    workspace.layouts[0].objects[0].label = "Changed after capture";
+    expect(creative.dataUrl).toBe(concept.dataUrl);
+    expect(plan).toMatchObject({
+      sourceType: "Layout plan",
+      sourceRevision: 1,
+      measurementStatus: "Unverified",
+    });
+    expect(decodeURIComponent(plan.dataUrl)).toContain("PLANO 2D");
+    expect(decodeURIComponent(scene.dataUrl)).toContain("VISTA 3D");
+    expect(plan.dataUrl).toBe(savedPlan);
+    expect(decodeURIComponent(plan.dataUrl)).not.toContain(
+      "Changed after capture",
+    );
+    expect(
+      createVisualNarrative("Oceanfront Partner Summit", [
+        creative,
+        plan,
+        scene,
+      ]),
+    ).toContain("la dirección creativa aprobada, la distribución propuesta y");
+  });
+
+  it("carries selected visuals into a new draft with distinct identities", () => {
+    const workspace = createSeed();
+    const proposal = workspace.proposals[0];
+    proposal.visuals = [
+      createLayoutProposalVisual({
+        id: "old-visual",
+        layout: workspace.layouts[0],
+        view: "Layout plan",
+        addedAt: "2026-10-15T12:00:00.000Z",
+      }),
+    ];
+    const revision = reviseProposal(proposal);
+    expect(revision.visuals).toHaveLength(1);
+    expect(revision.visuals?.[0].id).not.toBe("old-visual");
+    expect(revision.visuals?.[0].dataUrl).toBe(proposal.visuals[0].dataUrl);
   });
 });

@@ -83,6 +83,92 @@ const layoutCamera = z
     createdAt: z.string().datetime(),
   })
   .strict();
+const creativeKind = z.enum([
+  "Event concept",
+  "Stage concept",
+  "Lighting concept",
+  "Promotional visual",
+  "Image edit",
+]);
+const brandAsset = z
+  .object({
+    id: identifier,
+    eventId: identifier,
+    name,
+    mimeType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+    dataUrl: z
+      .string()
+      .max(1_500_000)
+      .regex(/^data:image\/(png|jpeg|webp);base64,/),
+    rightsConfirmed: z.literal(true),
+    createdAt: z.string().datetime(),
+  })
+  .strict()
+  .refine(
+    (value) => value.dataUrl.startsWith(`data:${value.mimeType};base64,`),
+    "Brand reference MIME type does not match its data.",
+  );
+const creativeAsset = z
+  .object({
+    id: identifier,
+    eventId: identifier,
+    kind: creativeKind,
+    title: name,
+    brief: z.string().trim().min(20).max(20_000),
+    revision: z.number().int().positive().max(1000),
+    parentId: identifier.optional(),
+    status: z.enum(["In review", "Approved", "Rejected"]),
+    dataUrl: z
+      .string()
+      .max(1_500_000)
+      .regex(/^data:image\/(svg\+xml(;charset=utf-8)?|png|jpeg|webp)[;,]/),
+    mimeType: z.enum([
+      "image/svg+xml",
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+    ]),
+    referenceIds: z.array(identifier).max(20),
+    provider: name,
+    model: name,
+    generatedAt: z.string().datetime(),
+    usageUnits: z.number().int().positive().max(1000),
+    estimatedCost: amount,
+    reviewedAt: z.string().datetime().optional(),
+    reviewNote: z.string().trim().max(2000).optional(),
+  })
+  .strict()
+  .refine(
+    (value) => value.dataUrl.startsWith(`data:${value.mimeType}`),
+    "Creative asset MIME type does not match its data.",
+  );
+const proposalVisual = z
+  .object({
+    id: identifier,
+    sourceType: z.enum(["Creative", "Layout plan", "Layout 3D"]),
+    sourceId: identifier,
+    sourceRevision: z.number().int().positive().max(1000),
+    title: name,
+    caption: z.string().trim().max(2000),
+    altText: z.string().trim().min(1).max(500),
+    dataUrl: z
+      .string()
+      .max(1_500_000)
+      .regex(/^data:image\/(svg\+xml(;charset=utf-8)?|png|jpeg|webp)[;,]/),
+    mimeType: z.enum([
+      "image/svg+xml",
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+    ]),
+    measurementStatus: z.enum(["Verified", "Unverified"]).optional(),
+    addedAt: z.string().datetime(),
+  })
+  .strict()
+  .refine(
+    (value) => value.dataUrl.startsWith(`data:${value.mimeType}`),
+    "Proposal visual MIME type does not match its data.",
+  );
 const line = z
   .object({
     id: identifier,
@@ -228,6 +314,12 @@ export const schemas = {
       ]),
       validUntil: date,
       acceptedAt: z.string().datetime().optional(),
+      creativeAssetIds: z.array(identifier).max(50).optional(),
+      presentationTemplate: z
+        .enum(["Minimal", "Editorial", "Spotlight"])
+        .optional(),
+      visualNarrative: text.optional(),
+      visuals: z.array(proposalVisual).max(12).optional(),
       aiReview: z
         .object({
           brief: text,
@@ -297,9 +389,183 @@ export const schemas = {
         "Returned",
         "Cancelled",
       ]),
+      source: z.enum(["Owned", "Supplier"]).optional(),
+      supplier: z.string().trim().max(200).optional(),
+      supplierReference: z.string().trim().max(200).optional(),
+      unitCost: amount.optional(),
+      bufferBeforeDays: z.number().int().min(0).max(30).optional(),
+      bufferAfterDays: z.number().int().min(0).max(30).optional(),
+      dispatchedQuantity: count.optional(),
+      returnedQuantity: count.optional(),
+      damagedQuantity: count.optional(),
+      substituteEquipmentId: identifier.optional(),
+      custodyNote: text.optional(),
     })
     .strict()
     .refine((v) => v.end >= v.start, "Return precedes preparation"),
+  packages: z
+    .object({
+      id: identifier,
+      name,
+      description: text,
+      active: z.boolean(),
+      items: z
+        .array(
+          z
+            .object({
+              equipmentId: identifier,
+              quantity: z.number().int().positive().max(1_000_000),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(200),
+    })
+    .strict(),
+  maintenanceRecords: z
+    .object({
+      id: identifier,
+      equipmentId: identifier,
+      reservationId: identifier.optional(),
+      quantity: z.number().int().positive().max(1_000_000),
+      issue: name,
+      status: z.enum(["Open", "In repair", "Resolved"]),
+      openedAt: z.string().datetime(),
+      resolvedAt: z.string().datetime().optional(),
+      cost: amount,
+    })
+    .strict(),
+  operations: z
+    .object({
+      id: identifier,
+      eventId: identifier,
+      crewShifts: z
+        .array(
+          z
+            .object({
+              id: identifier,
+              person: name,
+              memberId: identifier.optional(),
+              role: name,
+              start: z.string().datetime(),
+              end: z.string().datetime(),
+              status: z.enum(["Scheduled", "Completed", "Cancelled"]),
+              cost: amount,
+            })
+            .strict()
+            .refine(
+              (v) => v.end > v.start,
+              "Crew shift must end after it starts",
+            ),
+        )
+        .max(2000),
+      cues: z
+        .array(
+          z
+            .object({
+              id: identifier,
+              at: z.string().datetime(),
+              title: name,
+              department: name,
+              owner: name,
+              notes: text,
+              status: z.enum(["Pending", "Complete", "Skipped"]),
+            })
+            .strict(),
+        )
+        .max(5000),
+      transports: z
+        .array(
+          z
+            .object({
+              id: identifier,
+              kind: z.enum(["Outbound", "Return"]),
+              provider: name,
+              vehicle: name,
+              driver: name,
+              departureAt: z.string().datetime(),
+              arrivalAt: z.string().datetime(),
+              status: z.enum([
+                "Planned",
+                "In transit",
+                "Complete",
+                "Cancelled",
+              ]),
+              cost: amount,
+              notes: text,
+            })
+            .strict()
+            .refine(
+              (v) => v.arrivalAt > v.departureAt,
+              "Transport must arrive after departure",
+            ),
+        )
+        .max(1000),
+      changes: z
+        .array(
+          z
+            .object({
+              id: identifier,
+              title: name,
+              detail: text,
+              impact: text,
+              recordedAt: z.string().datetime(),
+              recordedBy: name,
+              costImpact: amount,
+            })
+            .strict(),
+        )
+        .max(5000),
+      costs: z
+        .array(
+          z
+            .object({
+              id: identifier,
+              category: z.enum([
+                "Crew",
+                "Transport",
+                "Supplier rental",
+                "Repair",
+                "Other",
+              ]),
+              description: name,
+              amount,
+              incurredAt: date,
+            })
+            .strict(),
+        )
+        .max(5000),
+    })
+    .strict(),
+  automations: z
+    .object({
+      id: identifier,
+      key: z
+        .string()
+        .trim()
+        .min(1)
+        .max(200)
+        .regex(/^[a-z0-9:_-]+$/),
+      eventId: identifier.optional(),
+      proposalId: identifier.optional(),
+      kind: z.enum([
+        "Proposal review",
+        "Preparation risk",
+        "Equipment return",
+        "Cost variance",
+      ]),
+      title: name,
+      detail: text,
+      dueAt: z.string().datetime(),
+      action: z.enum(["Create task", "Review only"]),
+      status: z.enum(["Open", "Approved", "Dismissed", "Failed"]),
+      createdAt: z.string().datetime(),
+      decidedAt: z.string().datetime().optional(),
+      decidedBy: name.optional(),
+      taskId: identifier.optional(),
+      failureReason: z.string().trim().min(1).max(2000).optional(),
+    })
+    .strict(),
   layouts: z
     .object({
       id: identifier,
@@ -333,6 +599,8 @@ export const schemas = {
         .max(200),
     })
     .strict(),
+  brandAssets: brandAsset,
+  creativeAssets: creativeAsset,
   settings: z
     .object({
       company: name,
@@ -359,7 +627,13 @@ export const changeSchema = z
               "conversations",
               "tasks",
               "reservations",
+              "packages",
+              "maintenanceRecords",
+              "operations",
+              "automations",
               "layouts",
+              "brandAssets",
+              "creativeAssets",
               "settings",
             ]),
             id: identifier,

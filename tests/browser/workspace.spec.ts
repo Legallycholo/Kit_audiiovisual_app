@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 test("all main destinations load without runtime errors", async ({ page }) => {
   const errors: string[] = [];
@@ -80,6 +81,185 @@ test("create event and client edits survive a reload", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: /QC QA Customer/ }),
   ).toBeVisible();
+});
+
+test("creative references, review, revisions and proposal selection persist", async ({
+  page,
+}) => {
+  await page.goto("/creative");
+  await page
+    .getByRole("tab", { name: "Recursos de marca", exact: true })
+    .click();
+  await page.getByLabel("Evento vinculado").selectOption("e2");
+  await page
+    .getByText(
+      "Confirmo que la empresa tiene derecho a usar esta referencia.",
+      { exact: true },
+    )
+    .click();
+  await page.getByLabel("Cargar referencia de marca").setInputFiles({
+    name: "northstar-brand.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await expect(
+    page.getByText("northstar-brand.png", { exact: true }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("tab", { name: "Conceptos y medios", exact: true })
+    .click();
+  await page.getByLabel("Evento vinculado").selectOption("e2");
+  await page.getByLabel("northstar-brand.png").check();
+  await page.getByLabel("Dirección creativa").fill("Muy breve");
+  await page
+    .getByRole("button", { name: "Generar concepto local", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("preserved");
+  await expect(page.getByLabel("Dirección creativa")).toHaveValue("Muy breve");
+  const brief =
+    "Un escenario ejecutivo cálido con pantallas limpias, luz ámbar y presencia clara de la marca.";
+  await page.getByLabel("Dirección creativa").fill(brief);
+  await page
+    .getByRole("button", { name: "Generar concepto local", exact: true })
+    .click();
+  await expect(
+    page.getByText("CONCEPTO GENERADO · DEMOSTRACIÓN LOCAL", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("1 referencia(s) · 1 unidad", { exact: false }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Crear revisión", exact: true })
+    .click();
+  await page
+    .getByLabel("Dirección creativa")
+    .fill(`${brief} Añadir un tratamiento central para el logotipo.`);
+  await page
+    .getByRole("button", { name: "Generar concepto local", exact: true })
+    .click();
+  await expect(page.getByText(/Revisión 2 · Local showcase/)).toBeVisible();
+  await page
+    .getByRole("button", { name: "Aprobar concepto", exact: true })
+    .click();
+  await page.getByLabel("Adjuntar a propuesta borrador").selectOption("p2");
+  await expect(
+    page.getByText("Concepto adjuntado a la propuesta borrador.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.reload();
+  await page.getByLabel("Evento vinculado").selectOption("e2");
+  await expect(
+    page.getByRole("button", { name: /Seleccionar .* revisión 2/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("tab", { name: "Seleccionados para propuestas", exact: true })
+    .click();
+  await expect(
+    page.getByText("KIT-2026-002 · v1", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Rev. 2", { exact: true })).toBeVisible();
+});
+
+test("visual proposal revision combines reviewed media and client-safe print output", async ({
+  page,
+}) => {
+  await page.goto("/creative");
+  await page
+    .getByLabel("Dirección creativa")
+    .fill(
+      "Una dirección costera elegante con luz cálida, escenario limpio y una experiencia ejecutiva premium.",
+    );
+  await page
+    .getByRole("button", { name: "Generar concepto local", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Aprobar concepto", exact: true })
+    .click();
+
+  await page.goto("/proposals/p1");
+  await page
+    .getByRole("button", { name: "Nueva versión", exact: true })
+    .click();
+  await expect(page.getByText(/VERSIÓN 3/)).toBeVisible();
+  await page.getByRole("button", { name: "03 Imágenes", exact: true }).click();
+  await page.getByLabel("Plantilla de presentación").selectOption("Spotlight");
+  await page.getByRole("button", { name: "Añadir", exact: true }).click();
+  await page.getByRole("button", { name: "Añadir 2D", exact: true }).click();
+  await page.getByRole("button", { name: "Añadir 3D", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Crear borrador narrativo local",
+      exact: true,
+    })
+    .click();
+  await expect(page.getByLabel("Narrativa visual")).toHaveValue(
+    /Oceanfront Partner Summit/,
+  );
+  await page
+    .getByLabel("Narrativa visual")
+    .fill(
+      "La propuesta combina una llegada cálida, un escenario enfocado y una distribución clara para los asistentes.",
+    );
+  await page
+    .getByLabel("Pie de imagen · 1")
+    .fill("Concepto visual aprobado para la experiencia del cliente.");
+  await expect(
+    page.getByRole("button", { name: "Vista previa", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Guardar cambios", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Vista previa", exact: true }).click();
+  await expect(page.locator(".print-visuals figure")).toHaveCount(3);
+  await expect(page.locator(".print-proposal")).toContainText(
+    "La propuesta combina una llegada cálida",
+  );
+  await expect(page.locator(".print-proposal")).toContainText(
+    "Concepto visual aprobado",
+  );
+  await expect(page.locator(".print-proposal")).not.toContainText(
+    "local-concept-v1",
+  );
+  await expect(page.locator(".print-proposal")).not.toContainText(
+    "Local showcase",
+  );
+  await page.screenshot({
+    path: "artifacts/proposal-visual-phase7.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator(".sidebar")).not.toBeVisible();
+  await expect(page.locator(".print-visuals figure")).toHaveCount(3);
+  await page.screenshot({
+    path: "artifacts/proposal-visual-phase7-print.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.emulateMedia({ media: "screen" });
+  await page.getByRole("button", { name: "Cerrar ventana" }).click();
+  await page
+    .getByRole("button", { name: "Comparar versiones", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toContainText("Versión 2");
+  await expect(page.getByRole("dialog")).toContainText("Recursos visuales");
+  await expect(page.getByRole("dialog")).toContainText("VISTA 3D");
+  await page.getByRole("button", { name: "Cerrar ventana" }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "03 Imágenes", exact: true }).click();
+  await expect(page.locator(".proposal-visual-card")).toHaveCount(3);
+  await expect(page.getByLabel("Plantilla de presentación")).toHaveValue(
+    "Spotlight",
+  );
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
 });
 
 test("owner acceptance requires review and does not send an acknowledgment", async ({
@@ -230,6 +410,177 @@ test("reservation conflicts are explained without overbooking", async ({
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await page.getByRole("tab", { name: "Reservas", exact: true }).click();
   await expect(page.getByRole("table")).toContainText("Reserva provisional");
+});
+
+test("advanced fulfillment packages, crew conflicts, cues, and actual costs persist", async ({
+  page,
+}) => {
+  await page.goto("/inventory");
+  await page.getByRole("tab", { name: "Paquetes", exact: true }).click();
+  await page
+    .getByRole("button", { name: /Add package|Agregar paquete/ })
+    .click();
+  const packageDialog = page.getByRole("dialog");
+  await packageDialog.getByLabel("Nombre del paquete").fill("Kit ejecutivo QA");
+  await packageDialog
+    .getByRole("button", { name: "Guardar paquete", exact: true })
+    .click();
+  const packageRow = page
+    .locator(".simple-row")
+    .filter({ hasText: "Kit ejecutivo QA" });
+  await expect(packageRow).toBeVisible();
+  await packageRow
+    .getByRole("button", { name: "Reservar paquete", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Check and reserve|Verificar y reservar/ })
+    .click();
+  await expect(
+    page.getByText("Package reserved on hold.", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Reservas", exact: true }).click();
+  const handoffRow = page
+    .getByRole("row")
+    .filter({ hasText: "QSC K12.2 Active Speaker" })
+    .last();
+  await handoffRow
+    .getByRole("button", { name: "Gestionar entrega", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Estado de entrega")
+    .selectOption("Confirmed");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Guardar entrega", exact: true })
+    .click();
+  await expect(handoffRow).toContainText("Confirmado");
+  await handoffRow
+    .getByRole("button", { name: "Gestionar entrega", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Estado de entrega")
+    .selectOption("Dispatched");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Guardar entrega", exact: true })
+    .click();
+  await expect(handoffRow).toContainText("Despachado");
+  await handoffRow
+    .getByRole("button", { name: "Gestionar entrega", exact: true })
+    .click();
+  const returnDialog = page.getByRole("dialog");
+  await returnDialog.getByLabel("Estado de entrega").selectOption("Returned");
+  await returnDialog.getByLabel("Devuelto").fill("1");
+  await returnDialog
+    .getByRole("button", { name: "Guardar entrega", exact: true })
+    .click();
+  await expect(handoffRow).toBeVisible();
+  await expect(handoffRow).toContainText("Devuelto");
+
+  await page.goto("/production?event=e1");
+  await page
+    .getByRole("tab", { name: "Calendario del equipo", exact: true })
+    .click();
+  await page.getByRole("button", { name: /Add shift|Agregar turno/ }).click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Integrante del equipo")
+    .fill("Phase 8 Tech");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Schedule shift|Programar turno/ })
+    .click();
+  await expect(page.getByText("Phase 8 Tech", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: /Add shift|Agregar turno/ }).click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Integrante del equipo")
+    .fill("Phase 8 Tech");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Schedule shift|Programar turno/ })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("overlapping shift");
+  await page
+    .getByRole("button", { name: "Cerrar ventana", exact: true })
+    .click();
+
+  await page
+    .getByRole("tab", { name: "Programa del evento", exact: true })
+    .click();
+  await page.getByRole("button", { name: /Add cue|Agregar cue/ }).click();
+  await page.getByRole("dialog").getByLabel("Cue").fill("QA opening cue");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Agregar cue", exact: true })
+    .click();
+  await expect(page.getByText("QA opening cue", { exact: true })).toBeVisible();
+
+  await page
+    .getByRole("tab", { name: "Logística y costos", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: /Add cost|Agregar costo/ })
+    .first()
+    .click();
+  const costDialog = page.getByRole("dialog");
+  await costDialog.getByLabel("Monto").fill("175");
+  await costDialog.getByLabel("Descripción").fill("Consumibles QA");
+  await costDialog
+    .getByRole("button", { name: /Record cost|Registrar costo/ })
+    .click();
+  await expect(page.getByText(/Consumibles QA/)).toBeVisible();
+});
+
+test("reports explain their metrics and automation requires human approval", async ({
+  page,
+}) => {
+  await page.goto("/reports");
+  await expect(page.getByText("Calidad y cobertura de datos")).toBeVisible();
+  await page.getByRole("tab", { name: "Definiciones", exact: true }).click();
+  await expect(
+    page.getByText("Contribución operativa", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/No equivale a ingreso cobrado/)).toBeVisible();
+
+  await page.getByRole("tab", { name: "Automatización", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Evaluar reglas", exact: true })
+    .click();
+  const suggestion = page
+    .locator(".simple-row")
+    .filter({ hasText: "Resolver preparación del evento" })
+    .first();
+  await expect(suggestion).toBeVisible();
+  await expect(suggestion).toContainText("Abierta");
+  await page.screenshot({
+    path: "artifacts/phase9-reporting-automation.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+
+  await page
+    .getByRole("button", { name: "Evaluar reglas", exact: true })
+    .click();
+  await expect(
+    page.getByText(/Las reglas no duplicaron acciones existentes/),
+  ).toBeVisible();
+  await suggestion
+    .getByRole("button", { name: "Aprobar", exact: true })
+    .click();
+  await expect(suggestion).toContainText("Aprobada");
+  await expect(suggestion.getByRole("button", { name: "Aprobar" })).toHaveCount(
+    0,
+  );
+
+  await page.goto("/production?event=e1");
+  await expect(
+    page.getByText("Resolver preparación del evento", { exact: true }),
+  ).toBeVisible();
 });
 
 test("layout object editing, revision saving, undo and 3D rendering", async ({

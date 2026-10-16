@@ -62,8 +62,15 @@ function readSample(): Workspace {
           "activity",
         ].every((k) => Array.isArray(saved[k])) &&
         saved.settings
-      )
+      ) {
+        saved.brandAssets ||= [];
+        saved.creativeAssets ||= [];
+        saved.packages ||= [];
+        saved.maintenanceRecords ||= [];
+        saved.operations ||= [];
+        saved.automations ||= [];
         return saved;
+      }
     }
   } catch {
     /* Sample data can be restored without touching company records. */
@@ -268,7 +275,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         current.current = next;
         setData(next);
-        toast("Envío de demostración registrado. No se contactó a ningún cliente.");
+        toast(
+          "Envío de demostración registrado. No se contactó a ningún cliente.",
+        );
         return true;
       }
       receive(

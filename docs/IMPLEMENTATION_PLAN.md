@@ -1,6 +1,6 @@
 # Audiovisual Event Production Platform — Implementation Plan
 
-Status: **Phase 1, the Phase 3A–3D local showcases, and the Phase 4–5 local showcases are complete. Live provider validation is deferred until API tools, credentials, and business examples are selected. Phase 6 is the next product track. See `IMPLEMENTATION_PROGRESS.md` for evidence and remaining work.**
+Status: **Phase 1 and the Phase 3A–9 local showcases are complete. The nine-phase local implementation roadmap is represented in the app; live provider validation, company workflow acceptance, business metric approval, and production rollout remain. See `IMPLEMENTATION_PROGRESS.md` for evidence and remaining work.**
 
 Prepared: October 15, 2026
 
@@ -649,7 +649,7 @@ The local showcase accepts verified provider-neutral intake events through an ow
 
 Connect an owner-confirmed accepted proposal to explicit availability confirmation, equipment allocation, crew ownership, production readiness and closeout states. Acceptance alone must continue to avoid reserving stock, collecting payment, assigning staff or confirming production.
 
-Local completion recorded October 15, 2026: the production workspace evaluates an accepted current proposal revision, confirmed equipment quantities covering the complete event window, and named production task owners before enabling preparation or execution. The same rules are enforced at the server boundary. Closeout requires the event to be in production, every task complete, and every allocation returned or cancelled. Acceptance remains a separate action and creates none of these operational records. Detailed shifts, custody, partial returns, damage, transport, actual costs, and company-specific deposit or contract gates remain later operational work.
+Local completion recorded October 15, 2026: the production workspace evaluates an accepted current proposal revision, confirmed equipment quantities covering the complete event window, and named production task owners before enabling preparation or execution. The same rules are enforced at the server boundary. Closeout requires the event to be in production, every task complete, and every allocation returned or cancelled. Acceptance remains a separate action and creates none of these operational records. Detailed shifts, custody, partial returns, damage, transport and actual costs were deferred here and are implemented by the later Phase 8 local showcase; company-specific deposit or contract gates remain open.
 
 ### Phase 4 — Structured 2D floor-plan editor — **Local showcase complete**
 
@@ -675,7 +675,7 @@ Local completion recorded October 15, 2026: the shared structured editor support
 
 Local completion recorded October 15, 2026: the 3D workspace projects the saved 2D identities, dimensions, height, rotation, visibility layers, surface colors and simple brand labels into a shared Three.js scene. Selection remains connected across views and selected geometry is highlighted. Users can orbit, pan and zoom, save up to 50 named camera records inside versioned layout data, restore or delete those views, and export a PNG whose image footer and filename identify the layout revision and measurement status. Every catalog object is explicitly shown as a geometric placeholder until a detailed asset exists. Interactive rendering is capped at 500 visible objects, reduces pixel density and antialiasing above 250, and reports when a scene is truncated. Detailed manufacturer models, image-textured brand artwork, lighting/acoustic simulation, formal device benchmarks, and approved presentation examples remain later validation work.
 
-### Phase 6 — AI Creative Studio — **Next**
+### Phase 6 — AI Creative Studio — **Local showcase complete**
 
 - **Objective:** create reviewable event concepts and branded visual assets.
 - **Scope:** briefs, reference/brand inputs, image generation/editing, versioned gallery, review and selection, event/proposal association; video is a separately gated expansion.
@@ -685,7 +685,9 @@ Local completion recorded October 15, 2026: the 3D workspace projects the saved 
 - **Risks:** uncontrolled usage cost, inaccurate branding, unsuitable source rights, clients mistaking concepts for deliverable geometry.
 - **Completion:** approved representative creative tasks succeed with review and cost controls; video remains deferred unless explicitly accepted into scope.
 
-### Phase 7 — Advanced visual proposal builder
+Local completion recorded October 15, 2026: the Spanish-first workspace accepts event-scoped PNG, JPEG and WebP references only after a user confirms usage rights; produces labeled, provider-neutral local SVG concepts and reference-image composites without an external call; preserves the exact brief, reference links, provider/model provenance, revision chain, usage units and zero-cost estimate; and retains failed briefs for correction. Generated assets begin in review, remain immutable after approval or rejection, and only approved assets from the same event can be attached to a draft proposal. The server enforces the local limit of 20 concepts per event and the interface makes it visible. Video remains disabled and explicitly deferred. Live image generation/editing quality, object storage, provider billing and approved company examples remain deployment validation work.
+
+### Phase 7 — Advanced visual proposal builder — **Local showcase complete**
 
 - **Objective:** combine commercial accuracy with premium branded presentation.
 - **Scope:** visual section editing, reusable templates, layout/3D/creative media selection, AI-assisted narratives, richer revision comparison, client review experience, and polished PDF output.
@@ -695,7 +697,9 @@ Local completion recorded October 15, 2026: the 3D workspace projects the saved 
 - **Risks:** attractive output hiding inconsistent totals, template fragility, stale imagery, accidental disclosure.
 - **Completion:** sales and finance approve representative proposals and exports, including multi-page, revised, discounted, and missing-media cases.
 
-### Phase 8 — Advanced inventory and production management
+Local completion recorded October 15, 2026: draft proposals can combine approved creative assets with exact 2D and local 3D snapshots of a same-event layout. Every selected visual is embedded in the proposal revision with its source revision, measurement state, editable caption and alternative text, so later source changes cannot silently rewrite issued material. Three reusable presentation styles, an editable local narrative draft, ordering/removal controls, saved-version comparison and a client-safe print/PDF view are implemented. Preview is disabled while edits are unsaved; visual changes after an issued or accepted version require a new draft revision; catalog prices remain copied into each revision. The server rejects unapproved, cross-event, stale or mismatched media. Formal brand-template approval, browser/PDF pagination across representative long proposals and finance acceptance remain business validation work.
+
+### Phase 8 — Advanced inventory and production management — **Local showcase complete**
 
 - **Objective:** extend the pilot workflow to complex operational fulfillment.
 - **Scope:** richer pooled/serialized stock handling as needed, packages, supplier rentals, maintenance, substitutions, prep/dispatch/partial returns, transport, crew conflicts, run of show, onsite changes, and actual costs.
@@ -705,7 +709,9 @@ Local completion recorded October 15, 2026: the 3D workspace projects the saved 
 - **Risks:** inaccurate stock counts, ambiguous custody, supplier uncertainty, real-world workflows bypassing the system.
 - **Completion:** production staff validate representative concurrent events and exception cases from preparation through return and closeout.
 
-### Phase 9 — Advanced automation and reporting
+Local completion recorded October 15, 2026: the inventory workspace supports reusable multi-item packages, one-step package holds, explicit owned or supplier sourcing, preparation/return buffers, supplier references and costs, recorded substitutions, controlled hold/confirm/dispatch/return transitions, partial-return quantities, custody notes, and damage records that quarantine owned stock into maintenance. Capacity conflicts identify the affected equipment and events, and the server continues to reject new overbooking while allowing recorded damage to expose a conflict for resolution. The production workspace adds cross-event crew-shift conflict checks, timed run-of-show cues, transport assignments, immutable onsite changes and actual cost reconciliation across crew, transport, suppliers, repairs and manual entries. Operational shifts, cues, transport and equipment must reconcile before closeout. Server schemas, permissions and event scope protect the new records; non-production roles do not receive actual costs. Pooled stock is implemented. Serialized units, warehouse locations and equipment-only rental bookings remain deferred until representative inventory and rental policies are supplied. Company production staff still need to validate these rules against concurrent live examples before deployment.
+
+### Phase 9 — Advanced automation and reporting — **Local showcase complete**
 
 - **Objective:** automate proven workflows and report on reliable business data.
 - **Scope:** permission-scoped pipeline, profitability, utilization, workload, and event-performance reporting; approved reminders/actions; selected integrations; advanced AI suggestions.
@@ -714,6 +720,8 @@ Local completion recorded October 15, 2026: the 3D workspace projects the saved 
 - **Acceptance criteria:** reported values reconcile with source records; estimated versus actual figures are distinct; restricted data stays restricted; repeated triggers do not duplicate business actions; failures and human overrides are visible.
 - **Risks:** misleading metrics, unattended incorrect actions, integration side effects, unreliable source data.
 - **Completion:** metric owners sign off on calculations and automation owners demonstrate controlled execution, failure handling, and auditability.
+
+Local completion recorded October 15, 2026: the reports workspace separates the latest proposal pipeline, accepted commercial scope, recorded operating costs, operating contribution, owned-equipment unit-day utilization, provisional holds, task/shift workload, and event execution. A Spanish metric dictionary and JSON export state the formulas and limits. Commercial, cost, and combined contribution views follow role-scoped server data, while administrator-only automation rules create a persistent human-review queue for expiring proposals, preparation risks, overdue returns, and cost variance. Stable trigger keys prevent repeated evaluations from duplicating actions; approval, dismissal, failure details, decision identity, and decision time remain auditable. Approved task suggestions create one linked internal task transactionally. No rule sends a client message, accepts a proposal, or calls an external integration. Company metric owners still need to approve the formulas and reconcile them against representative records before production use; external accounting, AI, and messaging workflows remain deferred until their tools and authority are supplied.
 
 ### Dependency summary and completion gate
 

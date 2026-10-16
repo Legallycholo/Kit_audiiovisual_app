@@ -4,6 +4,14 @@ An audiovisual event-production app connecting clients, events, venues, proposal
 
 The local layout showcase supports calibrated image references, verified measurement notes, reusable templates, equipment-quantity reconciliation, revision recovery, and dimensioned SVG exports. Layout mappings do not create reservations or change proposal scope.
 
+The local Creative Studio accepts rights-confirmed event references and creates clearly labeled SVG concept drafts with revision, provenance, review, usage and proposal-selection records. It makes no external image or video call; live creative providers, billing and API credentials remain undecided.
+
+Draft proposals can embed approved creative work and exact 2D/3D layout snapshots, keep editable client-facing captions, compare saved revisions, and produce a client-safe browser print/PDF view. Selected media is copied into the proposal revision so later source changes do not rewrite issued material.
+
+The local operations showcase supports reusable equipment packages, owned and supplier allocations, buffered occupancy, substitutions, controlled dispatch/partial-return/damage reconciliation, maintenance quarantine, affected-event stock conflicts, dated crew shifts, timed cues, transport, onsite change history and actual production costs. These records use replaceable local persistence and server-enforced permissions; they do not connect to payroll, accounting, supplier ordering or serialized warehouse scanning.
+
+The local reporting showcase documents and separates proposal pipeline, accepted scope, recorded operating costs, operating contribution, equipment utilization, workload and event execution. Administrator-reviewed automation suggestions use stable evidence keys, preserve decisions and failures, and can create a linked internal task only after approval. They never send client messages, accept proposals or contact an external integration. The calculations still require company reconciliation and approval before production use.
+
 Spanish is the primary interface language. The Phase 1 shell, account entry, common controls, acceptance review, design controls, and proposal drafting/editing workflow use Spanish. Stored business content is preserved in its original language, while development documentation and internal record identifiers remain in English.
 
 ## Run locally
@@ -42,7 +50,7 @@ The owner workflow is: create/select a client and event, review the equipment ca
 
 The provider receives the entered brief, selected event summary, client name, and equipment catalog/rates. It does not receive unrelated conversations, contacts, passwords, or the entire workspace. Requests use strict structured output, a timeout, an output-token cap, and per-user/company request limits. Rates are copied from the server catalog; unknown or duplicate equipment and model-supplied prices are rejected. Quantities and rental days remain suggestions requiring business review. The current catalog context is limited to 500 products; larger catalogs need scoped retrieval before live use.
 
-Generation produces a suggestion and audit entry; it does not mutate a proposal until the owner applies and saves it. Internal assumptions and unanswered questions persist with the draft and are omitted from client print views and client account responses. These notes are a review aid, not a claim that model-generated prose is factually guaranteed. The app's general AI sidebar and creative generation remain separate unfinished capabilities.
+Generation produces a suggestion and audit entry; it does not mutate a proposal until the owner applies and saves it. Internal assumptions and unanswered questions persist with the draft and are omitted from client print views and client account responses. These notes are a review aid, not a claim that model-generated prose is factually guaranteed. The app's general AI sidebar remains unfinished. Creative generation currently uses a local provider-neutral showcase rather than a live image service.
 
 **Live model generation has not been verified with a company credential.** Automated tests use an explicit substitute at the model boundary while exercising the real UI, API, database, and permission checks. No real client messages or model requests were sent during those tests.
 

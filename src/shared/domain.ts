@@ -1,5 +1,7 @@
 import type {
+  CrewShift,
   Equipment,
+  EventOperations,
   Layout,
   Proposal,
   QuoteLine,
@@ -57,7 +59,8 @@ export function availableStock(
 ) {
   const overlaps = reservations.filter(
     (r) =>
-      r.equipmentId === item.id &&
+      (r.source || "Owned") === "Owned" &&
+      (r.substituteEquipmentId || r.equipmentId) === item.id &&
       r.id !== excludeId &&
       !["Returned", "Cancelled"].includes(r.status) &&
       r.start <= end &&
@@ -87,6 +90,11 @@ export function validateReservation(
     throw new Error("Enter a positive whole quantity.");
   if (!candidate.start || !candidate.end || candidate.end < candidate.start)
     throw new Error("Return date must be on or after preparation date.");
+  if ((candidate.source || "Owned") === "Supplier") {
+    if (!candidate.supplier?.trim())
+      throw new Error("Enter the supplier for an external rental.");
+    return;
+  }
   const available = availableStock(
     item,
     reservations,
@@ -96,6 +104,125 @@ export function validateReservation(
   );
   if (candidate.quantity > available)
     throw new Error(`Only ${available} units are available for this window.`);
+}
+
+export interface InventoryConflict {
+  equipmentId: string;
+  at: string;
+  reserved: number;
+  capacity: number;
+  eventIds: string[];
+}
+export function inventoryConflicts(workspace: Workspace): InventoryConflict[] {
+  const conflicts: InventoryConflict[] = [];
+  for (const item of workspace.equipment) {
+    const reservations = workspace.reservations.filter(
+      (reservation) =>
+        (reservation.source || "Owned") === "Owned" &&
+        (reservation.substituteEquipmentId || reservation.equipmentId) ===
+          item.id &&
+        !["Returned", "Cancelled"].includes(reservation.status),
+    );
+    for (const at of [
+      ...new Set(reservations.map((reservation) => reservation.start)),
+    ]) {
+      const active = reservations.filter(
+        (reservation) => reservation.start <= at && reservation.end >= at,
+      );
+      const reserved = active.reduce(
+        (sum, reservation) => sum + reservation.quantity,
+        0,
+      );
+      const capacity = Math.max(0, item.quantity - item.maintenance);
+      if (reserved > capacity)
+        conflicts.push({
+          equipmentId: item.id,
+          at,
+          reserved,
+          capacity,
+          eventIds: [
+            ...new Set(active.map((reservation) => reservation.eventId)),
+          ],
+        });
+    }
+  }
+  return conflicts;
+}
+
+export function crewShiftConflicts(
+  operations: EventOperations[],
+  candidate: CrewShift,
+  eventId: string,
+) {
+  if (candidate.status === "Cancelled") return [];
+  const identity = candidate.memberId || candidate.person.trim().toLowerCase();
+  return operations
+    .flatMap((operation) =>
+      operation.crewShifts
+        .filter((shift) => {
+          const otherIdentity =
+            shift.memberId || shift.person.trim().toLowerCase();
+          return (
+            shift.id !== candidate.id &&
+            shift.status !== "Cancelled" &&
+            otherIdentity === identity &&
+            shift.start < candidate.end &&
+            shift.end > candidate.start
+          );
+        })
+        .map((shift) => ({ eventId: operation.eventId, shift })),
+    )
+    .filter(
+      (conflict) =>
+        conflict.eventId !== eventId || conflict.shift.id !== candidate.id,
+    );
+}
+
+export function actualEventCosts(workspace: Workspace, eventId: string) {
+  const operation = workspace.operations.find(
+    (item) => item.eventId === eventId,
+  );
+  const recorded = (operation?.costs || []).reduce(
+    (sum, item) => sum + item.amount,
+    0,
+  );
+  const crew = (operation?.crewShifts || [])
+    .filter((shift) => shift.status !== "Cancelled")
+    .reduce((sum, shift) => sum + shift.cost, 0);
+  const transport = (operation?.transports || [])
+    .filter((assignment) => assignment.status !== "Cancelled")
+    .reduce((sum, assignment) => sum + assignment.cost, 0);
+  const supplierRentals = workspace.reservations
+    .filter(
+      (reservation) =>
+        reservation.eventId === eventId &&
+        reservation.source === "Supplier" &&
+        reservation.status !== "Cancelled",
+    )
+    .reduce(
+      (sum, reservation) =>
+        sum + (reservation.unitCost || 0) * reservation.quantity,
+      0,
+    );
+  const reservationIds = new Set(
+    workspace.reservations
+      .filter((reservation) => reservation.eventId === eventId)
+      .map((reservation) => reservation.id),
+  );
+  const repairs = workspace.maintenanceRecords
+    .filter(
+      (record) =>
+        record.reservationId && reservationIds.has(record.reservationId),
+    )
+    .reduce((sum, record) => sum + record.cost, 0);
+  return {
+    recorded,
+    crew,
+    transport,
+    supplierRentals,
+    repairs,
+    total: recorded + crew + transport + supplierRentals + repairs,
+  };
 }
 
 export interface ProductionReadiness {
@@ -205,11 +332,25 @@ export function productionReadiness(
     blockers.push("Asigna una persona y un rol a cada tarea de producción.");
   if (["Cancelled", "Completed"].includes(event.status))
     blockers.push("Este evento no está en un estado de producción activo.");
+  const allocationConflict = inventoryConflicts(workspace).find((conflict) =>
+    conflict.eventIds.includes(eventId),
+  );
+  if (allocationConflict) {
+    const equipment = workspace.equipment.find(
+      (item) => item.id === allocationConflict.equipmentId,
+    );
+    blockers.push(
+      `Resuelve el conflicto de inventario de ${equipment?.name || allocationConflict.equipmentId}: ${allocationConflict.reserved} asignados para ${allocationConflict.capacity} disponibles.`,
+    );
+  }
 
   const eventReservations = workspace.reservations.filter(
     (reservation) => reservation.eventId === eventId,
   );
   const closeoutBlockers: string[] = [];
+  const operation = workspace.operations.find(
+    (item) => item.eventId === eventId,
+  );
   if (!["In production", "Completed"].includes(event.status))
     closeoutBlockers.push("Mueve el evento a producción antes del cierre.");
   if (tasks.some((task) => !task.done))
@@ -222,6 +363,16 @@ export function productionReadiness(
     closeoutBlockers.push(
       "Devuelve o cancela todas las asignaciones de equipos.",
     );
+  if (operation?.crewShifts.some((shift) => shift.status === "Scheduled"))
+    closeoutBlockers.push("Completa o cancela todos los turnos de personal.");
+  if (operation?.cues.some((cue) => cue.status === "Pending"))
+    closeoutBlockers.push("Completa u omite todos los cues del run of show.");
+  if (
+    operation?.transports.some((transport) =>
+      ["Planned", "In transit"].includes(transport.status),
+    )
+  )
+    closeoutBlockers.push("Completa o cancela todos los transportes.");
 
   return {
     acceptedProposal: accepted,
@@ -464,6 +615,10 @@ export function reviseProposal(proposal: Proposal): Proposal {
     status: "Draft",
     acceptedAt: undefined,
     lines: proposal.lines.map((l) => ({ ...l, id: id() })),
+    creativeAssetIds: proposal.creativeAssetIds
+      ? [...proposal.creativeAssetIds]
+      : undefined,
+    visuals: proposal.visuals?.map((visual) => ({ ...visual, id: id() })),
   };
 }
 export function createProposalRevision(

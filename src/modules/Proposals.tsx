@@ -21,6 +21,11 @@ import {
   Printer,
   Copy,
   Check,
+  Image as ImageIcon,
+  Boxes,
+  GitCompare,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { activity, useWorkspace } from "../shared/store";
 import {
@@ -44,6 +49,11 @@ import {
   shortDate,
 } from "../shared/domain";
 import type { Proposal } from "../shared/types";
+import {
+  createCreativeProposalVisual,
+  createLayoutProposalVisual,
+  createVisualNarrative,
+} from "../shared/proposal-visuals";
 import { useUnsavedChanges } from "../shared/useUnsavedChanges";
 export function Proposals() {
   const { data, update, toast, user, mode, saving } = useWorkspace();
@@ -275,6 +285,8 @@ function Editor({ original }: { original: Proposal }) {
   const [sending, setSending] = useState(false);
   const [outgoingMessage, setOutgoingMessage] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareId, setCompareId] = useState("");
   const [section, setSection] = useState("Introduction");
   const editable = canEditCollection(user, "proposals");
   const locked =
@@ -282,14 +294,150 @@ function Editor({ original }: { original: Proposal }) {
     ["Issued", "Accepted", "Declined", "Superseded"].includes(original.status);
   const event = data.events.find((e) => e.id === draft.eventId);
   const client = data.clients.find((c) => c.id === event?.clientId);
+  const family = data.proposals
+    .filter((proposal) => proposal.number === draft.number)
+    .sort((a, b) => a.version - b.version);
+  const priorVersions = family.filter(
+    (proposal) => proposal.version < draft.version,
+  );
+  const comparison =
+    data.proposals.find((proposal) => proposal.id === compareId) ||
+    priorVersions.at(-1);
+  const creativeOptions = data.creativeAssets.filter(
+    (asset) => asset.eventId === draft.eventId && asset.status === "Approved",
+  );
+  const layoutOptions = data.layouts.filter(
+    (layout) => layout.eventId === draft.eventId,
+  );
   let totals = { subtotal: 0, discount: 0, tax: 0, total: 0 };
   try {
     totals = quoteTotals(draft.lines, draft.discount, draft.tax);
   } catch {
     /* Validation is reported on save. */
   }
+  let comparisonTotal = 0;
+  if (comparison)
+    try {
+      comparisonTotal = quoteTotals(
+        comparison.lines,
+        comparison.discount,
+        comparison.tax,
+      ).total;
+    } catch {
+      /* Historical validation remains visible through its saved values. */
+    }
   const dirty = !sameValue(draft, original);
   useUnsavedChanges(dirty);
+  const addCreativeVisual = (assetId: string) => {
+    const asset = creativeOptions.find((item) => item.id === assetId);
+    if (!asset) return;
+    if ((draft.visuals || []).length >= 12) {
+      setError("La propuesta admite un máximo de 12 recursos visuales.");
+      return;
+    }
+    if (
+      draft.visuals?.some(
+        (visual) =>
+          visual.sourceType === "Creative" &&
+          visual.sourceId === asset.id &&
+          visual.sourceRevision === asset.revision,
+      )
+    )
+      return;
+    const visual = createCreativeProposalVisual({
+      id: id(),
+      asset,
+      addedAt: new Date().toISOString(),
+    });
+    setDraft({
+      ...draft,
+      status: "Draft",
+      creativeAssetIds: [
+        ...new Set([...(draft.creativeAssetIds || []), asset.id]),
+      ],
+      visuals: [...(draft.visuals || []), visual],
+    });
+    setError("");
+  };
+  const addLayoutVisual = (
+    layoutId: string,
+    view: "Layout plan" | "Layout 3D",
+  ) => {
+    const layout = layoutOptions.find((item) => item.id === layoutId);
+    if (!layout) return;
+    if ((draft.visuals || []).length >= 12) {
+      setError("La propuesta admite un máximo de 12 recursos visuales.");
+      return;
+    }
+    if (
+      draft.visuals?.some(
+        (visual) =>
+          visual.sourceType === view &&
+          visual.sourceId === layout.id &&
+          visual.sourceRevision === layout.version,
+      )
+    )
+      return;
+    try {
+      const visual = createLayoutProposalVisual({
+        id: id(),
+        layout,
+        view,
+        addedAt: new Date().toISOString(),
+      });
+      setDraft({
+        ...draft,
+        status: "Draft",
+        visuals: [...(draft.visuals || []), visual],
+      });
+      setError("");
+    } catch (caught) {
+      setError((caught as Error).message);
+    }
+  };
+  const updateVisual = (
+    visualId: string,
+    values: { caption?: string; altText?: string },
+  ) =>
+    setDraft({
+      ...draft,
+      status: "Draft",
+      visuals: (draft.visuals || []).map((visual) =>
+        visual.id === visualId ? { ...visual, ...values } : visual,
+      ),
+    });
+  const removeVisual = (visualId: string) => {
+    const removed = draft.visuals?.find((visual) => visual.id === visualId);
+    const visuals = (draft.visuals || []).filter(
+      (visual) => visual.id !== visualId,
+    );
+    const stillUsed = removed
+      ? visuals.some(
+          (visual) =>
+            visual.sourceType === "Creative" &&
+            visual.sourceId === removed.sourceId,
+        )
+      : false;
+    setDraft({
+      ...draft,
+      status: "Draft",
+      visuals,
+      creativeAssetIds:
+        removed?.sourceType === "Creative" && !stillUsed
+          ? (draft.creativeAssetIds || []).filter(
+              (assetId) => assetId !== removed.sourceId,
+            )
+          : draft.creativeAssetIds,
+    });
+  };
+  const moveVisual = (visualId: string, direction: -1 | 1) => {
+    const visuals = [...(draft.visuals || [])];
+    const from = visuals.findIndex((visual) => visual.id === visualId);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= visuals.length) return;
+    [visuals[from], visuals[to]] = [visuals[to], visuals[from]];
+    setDraft({ ...draft, status: "Draft", visuals });
+  };
   async function save(next = draft) {
     try {
       if (
@@ -301,6 +449,10 @@ function Editor({ original }: { original: Proposal }) {
       quoteTotals(next.lines, next.discount, next.tax);
       if (!next.title.trim())
         throw new Error("La propuesta necesita un título.");
+      if (next.visuals?.some((visual) => !visual.altText.trim()))
+        throw new Error(
+          "Cada recurso visual necesita texto alternativo antes de guardar.",
+        );
       if (
         !(await update((s) => ({
           ...s,
@@ -405,7 +557,9 @@ function Editor({ original }: { original: Proposal }) {
     setDraft(ready);
     setSending(false);
     navigate(`/inbox?conversation=${conversationId}`);
-    toast("Mensaje preparado para revisión del propietario. No se envió todavía.");
+    toast(
+      "Mensaje preparado para revisión del propietario. No se envió todavía.",
+    );
   }
   return (
     <>
@@ -420,10 +574,31 @@ function Editor({ original }: { original: Proposal }) {
         actions={
           <>
             <Badge>{original.status}</Badge>
-            <Button variant="secondary" onClick={() => setPreview(true)}>
+            <Button
+              variant="secondary"
+              disabled={dirty}
+              title={
+                dirty
+                  ? "Guarda los cambios para previsualizar la versión exacta."
+                  : undefined
+              }
+              onClick={() => setPreview(true)}
+            >
               <Printer size={16} />
               {uiLabel("Preview")}
             </Button>
+            {priorVersions.length > 0 && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setCompareId(priorVersions.at(-1)?.id || "");
+                  setCompareOpen(true);
+                }}
+              >
+                <GitCompare size={16} />
+                Comparar versiones
+              </Button>
+            )}
             {editable &&
               (locked ? (
                 <Button disabled={saving} onClick={revision}>
@@ -673,20 +848,252 @@ function Editor({ original }: { original: Proposal }) {
             </div>
           )}
           {section === "Visuals" && (
-            <Empty
-              title={uiLabel("Give your proposal a visual story")}
-              description={uiLabel(
-                "Layout snapshots, 3D views, and reviewed creative assets will be insertable here as their export workflows are connected.",
+            <div className="proposal-visual-editor">
+              <div className="proposal-visual-settings">
+                <Field label="Plantilla de presentación">
+                  <select
+                    disabled={locked}
+                    value={draft.presentationTemplate || "Editorial"}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        status: "Draft",
+                        presentationTemplate: event.target.value as
+                          "Minimal" | "Editorial" | "Spotlight",
+                      })
+                    }
+                  >
+                    <option value="Minimal">Minimalista</option>
+                    <option value="Editorial">Editorial</option>
+                    <option value="Spotlight">Protagonista</option>
+                  </select>
+                </Field>
+                <Field label="Narrativa visual">
+                  <textarea
+                    rows={4}
+                    disabled={locked}
+                    value={draft.visualNarrative || ""}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        status: "Draft",
+                        visualNarrative: event.target.value,
+                      })
+                    }
+                    placeholder="Explica cómo la propuesta visual apoya la experiencia del evento…"
+                  />
+                </Field>
+                {!locked && (
+                  <Button
+                    variant="secondary"
+                    disabled={!(draft.visuals || []).length}
+                    onClick={() => {
+                      try {
+                        setDraft({
+                          ...draft,
+                          status: "Draft",
+                          visualNarrative: createVisualNarrative(
+                            event?.name || draft.title,
+                            draft.visuals || [],
+                          ),
+                        });
+                        setError("");
+                      } catch (caught) {
+                        setError((caught as Error).message);
+                      }
+                    }}
+                  >
+                    <Sparkles size={15} />
+                    Crear borrador narrativo local
+                  </Button>
+                )}
+              </div>
+              {!locked && (
+                <div className="proposal-media-picker">
+                  <div>
+                    <strong>Conceptos creativos aprobados</strong>
+                    {creativeOptions.length ? (
+                      creativeOptions.map((asset) => {
+                        const added = draft.visuals?.some(
+                          (visual) =>
+                            visual.sourceType === "Creative" &&
+                            visual.sourceId === asset.id &&
+                            visual.sourceRevision === asset.revision,
+                        );
+                        return (
+                          <div className="proposal-media-option" key={asset.id}>
+                            <img src={asset.dataUrl} alt="" />
+                            <span>
+                              <b>{asset.title}</b>
+                              <small>
+                                Revisión {asset.revision} · aprobada
+                              </small>
+                            </span>
+                            <Button
+                              variant="secondary"
+                              disabled={added}
+                              onClick={() => addCreativeVisual(asset.id)}
+                            >
+                              <ImageIcon size={14} />
+                              {added ? "Añadido" : "Añadir"}
+                            </Button>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p>
+                        No hay conceptos aprobados para este evento. Revisa los
+                        conceptos en el Estudio creativo.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <strong>Diseños del evento</strong>
+                    {layoutOptions.length ? (
+                      layoutOptions.map((layout) => (
+                        <div className="proposal-media-option" key={layout.id}>
+                          <span className="proposal-layout-icon">
+                            <Boxes size={20} />
+                          </span>
+                          <span>
+                            <b>{layout.name}</b>
+                            <small>
+                              Revisión {layout.version} ·{" "}
+                              {layout.verified
+                                ? "medidas verificadas"
+                                : "medidas no verificadas"}
+                            </small>
+                          </span>
+                          <div className="proposal-media-option-actions">
+                            <Button
+                              variant="secondary"
+                              disabled={draft.visuals?.some(
+                                (visual) =>
+                                  visual.sourceType === "Layout plan" &&
+                                  visual.sourceId === layout.id &&
+                                  visual.sourceRevision === layout.version,
+                              )}
+                              onClick={() =>
+                                addLayoutVisual(layout.id, "Layout plan")
+                              }
+                            >
+                              Añadir 2D
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              disabled={draft.visuals?.some(
+                                (visual) =>
+                                  visual.sourceType === "Layout 3D" &&
+                                  visual.sourceId === layout.id &&
+                                  visual.sourceRevision === layout.version,
+                              )}
+                              onClick={() =>
+                                addLayoutVisual(layout.id, "Layout 3D")
+                              }
+                            >
+                              Añadir 3D
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p>
+                        Este evento todavía no tiene un diseño. Ábrelo en el
+                        Estudio de diseño para crear uno.
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
-              action={
-                <Link
-                  className="button secondary"
-                  to={`/design?event=${event?.id}`}
-                >
-                  {uiLabel("Open event design")}
-                </Link>
-              }
-            />
+              {(draft.visuals || []).length ? (
+                <div className="proposal-visual-list">
+                  {(draft.visuals || []).map((visual, index) => (
+                    <article className="proposal-visual-card" key={visual.id}>
+                      <img src={visual.dataUrl} alt={visual.altText} />
+                      <div>
+                        <div className="proposal-visual-heading">
+                          <span>
+                            <strong>{visual.title}</strong>
+                            <small>
+                              {visual.sourceType} · revisión{" "}
+                              {visual.sourceRevision}
+                              {visual.measurementStatus === "Unverified"
+                                ? " · medidas no verificadas"
+                                : ""}
+                            </small>
+                          </span>
+                          {!locked && (
+                            <span className="proposal-visual-controls">
+                              <button
+                                className="icon-button"
+                                aria-label={`Mover ${visual.title} hacia arriba`}
+                                disabled={index === 0}
+                                onClick={() => moveVisual(visual.id, -1)}
+                              >
+                                <ArrowUp size={15} />
+                              </button>
+                              <button
+                                className="icon-button"
+                                aria-label={`Mover ${visual.title} hacia abajo`}
+                                disabled={
+                                  index === (draft.visuals || []).length - 1
+                                }
+                                onClick={() => moveVisual(visual.id, 1)}
+                              >
+                                <ArrowDown size={15} />
+                              </button>
+                              <button
+                                className="icon-button"
+                                aria-label={`Quitar ${visual.title}`}
+                                onClick={() => removeVisual(visual.id)}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </span>
+                          )}
+                        </div>
+                        <Field label={`Pie de imagen · ${index + 1}`}>
+                          <textarea
+                            rows={2}
+                            disabled={locked}
+                            value={visual.caption}
+                            onChange={(event) =>
+                              updateVisual(visual.id, {
+                                caption: event.target.value,
+                              })
+                            }
+                          />
+                        </Field>
+                        <Field label={`Texto alternativo · ${index + 1}`}>
+                          <input
+                            disabled={locked}
+                            value={visual.altText}
+                            onChange={(event) =>
+                              updateVisual(visual.id, {
+                                altText: event.target.value,
+                              })
+                            }
+                          />
+                        </Field>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <Empty
+                  title={uiLabel("Give your proposal a visual story")}
+                  description="Añade un concepto aprobado o una captura del diseño del evento. Cada recurso queda guardado con esta versión de la propuesta."
+                  action={
+                    <Link
+                      className="button secondary"
+                      to={`/design?event=${event?.id}`}
+                    >
+                      {uiLabel("Open event design")}
+                    </Link>
+                  }
+                />
+              )}
+            </div>
           )}
           {section === "Terms & details" && (
             <div className="document-fields">
@@ -868,6 +1275,120 @@ function Editor({ original }: { original: Proposal }) {
           </div>
         </Modal>
       )}
+      {compareOpen && comparison && (
+        <Modal
+          wide
+          title="Comparar versiones"
+          description={`${draft.number} · la comparación no modifica ninguna versión`}
+          onClose={() => setCompareOpen(false)}
+        >
+          <div className="modal-body revision-comparison">
+            <Field label="Versión anterior">
+              <select
+                value={comparison.id}
+                onChange={(event) => setCompareId(event.target.value)}
+              >
+                {priorVersions.map((proposal) => (
+                  <option value={proposal.id} key={proposal.id}>
+                    Versión {proposal.version} · {uiLabel(proposal.status)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="revision-comparison-grid">
+              <div>
+                <span>Versión {comparison.version}</span>
+                <strong>{comparison.title}</strong>
+                <small>{uiLabel(comparison.status)}</small>
+              </div>
+              <div>
+                <span>Versión {draft.version}</span>
+                <strong>{draft.title}</strong>
+                <small>{uiLabel(draft.status)}</small>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Elemento</th>
+                  <th>Versión {comparison.version}</th>
+                  <th>Versión {draft.version}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Total</td>
+                  <td>{money(comparisonTotal)}</td>
+                  <td>{money(totals.total)}</td>
+                </tr>
+                <tr>
+                  <td>Partidas</td>
+                  <td>{comparison.lines.length}</td>
+                  <td>{draft.lines.length}</td>
+                </tr>
+                <tr>
+                  <td>Descuento / impuesto</td>
+                  <td>
+                    {comparison.discount}% / {comparison.tax}%
+                  </td>
+                  <td>
+                    {draft.discount}% / {draft.tax}%
+                  </td>
+                </tr>
+                <tr>
+                  <td>Recursos visuales</td>
+                  <td>{comparison.visuals?.length || 0}</td>
+                  <td>{draft.visuals?.length || 0}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="revision-change-list">
+              <strong>Cambios de alcance visibles</strong>
+              {draft.lines
+                .filter(
+                  (line) =>
+                    !comparison.lines.some(
+                      (previous) => previous.description === line.description,
+                    ),
+                )
+                .map((line) => (
+                  <span key={line.id}>+ {line.description}</span>
+                ))}
+              {comparison.lines
+                .filter(
+                  (line) =>
+                    !draft.lines.some(
+                      (current) => current.description === line.description,
+                    ),
+                )
+                .map((line) => (
+                  <span key={line.id}>− {line.description}</span>
+                ))}
+              {draft.visuals
+                ?.filter(
+                  (visual) =>
+                    !comparison.visuals?.some(
+                      (previous) =>
+                        previous.sourceType === visual.sourceType &&
+                        previous.sourceId === visual.sourceId &&
+                        previous.sourceRevision === visual.sourceRevision,
+                    ),
+                )
+                .map((visual) => (
+                  <span key={visual.id}>+ {visual.title}</span>
+                ))}
+              {draft.lines.length === comparison.lines.length &&
+                (draft.visuals?.length || 0) ===
+                  (comparison.visuals?.length || 0) && (
+                  <small>
+                    Revisa también los cambios de texto, cantidades y precios
+                    mostrados arriba.
+                  </small>
+                )}
+            </div>
+          </div>
+        </Modal>
+      )}
       {preview && (
         <Modal
           title={uiLabel("Proposal preview")}
@@ -877,18 +1398,43 @@ function Editor({ original }: { original: Proposal }) {
           onClose={() => setPreview(false)}
           wide
         >
-          <div className="print-proposal">
-            <span className="brand-small">kit.</span>
-            <p>{data.settings.company}</p>
-            <h1>{draft.title}</h1>
-            <p>
-              {draft.number} · Versión {draft.version} · {uiLabel(draft.status)}
-            </p>
+          <div
+            className={`print-proposal template-${(draft.presentationTemplate || "Editorial").toLowerCase()}`}
+          >
+            <header className="print-proposal-cover">
+              <span className="brand-small">kit.</span>
+              <p>{data.settings.company}</p>
+              <h1>{draft.title}</h1>
+              <p>
+                {draft.number} · Versión {draft.version} ·{" "}
+                {uiLabel(draft.status)}
+              </p>
+            </header>
             <hr />
             <h3>
               {uiLabel("Prepared for")} {client?.name}
             </h3>
             <p>{draft.introduction}</p>
+            {(draft.visuals || []).length > 0 && (
+              <section className="print-visuals">
+                <h2>Concepto visual</h2>
+                {draft.visualNarrative && <p>{draft.visualNarrative}</p>}
+                <div>
+                  {(draft.visuals || []).map((visual) => (
+                    <figure key={visual.id}>
+                      <img src={visual.dataUrl} alt={visual.altText} />
+                      <figcaption>
+                        <strong>{visual.title}</strong>
+                        <span>{visual.caption}</span>
+                        {visual.measurementStatus === "Unverified" && (
+                          <small>Medidas no verificadas</small>
+                        )}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </section>
+            )}
             <table>
               <thead>
                 <tr>
@@ -920,8 +1466,7 @@ function Editor({ original }: { original: Proposal }) {
             <h3>{uiLabel("Terms")}</h3>
             <p>{draft.terms}</p>
             <p>
-              {uiLabel("Valid until")}
-              {draft.validUntil}
+              {uiLabel("Valid until")}: {shortDate(draft.validUntil)}
             </p>
             <p className="tiny">
               {mode === "sample"

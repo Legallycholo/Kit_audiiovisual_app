@@ -4,17 +4,25 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
   Box,
+  Bus,
   CalendarDays,
+  ChartNoAxesCombined,
+  Clock3,
+  CircleDollarSign,
   Download,
   FileText,
   Image,
   Plus,
+  RefreshCcw,
   Save,
   ShieldCheck,
   Sparkles,
   Users,
+  Gauge,
+  ListChecks,
   Video,
   WandSparkles,
+  Wrench,
 } from "lucide-react";
 import { useWorkspace, activity } from "../shared/store";
 import {
@@ -22,6 +30,7 @@ import {
   Badge,
   Button,
   Empty,
+  ErrorNote,
   Field,
   Modal,
   PageHeader,
@@ -32,6 +41,8 @@ import {
 } from "../shared/ui";
 import {
   downloadFile,
+  actualEventCosts,
+  crewShiftConflicts,
   id,
   initials,
   money,
@@ -39,7 +50,64 @@ import {
   quoteTotals,
   shortDate,
 } from "../shared/domain";
-import type { EventStatus, Task } from "../shared/types";
+import { canEditCollection } from "../shared/access";
+import { createShowcaseCreativeAsset } from "../shared/creative";
+import {
+  automationCandidates,
+  currentProposals,
+  dataQualityReport,
+  financialReport,
+  metricDefinitions,
+  performanceReport,
+  pipelineReport,
+  utilizationReport,
+  workloadReport,
+} from "../shared/reporting";
+import type {
+  ActualCost,
+  AutomationRecord,
+  CreativeKind,
+  CrewShift,
+  EventOperations,
+  EventStatus,
+  OnsiteChange,
+  RunCue,
+  Task,
+  TransportAssignment,
+  Workspace,
+} from "../shared/types";
+
+const emptyOperations = (eventId: string): EventOperations => ({
+  id: id(),
+  eventId,
+  crewShifts: [],
+  cues: [],
+  transports: [],
+  changes: [],
+  costs: [],
+});
+function changeOperations(
+  workspace: Workspace,
+  eventId: string,
+  change: (record: EventOperations) => EventOperations,
+) {
+  const current = workspace.operations.find((item) => item.eventId === eventId);
+  const next = change(
+    current ? structuredClone(current) : emptyOperations(eventId),
+  );
+  return current
+    ? workspace.operations.map((item) =>
+        item.eventId === eventId ? next : item,
+      )
+    : [...workspace.operations, next];
+}
+const dateTimeLabel = (value: string) =>
+  new Intl.DateTimeFormat("es-PR", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 export function Production() {
   const { data, update, toast, mode, user, request } = useWorkspace();
   const [params] = useSearchParams();
@@ -50,6 +118,22 @@ export function Production() {
     { id: string; name: string; role: string }[]
   >([]);
   const [teamError, setTeamError] = useState("");
+  const [operationError, setOperationError] = useState("");
+  const [shiftDraft, setShiftDraft] = useState<
+    (CrewShift & { eventId: string }) | null
+  >(null);
+  const [cueDraft, setCueDraft] = useState<
+    (RunCue & { eventId: string }) | null
+  >(null);
+  const [transportDraft, setTransportDraft] = useState<
+    (TransportAssignment & { eventId: string }) | null
+  >(null);
+  const [changeDraft, setChangeDraft] = useState<
+    (OnsiteChange & { eventId: string }) | null
+  >(null);
+  const [costDraft, setCostDraft] = useState<
+    (ActualCost & { eventId: string }) | null
+  >(null);
   useEffect(() => {
     let active = true;
     setMembers([]);
@@ -81,6 +165,11 @@ export function Production() {
   );
   const canManageProduction =
     !user || ["Administrator", "Production Manager"].includes(user.role);
+  const selectedEventId =
+    eventFilter === "all" ? data.events[0]?.id || "" : eventFilter;
+  const visibleOperations = data.operations.filter(
+    (operation) => eventFilter === "all" || operation.eventId === eventFilter,
+  );
   const changeProductionStatus = async (
     eventId: string,
     status: EventStatus,
@@ -151,6 +240,7 @@ export function Production() {
             "Crew schedule",
             "Run of show",
             "Preparation & returns",
+            "Logistics & costs",
             "Production readiness",
           ]}
           value={tab}
@@ -236,52 +326,198 @@ export function Production() {
         </div>
       )}
       {tab === "Crew schedule" && (
-        <div className="crew-grid">
-          {crew.map((name) => (
-            <Panel key={name}>
-              <div className="panel-body">
-                <div className="profile-header">
-                  <Avatar label={initials(name)} />
-                  <div>
-                    <h3>{name}</h3>
-                    <p>{data.tasks.find((t) => t.assignee === name)?.role}</p>
-                  </div>
-                </div>
-                {tasks
-                  .filter((t) => t.assignee === name)
-                  .map((t) => (
-                    <div className="crew-assignment" key={t.id}>
-                      <span>{shortDate(t.date)}</span>
-                      <strong>{t.title}</strong>
-                      <Badge>{t.done ? "Completed" : t.phase}</Badge>
+        <div>
+          <div className="section-heading">
+            <div>
+              <h2>Turnos y conflictos de personal</h2>
+              <p>
+                Los turnos solapados de una misma persona se bloquean entre
+                eventos.
+              </p>
+            </div>
+            <Button
+              disabled={
+                !canEditCollection(user, "operations") || !selectedEventId
+              }
+              onClick={() => {
+                const event = data.events.find(
+                  (item) => item.id === selectedEventId,
+                );
+                if (!event) return;
+                setShiftDraft({
+                  id: id(),
+                  eventId: event.id,
+                  person: crew[0] || "",
+                  role: "Technician",
+                  start: `${event.date}T08:00`,
+                  end: `${event.date}T17:00`,
+                  status: "Scheduled",
+                  cost: 0,
+                });
+              }}
+            >
+              <Plus size={16} /> Add shift
+            </Button>
+          </div>
+          <div className="crew-grid">
+            {visibleOperations.flatMap((operation) =>
+              operation.crewShifts.map((shift) => {
+                const event = data.events.find(
+                  (item) => item.id === operation.eventId,
+                );
+                return (
+                  <Panel key={shift.id}>
+                    <div className="panel-body">
+                      <div className="profile-header">
+                        <Avatar label={initials(shift.person)} />
+                        <div>
+                          <h3>{shift.person}</h3>
+                          <p>{shift.role}</p>
+                        </div>
+                        <Badge
+                          tone={
+                            shift.status === "Completed" ? "green" : "neutral"
+                          }
+                        >
+                          {shift.status}
+                        </Badge>
+                      </div>
+                      <div className="crew-assignment">
+                        <span>{dateTimeLabel(shift.start)}</span>
+                        <strong>{event?.name}</strong>
+                        <span>
+                          to {dateTimeLabel(shift.end)} · {money(shift.cost)}
+                        </span>
+                      </div>
+                      {canEditCollection(user, "operations") &&
+                        shift.status === "Scheduled" && (
+                          <Button
+                            variant="ghost"
+                            onClick={() =>
+                              void update((workspace) => ({
+                                ...workspace,
+                                operations: changeOperations(
+                                  workspace,
+                                  operation.eventId,
+                                  (record) => ({
+                                    ...record,
+                                    crewShifts: record.crewShifts.map((item) =>
+                                      item.id === shift.id
+                                        ? { ...item, status: "Completed" }
+                                        : item,
+                                    ),
+                                  }),
+                                ),
+                              }))
+                            }
+                          >
+                            Mark completed
+                          </Button>
+                        )}
                     </div>
-                  ))}
-              </div>
-            </Panel>
-          ))}
+                  </Panel>
+                );
+              }),
+            )}
+          </div>
+          {visibleOperations.every(
+            (operation) => operation.crewShifts.length === 0,
+          ) && (
+            <Empty
+              title="No scheduled shifts"
+              description="Add dated crew coverage for an event."
+            />
+          )}
         </div>
       )}
       {tab === "Run of show" && (
         <Panel
-          title="Event timeline"
-          subtitle="Tasks arranged by date. Detailed timed cues are a later production capability."
+          title="Timed run of show"
+          subtitle="Department cues remain linked to an owner and execution state."
+          action={
+            <Button
+              disabled={
+                !canEditCollection(user, "operations") || !selectedEventId
+              }
+              onClick={() => {
+                const event = data.events.find(
+                  (item) => item.id === selectedEventId,
+                );
+                if (!event) return;
+                setCueDraft({
+                  id: id(),
+                  eventId: event.id,
+                  at: `${event.date}T09:00`,
+                  title: "",
+                  department: "Production",
+                  owner: crew[0] || "Production manager",
+                  notes: "",
+                  status: "Pending",
+                });
+              }}
+            >
+              <Plus size={16} /> Add cue
+            </Button>
+          }
         >
           <div className="panel-body">
-            {[...tasks]
-              .sort((a, b) => a.date.localeCompare(b.date))
-              .map((t) => (
-                <div className="timeline-item" key={t.id}>
-                  <span className="date-pill">{shortDate(t.date)}</span>
+            {visibleOperations
+              .flatMap((operation) =>
+                operation.cues.map((cue) => ({
+                  cue,
+                  eventId: operation.eventId,
+                })),
+              )
+              .sort((a, b) => a.cue.at.localeCompare(b.cue.at))
+              .map(({ cue, eventId }) => (
+                <div className="timeline-item" key={cue.id}>
+                  <span className="date-pill">{dateTimeLabel(cue.at)}</span>
                   <div>
-                    <strong>{t.title}</strong>
+                    <strong>{cue.title}</strong>
                     <p>
-                      {t.assignee} ·{" "}
-                      {data.events.find((e) => e.id === t.eventId)?.name}
+                      {cue.department} · {cue.owner} ·{" "}
+                      {data.events.find((event) => event.id === eventId)?.name}
                     </p>
+                    {cue.notes && <small>{cue.notes}</small>}
                   </div>
-                  <Badge>{t.done ? "Completed" : t.phase}</Badge>
+                  <Badge tone={cue.status === "Complete" ? "green" : "neutral"}>
+                    {cue.status}
+                  </Badge>
+                  {canEditCollection(user, "operations") &&
+                    cue.status === "Pending" && (
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          void update((workspace) => ({
+                            ...workspace,
+                            operations: changeOperations(
+                              workspace,
+                              eventId,
+                              (record) => ({
+                                ...record,
+                                cues: record.cues.map((item) =>
+                                  item.id === cue.id
+                                    ? { ...item, status: "Complete" }
+                                    : item,
+                                ),
+                              }),
+                            ),
+                          }))
+                        }
+                      >
+                        Complete
+                      </Button>
+                    )}
                 </div>
               ))}
+            {visibleOperations.every(
+              (operation) => operation.cues.length === 0,
+            ) && (
+              <Empty
+                title="No run-of-show cues"
+                description="Add the first timed cue for this event."
+              />
+            )}
           </div>
         </Panel>
       )}
@@ -308,18 +544,245 @@ export function Production() {
                     </strong>
                     <small>
                       {data.events.find((e) => e.id === r.eventId)?.name} ·
-                      return {shortDate(r.end)}
+                      return {shortDate(r.end)} · {r.source || "Owned"}
+                      {r.substituteEquipmentId
+                        ? ` · substitute: ${data.equipment.find((item) => item.id === r.substituteEquipmentId)?.name}`
+                        : ""}
                     </small>
+                    {r.dispatchedQuantity ||
+                    r.returnedQuantity ||
+                    r.damagedQuantity ? (
+                      <small>
+                        {r.dispatchedQuantity || 0} dispatched ·{" "}
+                        {r.returnedQuantity || 0} returned ·{" "}
+                        {r.damagedQuantity || 0} damaged
+                      </small>
+                    ) : null}
                   </div>
                   <Badge>{r.status}</Badge>
                 </div>
               ))}
-            <Placeholder
-              title="Detailed custody and inspection"
-              description="Partial returns, damage reports, and transport assignments will extend this handoff."
-            />
+            {data.reservations.filter(
+              (r) => eventFilter === "all" || r.eventId === eventFilter,
+            ).length === 0 && (
+              <Empty
+                title="No equipment handoffs"
+                description="Create reservations in inventory first."
+              />
+            )}
           </div>
         </Panel>
+      )}
+      {tab === "Logistics & costs" && (
+        <div className="detail-grid">
+          <Panel
+            title="Transport"
+            action={
+              <Button
+                disabled={
+                  !canEditCollection(user, "operations") || !selectedEventId
+                }
+                onClick={() => {
+                  const event = data.events.find(
+                    (item) => item.id === selectedEventId,
+                  );
+                  if (!event) return;
+                  setTransportDraft({
+                    id: id(),
+                    eventId: event.id,
+                    kind: "Outbound",
+                    provider: data.settings.company,
+                    vehicle: "",
+                    driver: "",
+                    departureAt: `${event.date}T07:00`,
+                    arrivalAt: `${event.date}T08:00`,
+                    status: "Planned",
+                    cost: 0,
+                    notes: "",
+                  });
+                }}
+              >
+                <Plus size={16} /> Add transport
+              </Button>
+            }
+          >
+            <div className="panel-body">
+              {visibleOperations.flatMap((operation) =>
+                operation.transports.map((transport) => (
+                  <div className="simple-row" key={transport.id}>
+                    <Bus size={20} />
+                    <div>
+                      <strong>
+                        {transport.kind} · {transport.vehicle}
+                      </strong>
+                      <small>
+                        {transport.driver} ·{" "}
+                        {dateTimeLabel(transport.departureAt)} →{" "}
+                        {dateTimeLabel(transport.arrivalAt)}
+                      </small>
+                    </div>
+                    <strong>{money(transport.cost)}</strong>
+                    <Badge>{transport.status}</Badge>
+                    {canEditCollection(user, "operations") &&
+                      ["Planned", "In transit"].includes(transport.status) && (
+                        <Button
+                          variant="ghost"
+                          onClick={() =>
+                            void update((workspace) => ({
+                              ...workspace,
+                              operations: changeOperations(
+                                workspace,
+                                operation.eventId,
+                                (record) => ({
+                                  ...record,
+                                  transports: record.transports.map((item) =>
+                                    item.id === transport.id
+                                      ? {
+                                          ...item,
+                                          status:
+                                            transport.status === "Planned"
+                                              ? "In transit"
+                                              : "Complete",
+                                        }
+                                      : item,
+                                  ),
+                                }),
+                              ),
+                            }))
+                          }
+                        >
+                          {transport.status === "Planned"
+                            ? "Dispatch"
+                            : "Complete"}
+                        </Button>
+                      )}
+                  </div>
+                )),
+              )}
+            </div>
+          </Panel>
+          <Panel
+            title="Onsite change log"
+            action={
+              <Button
+                disabled={
+                  !canEditCollection(user, "operations") || !selectedEventId
+                }
+                onClick={() =>
+                  setChangeDraft({
+                    id: id(),
+                    eventId: selectedEventId,
+                    title: "",
+                    detail: "",
+                    impact: "",
+                    recordedAt: new Date().toISOString(),
+                    recordedBy: user?.name || "Sample user",
+                    costImpact: 0,
+                  })
+                }
+              >
+                <Plus size={16} /> Record change
+              </Button>
+            }
+          >
+            <div className="panel-body">
+              {visibleOperations.flatMap((operation) =>
+                operation.changes.map((change) => (
+                  <div className="simple-row" key={change.id}>
+                    <Wrench size={20} />
+                    <div>
+                      <strong>{change.title}</strong>
+                      <small>
+                        {change.detail} · {change.impact}
+                      </small>
+                    </div>
+                    <span>{money(change.costImpact)}</span>
+                  </div>
+                )),
+              )}
+            </div>
+          </Panel>
+          {readinessEvents.map((event) => {
+            const accepted = data.proposals
+              .filter(
+                (proposal) =>
+                  proposal.eventId === event.id &&
+                  proposal.status === "Accepted",
+              )
+              .sort((a, b) => b.version - a.version)[0];
+            const quoted = accepted
+              ? quoteTotals(accepted.lines, accepted.discount, accepted.tax)
+                  .total
+              : 0;
+            const actual = actualEventCosts(data, event.id);
+            return (
+              <Panel
+                key={event.id}
+                title={`Costos reales · ${event.name}`}
+                action={
+                  <Button
+                    disabled={!canEditCollection(user, "operations")}
+                    onClick={() =>
+                      setCostDraft({
+                        id: id(),
+                        eventId: event.id,
+                        category: "Other",
+                        description: "",
+                        amount: 0,
+                        incurredAt: new Date().toLocaleDateString("en-CA"),
+                      })
+                    }
+                  >
+                    <Plus size={16} /> Add cost
+                  </Button>
+                }
+              >
+                <div className="panel-body">
+                  <div className="simple-row">
+                    <span>Propuesta aceptada</span>
+                    <strong>
+                      {accepted ? money(quoted) : "Sin propuesta aceptada"}
+                    </strong>
+                  </div>
+                  <div className="simple-row">
+                    <span>Personal programado</span>
+                    <strong>{money(actual.crew)}</strong>
+                  </div>
+                  <div className="simple-row">
+                    <span>Asignaciones de transporte</span>
+                    <strong>{money(actual.transport)}</strong>
+                  </div>
+                  <div className="simple-row">
+                    <span>Alquileres de proveedores</span>
+                    <strong>{money(actual.supplierRentals)}</strong>
+                  </div>
+                  <div className="simple-row">
+                    <span>Reparaciones por devolución</span>
+                    <strong>{money(actual.repairs)}</strong>
+                  </div>
+                  <div className="simple-row">
+                    <span>Otros costos reales registrados</span>
+                    <strong>{money(actual.recorded)}</strong>
+                  </div>
+                  <div className="simple-row">
+                    <strong>Costo real total</strong>
+                    <strong>{money(actual.total)}</strong>
+                  </div>
+                  {data.operations
+                    .find((operation) => operation.eventId === event.id)
+                    ?.costs.map((cost) => (
+                      <div className="simple-row" key={cost.id}>
+                        <span>
+                          {cost.category} · {cost.description}
+                        </span>
+                        <strong>{money(cost.amount)}</strong>
+                      </div>
+                    ))}
+                </div>
+              </Panel>
+            );
+          })}
+        </div>
       )}
       {tab === "Production readiness" && (
         <div className="readiness-grid">
@@ -446,6 +909,577 @@ export function Production() {
           )}
         </div>
       )}
+      {shiftDraft && (
+        <Modal
+          title="Crew shift"
+          onClose={() => {
+            setShiftDraft(null);
+            setOperationError("");
+          }}
+        >
+          <form
+            className="modal-body"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const normalized = {
+                ...shiftDraft,
+                start: new Date(shiftDraft.start).toISOString(),
+                end: new Date(shiftDraft.end).toISOString(),
+              };
+              const { eventId, ...shift } = normalized;
+              const conflicts = crewShiftConflicts(
+                data.operations,
+                shift,
+                eventId,
+              );
+              if (conflicts.length) {
+                const conflictEvent = data.events.find(
+                  (item) => item.id === conflicts[0].eventId,
+                );
+                setOperationError(
+                  `${shift.person} already has an overlapping shift for ${conflictEvent?.name || "another event"}.`,
+                );
+                return;
+              }
+              if (
+                await update((workspace) => ({
+                  ...workspace,
+                  operations: changeOperations(
+                    workspace,
+                    eventId,
+                    (record) => ({
+                      ...record,
+                      crewShifts: [...record.crewShifts, shift],
+                    }),
+                  ),
+                  activity: [
+                    activity(
+                      "Crew shift scheduled",
+                      `${shift.person} · ${shift.role}`,
+                      eventId,
+                    ),
+                    ...workspace.activity,
+                  ],
+                }))
+              ) {
+                setShiftDraft(null);
+                setOperationError("");
+                toast("Crew shift scheduled.");
+              }
+            }}
+          >
+            {operationError && <ErrorNote>{operationError}</ErrorNote>}
+            <Field label="Event">
+              <select
+                value={shiftDraft.eventId}
+                onChange={(event) =>
+                  setShiftDraft({ ...shiftDraft, eventId: event.target.value })
+                }
+              >
+                {data.events.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="form-grid">
+              <Field label="Crew member">
+                <input
+                  required
+                  value={shiftDraft.person}
+                  onChange={(event) =>
+                    setShiftDraft({
+                      ...shiftDraft,
+                      person: event.target.value,
+                      memberId: undefined,
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Role">
+                <input
+                  required
+                  value={shiftDraft.role}
+                  onChange={(event) =>
+                    setShiftDraft({ ...shiftDraft, role: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Starts">
+                <input
+                  required
+                  type="datetime-local"
+                  value={shiftDraft.start.slice(0, 16)}
+                  onChange={(event) =>
+                    setShiftDraft({ ...shiftDraft, start: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Ends">
+                <input
+                  required
+                  type="datetime-local"
+                  value={shiftDraft.end.slice(0, 16)}
+                  onChange={(event) =>
+                    setShiftDraft({ ...shiftDraft, end: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Actual crew cost">
+                <input
+                  type="number"
+                  min="0"
+                  step=".01"
+                  value={shiftDraft.cost}
+                  onChange={(event) =>
+                    setShiftDraft({
+                      ...shiftDraft,
+                      cost: Number(event.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </div>
+            <div className="modal-actions">
+              <Button>
+                <Clock3 size={16} /> Schedule shift
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {cueDraft && (
+        <Modal title="Run-of-show cue" onClose={() => setCueDraft(null)}>
+          <form
+            className="modal-body"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const { eventId, ...cue } = {
+                ...cueDraft,
+                at: new Date(cueDraft.at).toISOString(),
+              };
+              if (
+                await update((workspace) => ({
+                  ...workspace,
+                  operations: changeOperations(
+                    workspace,
+                    eventId,
+                    (record) => ({ ...record, cues: [...record.cues, cue] }),
+                  ),
+                }))
+              ) {
+                setCueDraft(null);
+                toast("Run-of-show cue added.");
+              }
+            }}
+          >
+            <Field label="Event">
+              <select
+                value={cueDraft.eventId}
+                onChange={(event) =>
+                  setCueDraft({ ...cueDraft, eventId: event.target.value })
+                }
+              >
+                {data.events.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Cue">
+              <input
+                required
+                value={cueDraft.title}
+                onChange={(event) =>
+                  setCueDraft({ ...cueDraft, title: event.target.value })
+                }
+              />
+            </Field>
+            <div className="form-grid">
+              <Field label="Time">
+                <input
+                  required
+                  type="datetime-local"
+                  value={cueDraft.at.slice(0, 16)}
+                  onChange={(event) =>
+                    setCueDraft({ ...cueDraft, at: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Department">
+                <input
+                  required
+                  value={cueDraft.department}
+                  onChange={(event) =>
+                    setCueDraft({ ...cueDraft, department: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Owner">
+                <input
+                  required
+                  value={cueDraft.owner}
+                  onChange={(event) =>
+                    setCueDraft({ ...cueDraft, owner: event.target.value })
+                  }
+                />
+              </Field>
+            </div>
+            <Field label="Execution note">
+              <textarea
+                value={cueDraft.notes}
+                onChange={(event) =>
+                  setCueDraft({ ...cueDraft, notes: event.target.value })
+                }
+              />
+            </Field>
+            <div className="modal-actions">
+              <Button>Add cue</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {transportDraft && (
+        <Modal
+          title="Transport assignment"
+          onClose={() => setTransportDraft(null)}
+        >
+          <form
+            className="modal-body"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const { eventId, ...transport } = {
+                ...transportDraft,
+                departureAt: new Date(transportDraft.departureAt).toISOString(),
+                arrivalAt: new Date(transportDraft.arrivalAt).toISOString(),
+              };
+              if (transport.arrivalAt <= transport.departureAt) {
+                setOperationError("Arrival must be after departure.");
+                return;
+              }
+              if (
+                await update((workspace) => ({
+                  ...workspace,
+                  operations: changeOperations(
+                    workspace,
+                    eventId,
+                    (record) => ({
+                      ...record,
+                      transports: [...record.transports, transport],
+                    }),
+                  ),
+                }))
+              ) {
+                setTransportDraft(null);
+                setOperationError("");
+                toast("Transport assignment added.");
+              }
+            }}
+          >
+            {operationError && <ErrorNote>{operationError}</ErrorNote>}
+            <Field label="Event">
+              <select
+                value={transportDraft.eventId}
+                onChange={(event) =>
+                  setTransportDraft({
+                    ...transportDraft,
+                    eventId: event.target.value,
+                  })
+                }
+              >
+                {data.events.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="form-grid">
+              <Field label="Direction">
+                <select
+                  value={transportDraft.kind}
+                  onChange={(event) =>
+                    setTransportDraft({
+                      ...transportDraft,
+                      kind: event.target.value as "Outbound" | "Return",
+                    })
+                  }
+                >
+                  <option>Outbound</option>
+                  <option>Return</option>
+                </select>
+              </Field>
+              <Field label="Provider">
+                <input
+                  required
+                  value={transportDraft.provider}
+                  onChange={(event) =>
+                    setTransportDraft({
+                      ...transportDraft,
+                      provider: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Vehicle">
+                <input
+                  required
+                  value={transportDraft.vehicle}
+                  onChange={(event) =>
+                    setTransportDraft({
+                      ...transportDraft,
+                      vehicle: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Driver">
+                <input
+                  required
+                  value={transportDraft.driver}
+                  onChange={(event) =>
+                    setTransportDraft({
+                      ...transportDraft,
+                      driver: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Departure">
+                <input
+                  required
+                  type="datetime-local"
+                  value={transportDraft.departureAt.slice(0, 16)}
+                  onChange={(event) =>
+                    setTransportDraft({
+                      ...transportDraft,
+                      departureAt: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Arrival">
+                <input
+                  required
+                  type="datetime-local"
+                  value={transportDraft.arrivalAt.slice(0, 16)}
+                  onChange={(event) =>
+                    setTransportDraft({
+                      ...transportDraft,
+                      arrivalAt: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Actual cost">
+                <input
+                  type="number"
+                  min="0"
+                  step=".01"
+                  value={transportDraft.cost}
+                  onChange={(event) =>
+                    setTransportDraft({
+                      ...transportDraft,
+                      cost: Number(event.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </div>
+            <Field label="Notes">
+              <textarea
+                value={transportDraft.notes}
+                onChange={(event) =>
+                  setTransportDraft({
+                    ...transportDraft,
+                    notes: event.target.value,
+                  })
+                }
+              />
+            </Field>
+            <div className="modal-actions">
+              <Button>Add transport</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {changeDraft && (
+        <Modal
+          title="Record onsite change"
+          description="Saved entries are immutable production history."
+          onClose={() => setChangeDraft(null)}
+        >
+          <form
+            className="modal-body"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const { eventId, ...change } = changeDraft;
+              if (
+                await update((workspace) => ({
+                  ...workspace,
+                  operations: changeOperations(
+                    workspace,
+                    eventId,
+                    (record) => ({
+                      ...record,
+                      changes: [...record.changes, change],
+                    }),
+                  ),
+                  activity: [
+                    activity("Onsite change recorded", change.title, eventId),
+                    ...workspace.activity,
+                  ],
+                }))
+              ) {
+                setChangeDraft(null);
+                toast("Onsite change preserved in the event log.");
+              }
+            }}
+          >
+            <Field label="Change title">
+              <input
+                required
+                value={changeDraft.title}
+                onChange={(event) =>
+                  setChangeDraft({ ...changeDraft, title: event.target.value })
+                }
+              />
+            </Field>
+            <Field label="What changed">
+              <textarea
+                required
+                value={changeDraft.detail}
+                onChange={(event) =>
+                  setChangeDraft({ ...changeDraft, detail: event.target.value })
+                }
+              />
+            </Field>
+            <Field label="Operational impact">
+              <textarea
+                required
+                value={changeDraft.impact}
+                onChange={(event) =>
+                  setChangeDraft({ ...changeDraft, impact: event.target.value })
+                }
+              />
+            </Field>
+            <Field label="Estimated cost impact">
+              <input
+                type="number"
+                min="0"
+                step=".01"
+                value={changeDraft.costImpact}
+                onChange={(event) =>
+                  setChangeDraft({
+                    ...changeDraft,
+                    costImpact: Number(event.target.value),
+                  })
+                }
+              />
+            </Field>
+            <div className="modal-actions">
+              <Button>Record change</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {costDraft && (
+        <Modal
+          title="Record actual cost"
+          description="Saved cost entries are immutable."
+          onClose={() => setCostDraft(null)}
+        >
+          <form
+            className="modal-body"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const { eventId, ...cost } = costDraft;
+              if (
+                await update((workspace) => ({
+                  ...workspace,
+                  operations: changeOperations(
+                    workspace,
+                    eventId,
+                    (record) => ({ ...record, costs: [...record.costs, cost] }),
+                  ),
+                }))
+              ) {
+                setCostDraft(null);
+                toast("Actual cost recorded.");
+              }
+            }}
+          >
+            <div className="form-grid">
+              <Field label="Category">
+                <select
+                  value={costDraft.category}
+                  onChange={(event) =>
+                    setCostDraft({
+                      ...costDraft,
+                      category: event.target.value as ActualCost["category"],
+                    })
+                  }
+                >
+                  {[
+                    "Crew",
+                    "Transport",
+                    "Supplier rental",
+                    "Repair",
+                    "Other",
+                  ].map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Incurred date">
+                <input
+                  type="date"
+                  required
+                  value={costDraft.incurredAt}
+                  onChange={(event) =>
+                    setCostDraft({
+                      ...costDraft,
+                      incurredAt: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Amount">
+                <input
+                  type="number"
+                  min="0"
+                  step=".01"
+                  required
+                  value={costDraft.amount}
+                  onChange={(event) =>
+                    setCostDraft({
+                      ...costDraft,
+                      amount: Number(event.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </div>
+            <Field label="Description">
+              <input
+                required
+                value={costDraft.description}
+                onChange={(event) =>
+                  setCostDraft({
+                    ...costDraft,
+                    description: event.target.value,
+                  })
+                }
+              />
+            </Field>
+            <div className="modal-actions">
+              <Button>Record cost</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
       {draft && (
         <Modal title="Add a production task" onClose={() => setDraft(null)}>
           <form
@@ -563,150 +1597,809 @@ export function Production() {
   );
 }
 export function Reports() {
-  const { data } = useWorkspace();
-  const latest = data.proposals.filter((p) => p.status !== "Superseded");
-  const accepted = latest.filter((p) => p.status === "Accepted");
-  const total = latest.reduce(
-    (sum, p) => sum + quoteTotals(p.lines, p.discount, p.tax).total,
-    0,
+  const { data, update, toast, user, mode } = useWorkspace();
+  const dates = [
+    ...data.events.flatMap((event) => [event.date, event.endDate]),
+    ...data.reservations.flatMap((reservation) => [
+      reservation.start,
+      reservation.end,
+    ]),
+  ].sort();
+  const [tab, setTab] = useState("Resumen");
+  const [rangeStart, setRangeStart] = useState(
+    dates[0] || new Date().toLocaleDateString("en-CA"),
   );
-  const acceptedTotal = accepted.reduce(
-    (sum, p) => sum + quoteTotals(p.lines, p.discount, p.tax).total,
-    0,
+  const [rangeEnd, setRangeEnd] = useState(
+    dates.at(-1) || new Date().toLocaleDateString("en-CA"),
   );
+  const [failure, setFailure] = useState<{
+    record: AutomationRecord;
+    reason: string;
+  } | null>(null);
+  const canSeeCommercial =
+    !user || ["Administrator", "Sales Manager"].includes(user.role);
+  const canSeeCosts =
+    !user || ["Administrator", "Production Manager"].includes(user.role);
+  const canSeeProfitability = canSeeCommercial && canSeeCosts;
+  const canManageAutomation = canEditCollection(user, "automations");
+  const pipeline = canSeeCommercial ? pipelineReport(data) : [];
+  const financials = canSeeProfitability ? financialReport(data) : [];
+  const utilization = utilizationReport(data, rangeStart, rangeEnd);
+  const workload = workloadReport(data);
+  const performance = performanceReport(data);
+  const quality = dataQualityReport(data);
+  const current = currentProposals(data);
+  const quotedTotal = pipeline.reduce((sum, row) => sum + row.value, 0);
+  const acceptedTotal =
+    pipeline.find((row) => row.status === "Accepted")?.value || 0;
+  const actualTotal = financials.reduce((sum, row) => sum + row.actualCost, 0);
+  const tabs = [
+    "Resumen",
+    ...(canSeeProfitability ? ["Contribución"] : []),
+    "Utilización",
+    "Carga de trabajo",
+    "Ejecución",
+    ...(canManageAutomation ? ["Automatización"] : []),
+    "Definiciones",
+  ];
+  const evaluate = async () => {
+    const existing = new Set(data.automations.map((record) => record.key));
+    const generatedAt = new Date().toISOString();
+    const additions = automationCandidates(data).filter(
+      (candidate) => !existing.has(candidate.key),
+    );
+    if (!additions.length) {
+      toast(
+        "No hay sugerencias nuevas. Las reglas no duplicaron acciones existentes.",
+      );
+      return;
+    }
+    if (
+      await update((workspace) => ({
+        ...workspace,
+        automations: [
+          ...workspace.automations,
+          ...additions.map((candidate) => ({
+            ...candidate,
+            id: id(),
+            status: "Open" as const,
+            createdAt: generatedAt,
+          })),
+        ],
+        activity: [
+          activity(
+            "Automation rules evaluated",
+            `${additions.length} suggestion(s) created for human review.`,
+          ),
+          ...workspace.activity,
+        ],
+      }))
+    )
+      toast(`${additions.length} sugerencias creadas para revisión.`);
+  };
+  const decide = async (
+    record: AutomationRecord,
+    status: "Approved" | "Dismissed",
+  ) => {
+    const taskId =
+      status === "Approved" && record.action === "Create task"
+        ? id()
+        : undefined;
+    const event = record.eventId
+      ? data.events.find((item) => item.id === record.eventId)
+      : undefined;
+    if (record.action === "Create task" && status === "Approved" && !event)
+      return;
+    const ok = await update((workspace) => ({
+      ...workspace,
+      automations: workspace.automations.map((item) =>
+        item.id === record.id ? { ...item, status, taskId } : item,
+      ),
+      tasks:
+        taskId && event
+          ? [
+              ...workspace.tasks,
+              {
+                id: taskId,
+                eventId: event.id,
+                title: record.title,
+                assignee: user?.name || event.manager || "Alex Morgan",
+                ...(user ? { assigneeId: user.id } : {}),
+                role: user?.role || "Production manager",
+                date: record.dueAt.slice(0, 10),
+                done: false,
+                phase: "Preparation",
+              },
+            ]
+          : workspace.tasks,
+      activity: [
+        activity(
+          status === "Approved"
+            ? "Automation action approved"
+            : "Automation suggestion dismissed",
+          record.title,
+          record.eventId,
+        ),
+        ...workspace.activity,
+      ],
+    }));
+    if (ok)
+      toast(
+        status === "Approved"
+          ? taskId
+            ? "Acción aprobada y tarea creada."
+            : "Revisión aprobada sin ejecutar acciones externas."
+          : "Sugerencia descartada y conservada en el historial.",
+      );
+  };
+  const exportReport = () =>
+    downloadFile(
+      "kit-report.json",
+      JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          source: mode === "company" ? "Company workspace" : "Sample workspace",
+          range: { start: rangeStart, end: rangeEnd },
+          definitions: metricDefinitions,
+          ...(canSeeCommercial ? { pipeline } : {}),
+          ...(canSeeProfitability ? { financials } : {}),
+          utilization,
+          workload,
+          performance,
+          dataQuality: quality,
+        },
+        null,
+        2,
+      ),
+    );
   return (
     <>
       <PageHeader
         eyebrow="A CLEARER PICTURE"
         title="Reports"
-        description="A view of planned work and commercial scope, grounded in your records."
+        description="Métricas trazables con alcance, costos y permisos claramente separados."
         actions={
-          <Button
-            variant="secondary"
-            onClick={() =>
-              downloadFile(
-                "kit-report.json",
-                JSON.stringify(
-                  {
-                    exportedAt: new Date().toISOString(),
-                    source: "Sample workspace",
-                    proposalValue: total,
-                    acceptedValue: acceptedTotal,
-                    proposalCount: latest.length,
-                    eventCount: data.events.length,
-                  },
-                  null,
-                  2,
-                ),
-              )
-            }
-          >
+          <Button variant="secondary" onClick={exportReport}>
             <Download size={16} />
             Export summary
           </Button>
         }
       />
-      <div className="stat-grid">
-        <Stat
-          label="Quoted scope"
-          value={money(total)}
-          detail="Current proposal revisions · not revenue"
-          icon={<FileText size={18} />}
-        />
-        <Stat
-          label="Accepted scope"
-          value={money(acceptedTotal)}
-          detail="Owner-confirmed offers · not collected cash"
-          icon={<ShieldCheck size={18} />}
-        />
-        <Stat
-          label="Events"
-          value={data.events.length}
-          detail="Across all production stages"
-          icon={<CalendarDays size={18} />}
-        />
-        <Stat
-          label="Tasks completed"
-          value={`${data.tasks.filter((t) => t.done).length}/${data.tasks.length}`}
-          detail="Current production checklist"
-          icon={<Users size={18} />}
-        />
+      <div className="directory-toolbar">
+        <Tabs items={tabs} value={tab} onChange={setTab} />
+        {tab === "Utilización" && (
+          <div className="filter-row">
+            <Field label="Desde">
+              <input
+                type="date"
+                value={rangeStart}
+                max={rangeEnd}
+                onChange={(event) => setRangeStart(event.target.value)}
+              />
+            </Field>
+            <Field label="Hasta">
+              <input
+                type="date"
+                value={rangeEnd}
+                min={rangeStart}
+                onChange={(event) => setRangeEnd(event.target.value)}
+              />
+            </Field>
+          </div>
+        )}
       </div>
-      <div className="detail-grid">
-        <Panel title="Event pipeline">
-          <div className="panel-body chart-bars">
-            {[
-              "Planning",
-              "Confirmed",
-              "Preparation",
-              "In production",
-              "Completed",
-            ].map((status) => {
-              const count = data.events.filter(
-                (e) => e.status === status,
-              ).length;
-              return (
-                <div key={status}>
-                  <div>
-                    <span>{status}</span>
-                    <strong>{count}</strong>
-                  </div>
-                  <span className="bar-track">
-                    <i
-                      style={{
-                        width: `${(count / Math.max(1, data.events.length)) * 100}%`,
-                      }}
-                    />
-                  </span>
+      {tab === "Resumen" && (
+        <>
+          <div className="stat-grid">
+            {canSeeCommercial && (
+              <Stat
+                label="Alcance cotizado"
+                value={money(quotedTotal)}
+                detail={`${current.length} propuestas actuales · no es ingreso cobrado`}
+                icon={<FileText size={18} />}
+              />
+            )}
+            {canSeeProfitability && (
+              <Stat
+                label="Costos operativos reales"
+                value={money(actualTotal)}
+                detail="Personal, logística, proveedores, reparaciones y otros registros"
+                icon={<Wrench size={18} />}
+              />
+            )}
+            {canSeeCommercial && (
+              <Stat
+                label="Alcance aceptado"
+                value={money(acceptedTotal)}
+                detail="Ofertas confirmadas por propietario · no es efectivo cobrado"
+                icon={<ShieldCheck size={18} />}
+              />
+            )}
+            <Stat
+              label="Eventos"
+              value={data.events.length}
+              detail="Todos los estados de producción"
+              icon={<CalendarDays size={18} />}
+            />
+            <Stat
+              label="Tareas completadas"
+              value={`${data.tasks.filter((t) => t.done).length}/${data.tasks.length}`}
+              detail="Lista actual de producción"
+              icon={<Users size={18} />}
+            />
+          </div>
+          <div className="detail-grid">
+            {canSeeCommercial && (
+              <Panel title="Flujo comercial actual">
+                <div className="panel-body chart-bars">
+                  {pipeline.map((row) => {
+                    const max = Math.max(
+                      1,
+                      ...pipeline.map((item) => item.count),
+                    );
+                    return (
+                      <div key={row.status}>
+                        <div>
+                          <span>{row.status}</span>
+                          <strong>
+                            {row.count} · {money(row.value)}
+                          </strong>
+                        </div>
+                        <span className="bar-track">
+                          <i
+                            style={{
+                              width: `${(row.count / max) * 100}%`,
+                            }}
+                          />
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </Panel>
+            )}
+            <Panel title="Calidad y cobertura de datos">
+              <div className="panel-body">
+                {quality.map((issue) => (
+                  <div className="simple-row" key={issue.key}>
+                    <ListChecks size={19} />
+                    <span>{issue.message}</span>
+                    {issue.eventId && (
+                      <Link
+                        className="text-link"
+                        to={`/events/${issue.eventId}`}
+                      >
+                        Revisar
+                      </Link>
+                    )}
+                  </div>
+                ))}
+                {quality.length === 0 && (
+                  <Empty
+                    title="Cobertura completa"
+                    description="No se detectaron brechas con las reglas actuales."
+                  />
+                )}
+              </div>
+            </Panel>
+          </div>
+          <div className="info-note">
+            Cada cifra identifica su fuente. Las cotizaciones no se presentan
+            como ingresos cobrados y la contribución no sustituye la
+            contabilidad.
+          </div>
+        </>
+      )}
+      {tab === "Contribución" && canSeeProfitability && (
+        <Panel
+          title="Contribución operativa por evento"
+          subtitle="Alcance aceptado menos costos operativos registrados. No es utilidad contable."
+        >
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Evento / alcance</th>
+                  <th>Aceptado</th>
+                  <th>Costo real</th>
+                  <th>Contribución</th>
+                  <th>Margen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {financials.map((row) => (
+                  <tr key={row.eventId}>
+                    <td>
+                      <strong>{row.eventName}</strong>
+                      <small>{row.scopeStatus}</small>
+                    </td>
+                    <td>
+                      {row.acceptedProposal ? money(row.acceptedValue) : "—"}
+                    </td>
+                    <td>{money(row.actualCost)}</td>
+                    <td>
+                      {row.acceptedProposal ? money(row.contribution) : "—"}
+                    </td>
+                    <td>
+                      <Badge tone={row.contribution >= 0 ? "green" : "red"}>
+                        {row.marginPercent === undefined
+                          ? "Sin alcance"
+                          : `${row.marginPercent.toFixed(1)}%`}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Panel>
-        <Panel title="Commercial scope by event">
+      )}
+      {tab === "Utilización" && (
+        <Panel
+          title="Utilización de equipos"
+          subtitle="Capacidad actual disponible y unidades-día reservadas dentro del periodo seleccionado."
+        >
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Equipo</th>
+                  <th>Capacidad · unidades-día</th>
+                  <th>Comprometido</th>
+                  <th>Reservas provisionales</th>
+                  <th>Utilización</th>
+                </tr>
+              </thead>
+              <tbody>
+                {utilization.map((row) => (
+                  <tr key={row.equipmentId}>
+                    <td>
+                      <strong>{row.name}</strong>
+                    </td>
+                    <td>{row.capacityUnitDays}</td>
+                    <td>{row.committedUnitDays}</td>
+                    <td>{row.holdUnitDays}</td>
+                    <td>
+                      <Badge
+                        tone={
+                          (row.utilizationPercent || 0) > 100
+                            ? "red"
+                            : (row.utilizationPercent || 0) > 70
+                              ? "amber"
+                              : "green"
+                        }
+                      >
+                        {row.utilizationPercent === undefined
+                          ? "Sin capacidad"
+                          : `${row.utilizationPercent.toFixed(1)}%`}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+      {tab === "Carga de trabajo" && (
+        <Panel
+          title="Carga por persona"
+          subtitle="Tareas y horas de turnos registradas; no es nómina."
+        >
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Persona</th>
+                  <th>Tareas abiertas</th>
+                  <th>Tareas completadas</th>
+                  <th>Horas programadas</th>
+                  <th>Horas completadas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workload.map((row) => (
+                  <tr key={row.person}>
+                    <td>
+                      <strong>{row.person}</strong>
+                    </td>
+                    <td>{row.openTasks}</td>
+                    <td>{row.completedTasks}</td>
+                    <td>{row.scheduledHours.toFixed(1)}</td>
+                    <td>{row.completedHours.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+      {tab === "Ejecución" && (
+        <Panel
+          title="Ejecución por evento"
+          subtitle="Progreso de los registros que existen: tareas, cues, transporte y devoluciones."
+        >
           <div className="panel-body">
-            {latest.map((p) => (
-              <Link to={`/proposals/${p.id}`} className="simple-row" key={p.id}>
-                <span>
-                  <strong>
-                    {data.events.find((e) => e.id === p.eventId)?.name}
-                  </strong>
+            {performance.map((row) => (
+              <div className="simple-row" key={row.eventId}>
+                <ChartNoAxesCombined size={20} />
+                <div>
+                  <strong>{row.eventName}</strong>
                   <small>
-                    {p.number} · v{p.version}
+                    {row.completed}/{row.total} elementos completos ·{" "}
+                    {row.onsiteChanges} cambios en sitio
                   </small>
-                </span>
+                </div>
+                <Badge>{row.status}</Badge>
                 <strong>
-                  {money(quoteTotals(p.lines, p.discount, p.tax).total)}
+                  {row.completionPercent === undefined
+                    ? "Sin datos"
+                    : `${row.completionPercent.toFixed(0)}%`}
                 </strong>
-              </Link>
+              </div>
             ))}
           </div>
         </Panel>
-      </div>
-      <div className="info-note">
-        Actual profitability, collected payments, and utilization over time
-        require cost, accounting, and completed fulfillment records. Those
-        metrics are not inferred from quotations.
-      </div>
+      )}
+      {tab === "Automatización" && canManageAutomation && (
+        <Panel
+          title="Sugerencias de automatización"
+          subtitle="Las reglas solo crean sugerencias. Una persona debe aprobar cada acción interna."
+        >
+          <div className="panel-body">
+            <div className="section-heading">
+              <div>
+                <h2>Revisión humana obligatoria</h2>
+                <p>
+                  No se envían mensajes, no se aceptan propuestas y no se
+                  contactan integraciones.
+                </p>
+              </div>
+              <Button onClick={() => void evaluate()}>
+                <RefreshCcw size={16} /> Evaluar reglas
+              </Button>
+            </div>
+            {[...data.automations]
+              .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+              .map((record) => (
+                <div className="simple-row" key={record.id}>
+                  <Gauge size={20} />
+                  <div>
+                    <strong>{record.title}</strong>
+                    <small>{record.detail}</small>
+                    <small>
+                      Vence {shortDate(record.dueAt)} ·{" "}
+                      {record.action === "Create task"
+                        ? "creará una tarea interna"
+                        : "solo registra la revisión"}
+                    </small>
+                    {record.failureReason && (
+                      <small role="alert">Error: {record.failureReason}</small>
+                    )}
+                  </div>
+                  <Badge>
+                    {
+                      {
+                        Open: "Abierta",
+                        Approved: "Aprobada",
+                        Dismissed: "Descartada",
+                        Failed: "Fallida",
+                      }[record.status]
+                    }
+                  </Badge>
+                  {record.status === "Open" && (
+                    <>
+                      <Button onClick={() => void decide(record, "Approved")}>
+                        Aprobar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => void decide(record, "Dismissed")}
+                      >
+                        Descartar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setFailure({ record, reason: "" })}
+                      >
+                        Registrar error
+                      </Button>
+                    </>
+                  )}
+                </div>
+              ))}
+            {data.automations.length === 0 && (
+              <Empty
+                title="Sin sugerencias evaluadas"
+                description="Evalúa las reglas para crear una cola revisable sin ejecutar acciones."
+              />
+            )}
+          </div>
+        </Panel>
+      )}
+      {tab === "Definiciones" && (
+        <Panel
+          title="Diccionario de métricas"
+          subtitle="Estas fórmulas acompañan el informe y su exportación."
+        >
+          <div className="panel-body">
+            {metricDefinitions.map((definition) => (
+              <div className="simple-row" key={definition.name}>
+                <CircleDollarSign size={20} />
+                <div>
+                  <strong>{definition.name}</strong>
+                  <small>{definition.formula}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+      {failure && (
+        <Modal
+          title="Registrar fallo de automatización"
+          onClose={() => setFailure(null)}
+        >
+          <form
+            className="modal-body"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!failure.reason.trim()) return;
+              if (
+                await update((workspace) => ({
+                  ...workspace,
+                  automations: workspace.automations.map((item) =>
+                    item.id === failure.record.id
+                      ? {
+                          ...item,
+                          status: "Failed",
+                          failureReason: failure.reason.trim(),
+                        }
+                      : item,
+                  ),
+                  activity: [
+                    activity(
+                      "Automation action failed",
+                      failure.record.title,
+                      failure.record.eventId,
+                    ),
+                    ...workspace.activity,
+                  ],
+                }))
+              ) {
+                setFailure(null);
+                toast("Fallo registrado para seguimiento.");
+              }
+            }}
+          >
+            <Field label="Motivo del fallo">
+              <textarea
+                required
+                value={failure.reason}
+                onChange={(event) =>
+                  setFailure({ ...failure, reason: event.target.value })
+                }
+              />
+            </Field>
+            <div className="modal-actions">
+              <Button variant="danger">Registrar fallo</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }
 export function Creative() {
-  const { data, toast } = useWorkspace();
+  const { data, update, toast, user, saving } = useWorkspace();
   const [params] = useSearchParams();
   const [tab, setTab] = useState("Concepts & media");
   const [eventId, setEventId] = useState(
     params.get("event") || data.events[0]?.id || "",
   );
   const [brief, setBrief] = useState("");
-  const [kind, setKind] = useState("Event concept");
+  const [kind, setKind] = useState<CreativeKind | "Event video">(
+    "Event concept",
+  );
+  const [referenceIds, setReferenceIds] = useState<string[]>([]);
+  const [selectedAssetId, setSelectedAssetId] = useState("");
+  const [revisionParentId, setRevisionParentId] = useState("");
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
+  const [generationError, setGenerationError] = useState("");
+  const assets = data.creativeAssets
+    .filter((asset) => asset.eventId === eventId)
+    .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt));
+  const references = data.brandAssets.filter(
+    (reference) => reference.eventId === eventId,
+  );
+  const selectedAsset = data.creativeAssets.find(
+    (asset) => asset.id === selectedAssetId,
+  );
+  const draftProposals = data.proposals.filter(
+    (proposal) => proposal.eventId === eventId && proposal.status === "Draft",
+  );
+  const generationLimit = 20;
+  const canCreate = canEditCollection(user, "creativeAssets");
+  const canAttach = canEditCollection(user, "proposals");
+
+  const generate = async () => {
+    const cleanBrief = brief.trim();
+    if (kind === "Event video") {
+      setGenerationError(
+        "Video remains gated until its provider, usage policy, and cost limit are approved.",
+      );
+      return;
+    }
+    if (cleanBrief.length < 20) {
+      setGenerationError(
+        "Add at least 20 characters of creative direction. Your brief has been preserved.",
+      );
+      return;
+    }
+    if (assets.length >= generationLimit) {
+      setGenerationError(
+        "This event has reached the local showcase limit. Your brief has been preserved.",
+      );
+      return;
+    }
+    if (kind === "Image edit" && referenceIds.length === 0) {
+      setGenerationError(
+        "Select at least one authorized reference for an image edit. Your brief has been preserved.",
+      );
+      return;
+    }
+    const event = data.events.find((item) => item.id === eventId);
+    if (!event) return;
+    const parent = revisionParentId
+      ? data.creativeAssets.find((asset) => asset.id === revisionParentId)
+      : undefined;
+    const now = new Date().toISOString();
+    const next = createShowcaseCreativeAsset({
+      id: id(),
+      eventId,
+      eventName: event.name,
+      kind,
+      brief: cleanBrief,
+      referenceIds,
+      referenceNames: references
+        .filter((reference) => referenceIds.includes(reference.id))
+        .map((reference) => reference.name),
+      referenceDataUrls: references
+        .filter((reference) => referenceIds.includes(reference.id))
+        .map((reference) => reference.dataUrl),
+      generatedAt: now,
+      parent,
+    });
+    if (
+      await update((workspace) => ({
+        ...workspace,
+        creativeAssets: [...workspace.creativeAssets, next],
+        activity: [
+          activity(
+            "Creative concept generated",
+            `${next.title}, revision ${next.revision}, is awaiting review.`,
+            eventId,
+          ),
+          ...workspace.activity,
+        ],
+      }))
+    ) {
+      setSelectedAssetId(next.id);
+      setRevisionParentId("");
+      setGenerationError("");
+      toast("Concepto local creado y enviado a revisión.");
+    }
+  };
+
+  const review = async (status: "Approved" | "Rejected") => {
+    if (!selectedAsset || selectedAsset.status !== "In review") return;
+    const reviewedAt = new Date().toISOString();
+    if (
+      await update((workspace) => ({
+        ...workspace,
+        creativeAssets: workspace.creativeAssets.map((asset) =>
+          asset.id === selectedAsset.id
+            ? { ...asset, status, reviewedAt }
+            : asset,
+        ),
+        activity: [
+          activity(
+            status === "Approved"
+              ? "Creative concept approved"
+              : "Creative concept rejected",
+            `${selectedAsset.title}, revision ${selectedAsset.revision}.`,
+            selectedAsset.eventId,
+          ),
+          ...workspace.activity,
+        ],
+      }))
+    )
+      toast(
+        status === "Approved"
+          ? "Concepto aprobado para propuestas."
+          : "Concepto rechazado y conservado en el historial.",
+      );
+  };
+
+  const uploadReference = async (file?: File) => {
+    if (!file) return;
+    if (!rightsConfirmed) {
+      toast("Confirma los derechos de uso antes de cargar el archivo.");
+      return;
+    }
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      toast("Usa una imagen PNG, JPEG o WebP.");
+      return;
+    }
+    if (file.size > 800_000) {
+      toast("La referencia debe pesar 800 KB o menos.");
+      return;
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () =>
+        reject(new Error("The reference could not be read."));
+      reader.readAsDataURL(file);
+    });
+    const reference = {
+      id: id(),
+      eventId,
+      name: file.name,
+      mimeType: file.type as "image/png" | "image/jpeg" | "image/webp",
+      dataUrl,
+      rightsConfirmed: true as const,
+      createdAt: new Date().toISOString(),
+    };
+    if (
+      await update((workspace) => ({
+        ...workspace,
+        brandAssets: [...workspace.brandAssets, reference],
+      }))
+    ) {
+      setReferenceIds((current) => [...current, reference.id]);
+      toast("Referencia autorizada guardada.");
+    }
+  };
+
+  const attachToProposal = async (proposalId: string) => {
+    if (!selectedAsset || selectedAsset.status !== "Approved") return;
+    if (
+      await update((workspace) => ({
+        ...workspace,
+        proposals: workspace.proposals.map((proposal) =>
+          proposal.id === proposalId
+            ? {
+                ...proposal,
+                creativeAssetIds: [
+                  ...new Set([
+                    ...(proposal.creativeAssetIds || []),
+                    selectedAsset.id,
+                  ]),
+                ],
+              }
+            : proposal,
+        ),
+        activity: [
+          activity(
+            "Creative concept attached",
+            `${selectedAsset.title}, revision ${selectedAsset.revision}, was attached to a draft proposal.`,
+            selectedAsset.eventId,
+          ),
+          ...workspace.activity,
+        ],
+      }))
+    )
+      toast("Concepto adjuntado a la propuesta borrador.");
+  };
+
   return (
     <>
       <PageHeader
         eyebrow="IMAGINE THE EXPERIENCE"
         title="AI Creative Studio"
         description="A space for concepts, visual direction, and the details that make it yours."
-        actions={<Badge tone="neutral">Generation not connected</Badge>}
+        actions={<Badge tone="neutral">Local showcase · no API cost</Badge>}
       />
       <Tabs
         items={["Concepts & media", "Brand assets", "Selected for proposals"]}
@@ -720,7 +2413,12 @@ export function Creative() {
               <Field label="Connected event">
                 <select
                   value={eventId}
-                  onChange={(e) => setEventId(e.target.value)}
+                  onChange={(e) => {
+                    setEventId(e.target.value);
+                    setSelectedAssetId("");
+                    setReferenceIds([]);
+                    setRevisionParentId("");
+                  }}
                 >
                   {data.events.map((e) => (
                     <option value={e.id} key={e.id}>
@@ -730,16 +2428,23 @@ export function Creative() {
                 </select>
               </Field>
               <Field label="What are we creating?">
-                <select value={kind} onChange={(e) => setKind(e.target.value)}>
+                <select
+                  value={kind}
+                  onChange={(e) =>
+                    setKind(e.target.value as CreativeKind | "Event video")
+                  }
+                >
                   {[
-                    "Event concept",
-                    "Stage concept",
-                    "Lighting concept",
-                    "Promotional visual",
-                    "Image edit",
-                    "Event video",
-                  ].map((v) => (
-                    <option key={v}>{v}</option>
+                    ["Event concept", "Concepto del evento"],
+                    ["Stage concept", "Concepto de escenario"],
+                    ["Lighting concept", "Concepto de iluminación"],
+                    ["Promotional visual", "Visual promocional"],
+                    ["Image edit", "Edición de imagen"],
+                    ["Event video", "Video del evento"],
+                  ].map(([value, label]) => (
+                    <option value={value} key={value}>
+                      {label}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -751,77 +2456,340 @@ export function Creative() {
                   placeholder="The mood, the palette, the audience. Tell us what you have in mind…"
                 />
               </Field>
+              {references.length > 0 && (
+                <fieldset className="creative-reference-picker">
+                  <legend>Authorized references</legend>
+                  {references.map((reference) => (
+                    <label key={reference.id}>
+                      <input
+                        type="checkbox"
+                        checked={referenceIds.includes(reference.id)}
+                        onChange={(e) =>
+                          setReferenceIds((current) =>
+                            e.target.checked
+                              ? [...current, reference.id]
+                              : current.filter((item) => item !== reference.id),
+                          )
+                        }
+                      />
+                      {reference.name}
+                    </label>
+                  ))}
+                </fieldset>
+              )}
               <div className="connection-note">
                 <Sparkles size={20} />
                 <div>
-                  <strong>Ready for your creative workflow</strong>
+                  <strong>Local concept generator</strong>
                   <p>
-                    Image generation, reference uploads, and brand application
-                    will be connected to an approved AI service.
+                    Creates a labeled SVG concept without contacting an external
+                    service. Replace this boundary after a provider and budget
+                    are approved.
                   </p>
                 </div>
               </div>
-              <Button
-                variant="secondary"
-                disabled={!brief.trim()}
-                onClick={() => {
-                  downloadFile(
-                    "creative-brief.txt",
-                    `Event: ${data.events.find((e) => e.id === eventId)?.name}\nType: ${kind}\n\n${brief}`,
-                    "text/plain",
-                  );
-                  toast("Creative brief exported.");
-                }}
-              >
-                <Download size={16} />
-                Export creative brief
-              </Button>
+              {revisionParentId && (
+                <div className="info-note">
+                  La próxima generación será una revisión del concepto
+                  seleccionado.
+                </div>
+              )}
+              {kind === "Event video" && (
+                <div className="info-note">
+                  El video está aplazado y no consume unidades. La descripción
+                  permanece guardada en este formulario.
+                </div>
+              )}
+              {generationError && (
+                <div className="error-note" role="alert">
+                  {generationError}
+                </div>
+              )}
+              <div className="creative-actions">
+                <Button
+                  disabled={
+                    !canCreate ||
+                    saving ||
+                    kind === "Event video" ||
+                    assets.length >= generationLimit
+                  }
+                  onClick={() => void generate()}
+                >
+                  <WandSparkles size={16} />
+                  Generar concepto local
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={!brief.trim()}
+                  onClick={() => {
+                    downloadFile(
+                      "creative-brief.txt",
+                      `Event: ${data.events.find((e) => e.id === eventId)?.name}\nType: ${kind}\n\n${brief}`,
+                      "text/plain",
+                    );
+                    toast("Creative brief exported.");
+                  }}
+                >
+                  <Download size={16} />
+                  Export creative brief
+                </Button>
+              </div>
+              <small className="creative-usage">
+                Uso local: {assets.length}/{generationLimit} conceptos · costo
+                estimado: $0.00 · ninguna API externa
+              </small>
             </div>
           </Panel>
-          <div className="creative-canvas">
-            <span className="creative-orbit orbit-one" />
-            <span className="creative-orbit orbit-two" />
-            <span className="creative-orbit orbit-three" />
-            <div>
-              <WandSparkles size={36} />
-              <h2>It starts with an idea.</h2>
-              <p>
-                Your generated concepts will live here, ready for review,
-                refinement, and your next proposal.
-              </p>
-              <div className="creative-tags">
-                <span>
-                  <Image size={14} />
-                  Images
-                </span>
-                <span>
-                  <Sparkles size={14} />
-                  Concepts
-                </span>
-                <span>
-                  <Video size={14} />
-                  Video
-                </span>
+          <section className="creative-gallery" aria-label="Concept gallery">
+            {assets.length === 0 ? (
+              <div className="creative-canvas">
+                <span className="creative-orbit orbit-one" />
+                <span className="creative-orbit orbit-two" />
+                <span className="creative-orbit orbit-three" />
+                <div>
+                  <WandSparkles size={36} />
+                  <h2>It starts with an idea.</h2>
+                  <p>
+                    Your generated concepts will live here, ready for review,
+                    refinement, and your next proposal.
+                  </p>
+                  <div className="creative-tags">
+                    <span>
+                      <Image size={14} />
+                      Images
+                    </span>
+                    <span>
+                      <Sparkles size={14} />
+                      Concepts
+                    </span>
+                    <span>
+                      <Video size={14} />
+                      Video deferred
+                    </span>
+                  </div>
+                </div>
+                <small>
+                  Creative visuals are separate from dimensioned production
+                  designs.
+                </small>
               </div>
+            ) : (
+              <>
+                <div className="creative-gallery-grid">
+                  {assets.map((asset) => (
+                    <button
+                      key={asset.id}
+                      className={`creative-card ${selectedAssetId === asset.id ? "selected" : ""}`}
+                      onClick={() => setSelectedAssetId(asset.id)}
+                      aria-label={`Seleccionar ${asset.title}, revisión ${asset.revision}`}
+                    >
+                      <img src={asset.dataUrl} alt="" />
+                      <span>
+                        <strong>{asset.title}</strong>
+                        <small>
+                          Rev. {asset.revision} · {asset.status}
+                        </small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {selectedAsset && (
+                  <Panel
+                    title={selectedAsset.title}
+                    subtitle={`Revisión ${selectedAsset.revision} · ${selectedAsset.provider} / ${selectedAsset.model}`}
+                  >
+                    <div className="creative-review panel-body">
+                      <img
+                        src={selectedAsset.dataUrl}
+                        alt={selectedAsset.title}
+                      />
+                      <div className="creative-provenance">
+                        <Badge>{selectedAsset.status}</Badge>
+                        <strong>CONCEPTO GENERADO · DEMOSTRACIÓN LOCAL</strong>
+                        <p>{selectedAsset.brief}</p>
+                        <small>
+                          {selectedAsset.referenceIds.length} referencia(s) · 1
+                          unidad · $0.00 ·{" "}
+                          {new Date(selectedAsset.generatedAt).toLocaleString()}
+                        </small>
+                      </div>
+                      <div className="creative-actions">
+                        {selectedAsset.status === "In review" && canCreate && (
+                          <>
+                            <Button onClick={() => void review("Approved")}>
+                              Aprobar concepto
+                            </Button>
+                            <Button
+                              variant="danger"
+                              onClick={() => void review("Rejected")}
+                            >
+                              Rechazar
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setBrief(selectedAsset.brief);
+                            setKind(selectedAsset.kind);
+                            setReferenceIds(selectedAsset.referenceIds);
+                            setRevisionParentId(selectedAsset.id);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                        >
+                          Crear revisión
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() =>
+                            downloadFile(
+                              `creative-${selectedAsset.id}-r${selectedAsset.revision}.svg`,
+                              decodeURIComponent(
+                                selectedAsset.dataUrl.split(",")[1],
+                              ),
+                              "image/svg+xml",
+                            )
+                          }
+                        >
+                          <Download size={16} />
+                          Descargar
+                        </Button>
+                      </div>
+                      {selectedAsset.status === "Approved" && (
+                        <div className="creative-attach">
+                          <Field label="Attach to draft proposal">
+                            <select
+                              defaultValue=""
+                              disabled={
+                                !canAttach || draftProposals.length === 0
+                              }
+                              onChange={(e) => {
+                                if (e.target.value)
+                                  void attachToProposal(e.target.value);
+                                e.target.value = "";
+                              }}
+                            >
+                              <option value="">Seleccionar propuesta…</option>
+                              {draftProposals.map((proposal) => (
+                                <option value={proposal.id} key={proposal.id}>
+                                  {proposal.number} · v{proposal.version}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                          {draftProposals.length === 0 && (
+                            <small>
+                              No hay una propuesta borrador para este evento.
+                            </small>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </Panel>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      ) : tab === "Brand assets" ? (
+        <div className="creative-library">
+          <Panel
+            title="Authorized brand references"
+            subtitle="PNG, JPEG or WebP · maximum 800 KB per file"
+          >
+            <div className="panel-body">
+              <Field label="Connected event">
+                <select
+                  value={eventId}
+                  onChange={(e) => setEventId(e.target.value)}
+                >
+                  {data.events.map((event) => (
+                    <option value={event.id} key={event.id}>
+                      {event.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={rightsConfirmed}
+                  onChange={(e) => setRightsConfirmed(e.target.checked)}
+                />
+                Confirmo que la empresa tiene derecho a usar esta referencia.
+              </label>
+              <input
+                type="file"
+                aria-label="Cargar referencia de marca"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={!canEditCollection(user, "brandAssets") || saving}
+                onChange={(e) => {
+                  void uploadReference(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
             </div>
-            <small>
-              Creative visuals are separate from dimensioned production designs.
-            </small>
+          </Panel>
+          <div className="creative-reference-grid">
+            {references.map((reference) => (
+              <figure key={reference.id}>
+                <img src={reference.dataUrl} alt={reference.name} />
+                <figcaption>
+                  <strong>{reference.name}</strong>
+                  <small>
+                    Derechos confirmados · {shortDate(reference.createdAt)}
+                  </small>
+                </figcaption>
+              </figure>
+            ))}
+            {references.length === 0 && (
+              <Empty
+                title="Every brand has a story"
+                description="Upload an authorized visual reference for this event."
+              />
+            )}
           </div>
         </div>
       ) : (
-        <Empty
-          title={
-            tab === "Brand assets"
-              ? "Every brand has a story"
-              : "Only your best work goes forward"
-          }
-          description={
-            tab === "Brand assets"
-              ? "Client logos, palettes, and authorized references will be organized here when file storage is connected."
-              : "Reviewed creative assets will be selectable for specific proposal revisions."
-          }
-        />
+        <div className="creative-selected-list">
+          {data.proposals
+            .filter((proposal) => proposal.creativeAssetIds?.length)
+            .map((proposal) => (
+              <Panel
+                key={proposal.id}
+                title={`${proposal.number} · v${proposal.version}`}
+                subtitle={
+                  data.events.find((event) => event.id === proposal.eventId)
+                    ?.name
+                }
+              >
+                <div className="creative-gallery-grid panel-body">
+                  {(proposal.creativeAssetIds || []).map((assetId) => {
+                    const asset = data.creativeAssets.find(
+                      (item) => item.id === assetId,
+                    );
+                    return asset ? (
+                      <div className="creative-card" key={asset.id}>
+                        <img src={asset.dataUrl} alt={asset.title} />
+                        <span>
+                          <strong>{asset.title}</strong>
+                          <small>Rev. {asset.revision}</small>
+                        </span>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              </Panel>
+            ))}
+          {!data.proposals.some(
+            (proposal) => proposal.creativeAssetIds?.length,
+          ) && (
+            <Empty
+              title="Only your best work goes forward"
+              description="Approved concepts attached to draft proposals will appear here."
+            />
+          )}
+        </div>
       )}
     </>
   );

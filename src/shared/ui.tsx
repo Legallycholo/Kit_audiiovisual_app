@@ -18,9 +18,11 @@ import {
 import { Link } from "react-router-dom";
 
 function localize(children: ReactNode) {
-  return Children.map(children, (child) =>
-    typeof child === "string" ? uiLabel(child) : child,
-  );
+  return Children.map(children, (child) => {
+    if (typeof child !== "string") return child;
+    const label = child.trim();
+    return label ? child.replace(label, uiLabel(label)) : child;
+  });
 }
 
 export function Button({

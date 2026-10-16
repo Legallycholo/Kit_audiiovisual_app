@@ -494,6 +494,61 @@ export const createSeed = (): Workspace => ({
       status: "Hold",
     },
   ],
+  packages: [
+    {
+      id: "pkg-conference-audio",
+      name: "Conference audio",
+      description: "Reusable spoken-word system for a medium conference room.",
+      active: true,
+      items: [
+        { equipmentId: "q1", quantity: 4 },
+        { equipmentId: "q2", quantity: 4 },
+      ],
+    },
+  ],
+  maintenanceRecords: [
+    {
+      id: "maint-q1",
+      equipmentId: "q1",
+      quantity: 2,
+      issue: "Bench inspection and amplifier diagnostics",
+      status: "In repair",
+      openedAt: `${day(-2)}T13:00:00.000Z`,
+      cost: 0,
+    },
+  ],
+  operations: [
+    {
+      id: "ops-e3",
+      eventId: "e3",
+      crewShifts: [
+        {
+          id: "shift-e3-1",
+          person: "Marco Díaz",
+          role: "Audio lead",
+          start: `${day(12)}T08:00:00.000Z`,
+          end: `${day(12)}T20:00:00.000Z`,
+          status: "Scheduled",
+          cost: 480,
+        },
+      ],
+      cues: [
+        {
+          id: "cue-e3-1",
+          at: `${day(12)}T18:00:00.000Z`,
+          title: "Artist walk-on",
+          department: "Audio",
+          owner: "Marco Díaz",
+          notes: "Open playback and confirm lead vocal.",
+          status: "Pending",
+        },
+      ],
+      transports: [],
+      changes: [],
+      costs: [],
+    },
+  ],
+  automations: [],
   layouts: [
     {
       id: "layout1",
@@ -577,6 +632,8 @@ export const createSeed = (): Workspace => ({
       ],
     },
   ],
+  brandAssets: [],
+  creativeAssets: [],
   activity: [
     {
       id: "a1",

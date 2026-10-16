@@ -30,10 +30,7 @@ import {
 import { applyChanges, scopeWorkspace } from "./permissions";
 import { acceptConversation, availableStock } from "../src/shared/domain";
 import type { WorkspaceResponse } from "../src/shared/access";
-import {
-  ingestInboundMessage,
-  type MessageTransport,
-} from "./messaging";
+import { ingestInboundMessage, type MessageTransport } from "./messaging";
 
 export function createApp(
   repo: Repository,
@@ -164,6 +161,28 @@ export function createApp(
             );
         }
       }
+      for (const change of input.changes.filter(
+        (c) => c.collection === "operations",
+      )) {
+        const operation = next.operations.find(
+          (item) => item.id === change.id,
+        )!;
+        for (const shift of operation.crewShifts) {
+          if (!shift.memberId) continue;
+          const member = repo.user(shift.memberId);
+          if (
+            !member?.active ||
+            member.role === "Client / Guest" ||
+            (member.role !== "Administrator" &&
+              !JSON.parse(member.event_ids).includes(operation.eventId)) ||
+            member.name !== shift.person
+          )
+            throw new HttpError(
+              422,
+              "La persona del turno debe tener una cuenta activa y acceso al evento.",
+            );
+        }
+      }
       repo.save(next, input.revision);
       for (const c of input.changes) {
         const eventId =
@@ -245,8 +264,7 @@ export function createApp(
       })
       .strict()
       .refine(
-        (value) =>
-          Boolean(value.proposalId) === Boolean(value.proposalVersion),
+        (value) => Boolean(value.proposalId) === Boolean(value.proposalVersion),
         "La propuesta y su versión deben proporcionarse juntas.",
       )
       .parse(req.body);

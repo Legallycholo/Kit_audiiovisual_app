@@ -49,7 +49,13 @@ export function emptyWorkspace(company: string): Workspace {
     conversations: [],
     tasks: [],
     reservations: [],
+    packages: [],
+    maintenanceRecords: [],
+    operations: [],
+    automations: [],
     layouts: [],
+    brandAssets: [],
+    creativeAssets: [],
     activity: [],
     settings: {
       company,
@@ -118,6 +124,12 @@ export class Repository {
       .get() as { revision: number; payload: string } | undefined;
     if (!row) throw new HttpError(409, "Create the company workspace first.");
     const workspace = JSON.parse(row.payload) as Workspace;
+    workspace.brandAssets ||= [];
+    workspace.creativeAssets ||= [];
+    workspace.packages ||= [];
+    workspace.maintenanceRecords ||= [];
+    workspace.operations ||= [];
+    workspace.automations ||= [];
     workspace.activity = (
       this.db
         .prepare("SELECT * FROM audit ORDER BY rowid DESC LIMIT 1000")

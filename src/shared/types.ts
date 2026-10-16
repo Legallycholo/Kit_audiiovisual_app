@@ -74,6 +74,20 @@ export type ProposalStatus =
   | "Accepted"
   | "Declined"
   | "Superseded";
+export type ProposalTemplate = "Minimal" | "Editorial" | "Spotlight";
+export interface ProposalVisual {
+  id: string;
+  sourceType: "Creative" | "Layout plan" | "Layout 3D";
+  sourceId: string;
+  sourceRevision: number;
+  title: string;
+  caption: string;
+  altText: string;
+  dataUrl: string;
+  mimeType: "image/svg+xml" | "image/png" | "image/jpeg" | "image/webp";
+  measurementStatus?: "Verified" | "Unverified";
+  addedAt: string;
+}
 export interface Proposal {
   id: string;
   number: string;
@@ -88,6 +102,10 @@ export interface Proposal {
   status: ProposalStatus;
   validUntil: string;
   acceptedAt?: string;
+  creativeAssetIds?: string[];
+  presentationTemplate?: ProposalTemplate;
+  visualNarrative?: string;
+  visuals?: ProposalVisual[];
   aiReview?: {
     brief: string;
     assumptions: string[];
@@ -95,6 +113,42 @@ export interface Proposal {
     generatedAt: string;
     model: string;
   };
+}
+export type CreativeKind =
+  | "Event concept"
+  | "Stage concept"
+  | "Lighting concept"
+  | "Promotional visual"
+  | "Image edit";
+export type CreativeAssetStatus = "In review" | "Approved" | "Rejected";
+export interface BrandAsset {
+  id: string;
+  eventId: string;
+  name: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp";
+  dataUrl: string;
+  rightsConfirmed: boolean;
+  createdAt: string;
+}
+export interface CreativeAsset {
+  id: string;
+  eventId: string;
+  kind: CreativeKind;
+  title: string;
+  brief: string;
+  revision: number;
+  parentId?: string;
+  status: CreativeAssetStatus;
+  dataUrl: string;
+  mimeType: "image/svg+xml" | "image/png" | "image/jpeg" | "image/webp";
+  referenceIds: string[];
+  provider: string;
+  model: string;
+  generatedAt: string;
+  usageUnits: number;
+  estimatedCost: number;
+  reviewedAt?: string;
+  reviewNote?: string;
 }
 export interface Message {
   id: string;
@@ -161,6 +215,110 @@ export interface Reservation {
   start: string;
   end: string;
   status: "Hold" | "Confirmed" | "Dispatched" | "Returned" | "Cancelled";
+  source?: "Owned" | "Supplier";
+  supplier?: string;
+  supplierReference?: string;
+  unitCost?: number;
+  bufferBeforeDays?: number;
+  bufferAfterDays?: number;
+  dispatchedQuantity?: number;
+  returnedQuantity?: number;
+  damagedQuantity?: number;
+  substituteEquipmentId?: string;
+  custodyNote?: string;
+}
+export interface EquipmentPackage {
+  id: string;
+  name: string;
+  description: string;
+  active: boolean;
+  items: { equipmentId: string; quantity: number }[];
+}
+export interface MaintenanceRecord {
+  id: string;
+  equipmentId: string;
+  reservationId?: string;
+  quantity: number;
+  issue: string;
+  status: "Open" | "In repair" | "Resolved";
+  openedAt: string;
+  resolvedAt?: string;
+  cost: number;
+}
+export interface CrewShift {
+  id: string;
+  person: string;
+  memberId?: string;
+  role: string;
+  start: string;
+  end: string;
+  status: "Scheduled" | "Completed" | "Cancelled";
+  cost: number;
+}
+export interface RunCue {
+  id: string;
+  at: string;
+  title: string;
+  department: string;
+  owner: string;
+  notes: string;
+  status: "Pending" | "Complete" | "Skipped";
+}
+export interface TransportAssignment {
+  id: string;
+  kind: "Outbound" | "Return";
+  provider: string;
+  vehicle: string;
+  driver: string;
+  departureAt: string;
+  arrivalAt: string;
+  status: "Planned" | "In transit" | "Complete" | "Cancelled";
+  cost: number;
+  notes: string;
+}
+export interface OnsiteChange {
+  id: string;
+  title: string;
+  detail: string;
+  impact: string;
+  recordedAt: string;
+  recordedBy: string;
+  costImpact: number;
+}
+export interface ActualCost {
+  id: string;
+  category: "Crew" | "Transport" | "Supplier rental" | "Repair" | "Other";
+  description: string;
+  amount: number;
+  incurredAt: string;
+}
+export interface EventOperations {
+  id: string;
+  eventId: string;
+  crewShifts: CrewShift[];
+  cues: RunCue[];
+  transports: TransportAssignment[];
+  changes: OnsiteChange[];
+  costs: ActualCost[];
+}
+export type AutomationKind =
+  "Proposal review" | "Preparation risk" | "Equipment return" | "Cost variance";
+export interface AutomationRecord {
+  id: string;
+  key: string;
+  eventId?: string;
+  proposalId?: string;
+  kind: AutomationKind;
+  title: string;
+  detail: string;
+  dueAt: string;
+  action: "Create task" | "Review only";
+  status: "Open" | "Approved" | "Dismissed" | "Failed";
+  createdAt: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  taskId?: string;
+  failureReason?: string;
 }
 export type ObjectKind =
   | "Stage"
@@ -248,7 +406,13 @@ export interface Workspace {
   conversations: Conversation[];
   tasks: Task[];
   reservations: Reservation[];
+  packages: EquipmentPackage[];
+  maintenanceRecords: MaintenanceRecord[];
+  operations: EventOperations[];
+  automations: AutomationRecord[];
   layouts: Layout[];
+  brandAssets: BrandAsset[];
+  creativeAssets: CreativeAsset[];
   activity: Activity[];
   settings: {
     company: string;
