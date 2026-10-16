@@ -10,7 +10,7 @@ export default defineConfig({
   outputDir: "artifacts/test-results",
   use: {
     baseURL: "http://127.0.0.1:5173",
-    channel: "chrome",
+    channel: process.env.KIT_CI_BROWSER === "chromium" ? undefined : "chrome",
     headless: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",

@@ -249,7 +249,9 @@ function LayoutEditor({
     JSON.stringify(editableLayout(layout)) !==
     JSON.stringify(editableLayout(original));
   const reconciliation = reconcileLayoutEquipment(data, layout);
-  useUnsavedChanges(dirty);
+  useUnsavedChanges(dirty, save, () =>
+    localStorage.removeItem(layoutDraftKey(original.id)),
+  );
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {

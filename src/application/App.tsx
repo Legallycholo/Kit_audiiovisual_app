@@ -51,6 +51,16 @@ import {
   Creative,
 } from "../modules/Operations";
 import { Design } from "../modules/Design";
+import { WorkspaceTabs } from "./WorkspaceTabs";
+import { DraftNavigation } from "./DraftNavigation";
+import {
+  hubs,
+  activeHub,
+  HubNavigation,
+  LibraryHub,
+  KitHub,
+  SearchPage,
+} from "./Hubs";
 const navigation = [
   {
     label: uiLabel("Overview"),
@@ -99,19 +109,56 @@ export function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const [assistant, setAssistant] = useState(false);
+  const shellKey = `kit.shell:${mode}:${user?.id || "sample"}`;
+  useEffect(() => {
+    try {
+      setAssistant(localStorage.getItem(shellKey + ":assistant") === "true");
+    } catch {
+      /* Continue without saved preferences. */
+    }
+  }, [shellKey]);
+  const toggleAssistant = (open: boolean) => {
+    setAssistant(open);
+    try {
+      localStorage.setItem(shellKey + ":assistant", String(open));
+    } catch {
+      toast("No se pudo guardar la preferencia del asistente.");
+    }
+  };
   const [mobileNav, setMobileNav] = useState(false);
   const [search, setSearch] = useState<string | null>(null);
   const [notifications, setNotifications] = useState(false);
   const [help, setHelp] = useState(false);
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("kit.theme") || "system",
+  );
+  useEffect(() => {
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      document.documentElement.dataset.theme =
+        theme === "system" ? (media.matches ? "dark" : "light") : theme;
+    };
+    apply();
+    localStorage.setItem("kit.theme", theme);
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [theme]);
   const currentLabel =
+    (
+      {
+        "/library": "Biblioteca",
+        "/kit": "KIT",
+        "/search": "Buscar",
+      } as Record<string, string>
+    )[location.pathname] ||
     navigation
       .flatMap((n) => n.items)
       .find((n) => n.to !== "/" && location.pathname.startsWith(n.to))?.label ||
     (location.pathname.startsWith("/settings")
       ? uiLabel("Settings")
       : uiLabel("Dashboard"));
-  const pending = data.conversations.filter(
-    (c) => ["Pending", "Needs linking"].includes(c.review),
+  const pending = data.conversations.filter((c) =>
+    ["Pending", "Needs linking"].includes(c.review),
   ).length;
   useEffect(() => {
     setMobileNav(false);
@@ -165,6 +212,7 @@ export function App() {
         );
   return (
     <div className={`app ${assistant ? "assistant-open" : ""}`}>
+      <DraftNavigation />
       <a href="#main" className="skip-link">
         {uiLabel("Skip to workspace")}
       </a>
@@ -195,27 +243,50 @@ export function App() {
           <ChevronDown size={14} />
         </div>
         <nav aria-label={uiLabel("Main navigation")}>
-          {navigation.map((group) => (
-            <div className="nav-group" key={group.label}>
-              <div className="nav-label">{group.label}</div>
-              {group.items
-                .filter((item) => canSeeModule(user, item.to))
-                .map((item) => (
-                  <NavLink end={item.to === "/"} key={item.to} to={item.to}>
-                    <item.icon size={18} strokeWidth={1.7} />
-                    <span>{item.label}</span>
-                    {item.to === "/inbox" && pending > 0 && (
-                      <span className="nav-count">{pending}</span>
-                    )}
-                  </NavLink>
-                ))}
-            </div>
-          ))}
+          {hubs.map((hub, index) => {
+            const path = hub.pages.find(([p]) => canSeeModule(user, p))?.[0];
+            const Icon = [
+              LayoutDashboard,
+              CalendarDays,
+              Layers3,
+              Box,
+              Sparkles,
+            ][index];
+            return (
+              path && (
+                <Link
+                  key={hub.to}
+                  to={path}
+                  className={
+                    activeHub(location.pathname) === hub ? "active" : ""
+                  }
+                  aria-current={
+                    activeHub(location.pathname) === hub ? "page" : undefined
+                  }
+                >
+                  <Icon size={18} />
+                  <span>{hub.title}</span>
+                </Link>
+              )
+            );
+          })}
         </nav>
         <div className="sidebar-bottom">
+          <label className="theme-picker">
+            Apariencia
+            <select
+              aria-label="Apariencia"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+            >
+              <option value="system">Sistema</option>
+              <option value="light">Claro</option>
+              <option value="dark">Oscuro</option>
+            </select>
+          </label>
           <button
             className="sidebar-ai"
-            onClick={() => setAssistant(!assistant)}
+            onClick={() => toggleAssistant(!assistant)}
           >
             <Sparkles size={18} />
             <span>
@@ -278,13 +349,30 @@ export function App() {
             <span className="topbar-separator" />
             <button
               className={`assistant-toggle ${assistant ? "selected" : ""}`}
-              onClick={() => setAssistant(!assistant)}
+              onClick={() => toggleAssistant(!assistant)}
             >
               <Sparkles size={16} />
               <span>{uiLabel("Ask KIT")}</span>
             </button>
           </div>
         </header>
+        <WorkspaceTabs
+          title={
+            data.events.find((e) => location.pathname === `/events/${e.id}`)
+              ?.name ||
+            data.proposals.find(
+              (p) => location.pathname === `/proposals/${p.id}`,
+            )?.title ||
+            (location.pathname === "/search"
+              ? `Búsqueda: ${new URLSearchParams(location.search).get("q") || "Nueva"}`
+              : location.pathname === "/library"
+                ? "Biblioteca"
+                : location.pathname === "/kit"
+                  ? "KIT"
+                  : currentLabel)
+          }
+        />
+        <HubNavigation />
         <div className="sample-banner">
           <span>
             <span className="live-dot" />
@@ -298,7 +386,25 @@ export function App() {
                 : "Espacio de empresa · datos en el servidor"}
           </span>
           {mode === "sample" ? (
-            <button onClick={openCompany}>
+            <button
+              onClick={async () => {
+                if (
+                  !("__TAURI_INTERNALS__" in window) ||
+                  window.location.port === "3001"
+                ) {
+                  openCompany();
+                  return;
+                }
+                try {
+                  const { invoke } = await import("@tauri-apps/api/core");
+                  await invoke("open_company_window");
+                } catch {
+                  toast(
+                    "Inicia el servidor de empresa con npm start en el puerto 3001 y vuelve a intentarlo.",
+                  );
+                }
+              }}
+            >
               Abrir espacio de empresa <ArrowUpRight size={12} />
             </button>
           ) : (
@@ -323,6 +429,12 @@ export function App() {
         <main id="main" className="main-workspace">
           {canSeeModule(user, location.pathname) ? (
             <Routes>
+              <Route path="/library" element={<LibraryHub />} />
+              <Route path="/kit" element={<KitHub />} />
+              <Route
+                path="/search"
+                element={<SearchPage key={location.search} />}
+              />
               <Route path="/" element={<Dashboard />} />
               <Route path="/events" element={<Events />} />
               <Route path="/events/:eventId" element={<EventDetail />} />
@@ -362,7 +474,7 @@ export function App() {
         </main>
       </div>
       {assistant && (
-        <Assistant page={currentLabel} onClose={() => setAssistant(false)} />
+        <Assistant page={currentLabel} onClose={() => toggleAssistant(false)} />
       )}
       {notice && (
         <div className="toast" role="status">
@@ -448,6 +560,17 @@ export function App() {
               aria-label={uiLabel("Search workspace records")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && search.trim()) {
+                  const path = `/search?q=${encodeURIComponent(search.trim())}`;
+                  window.dispatchEvent(
+                    new CustomEvent("kit:navigate", {
+                      detail: () => navigate(path),
+                    }),
+                  );
+                  setSearch(null);
+                }
+              }}
             />
             <Command size={17} />
           </label>
@@ -456,7 +579,12 @@ export function App() {
               <button
                 key={`${r.type}-${r.to}`}
                 onClick={() => {
-                  navigate(r.to);
+                  window.dispatchEvent(new Event("kit:preview"));
+                  window.dispatchEvent(
+                    new CustomEvent("kit:navigate", {
+                      detail: () => navigate(r.to),
+                    }),
+                  );
                   setSearch(null);
                 }}
               >
@@ -482,13 +610,13 @@ export function App() {
         >
           <div className="modal-body">
             <p>
-              Comienza con un cliente y un evento. Agrega el lugar y los equipos,
-              prepara una propuesta y coordina al equipo de producción.
+              Comienza con un cliente y un evento. Agrega el lugar y los
+              equipos, prepara una propuesta y coordina al equipo de producción.
             </p>
             <p className="muted">
               Este espacio de ejemplo usa datos ilustrativos. La mensajería real
-              y el almacenamiento de archivos todavía no están conectados. Ningún
-              mensaje sale de la aplicación.
+              y el almacenamiento de archivos todavía no están conectados.
+              Ningún mensaje sale de la aplicación.
             </p>
             <Button onClick={() => setHelp(false)}>
               {uiLabel("Explore the workspace")}

@@ -1,40 +1,36 @@
 import { useEffect } from "react";
 
 /** Protect local drafts from accidental reloads and ordinary internal link navigation. */
-export function useUnsavedChanges(dirty: boolean) {
+export const draftGuard: {
+  dirty: boolean;
+  save?: () => Promise<unknown>;
+  discard?: () => void;
+} = {
+  dirty: false,
+};
+export function useUnsavedChanges(
+  dirty: boolean,
+  save?: () => Promise<unknown>,
+  discard?: () => void,
+) {
   useEffect(() => {
-    if (!dirty) return;
+    draftGuard.dirty = dirty;
+    draftGuard.save = save;
+    draftGuard.discard = discard;
+    window.dispatchEvent(new CustomEvent("kit:dirty", { detail: dirty }));
     const unload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    const navigation = (event: MouseEvent) => {
-      const link = (event.target as Element).closest?.(
-        "a[href]",
-      ) as HTMLAnchorElement | null;
-      if (
-        !link ||
-        link.target === "_blank" ||
-        link.download ||
-        event.metaKey ||
-        event.ctrlKey ||
-        link.href === location.href
-      )
-        return;
-      if (
-        !window.confirm(
-          "You have unsaved changes. Leave this page and discard them?",
-        )
-      ) {
+      if (dirty) {
         event.preventDefault();
-        event.stopPropagation();
+        event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", unload);
-    document.addEventListener("click", navigation, true);
     return () => {
       window.removeEventListener("beforeunload", unload);
-      document.removeEventListener("click", navigation, true);
+      draftGuard.dirty = false;
+      draftGuard.save = undefined;
+      draftGuard.discard = undefined;
+      window.dispatchEvent(new CustomEvent("kit:dirty", { detail: false }));
     };
-  }, [dirty]);
+  }, [dirty, save, discard]);
 }

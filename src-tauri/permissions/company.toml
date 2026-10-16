@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-open-company-window"
+description = "Open only the existing KIT service at 127.0.0.1:3001 in an isolated window."
+commands.allow = ["open_company_window"]

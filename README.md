@@ -16,6 +16,32 @@ Spanish is the primary interface language. The Phase 1 shell, account entry, com
 
 ## Run locally
 
+### Desktop design phases 1 and 2
+
+The interface now has five hubs (Inicio, Proyectos, Diseño, Biblioteca, KIT),
+light/dark/system appearance, bundled fonts, persistent workspace tabs, preview
+and pinned tabs, searchable history, recovery, and unsaved-editor confirmation.
+Existing business routes remain available inside their hubs. KIT's full chat and
+computer-file indexing are later phases and are not enabled by this change.
+
+With the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
+
+```sh
+npm run desktop:dev
+npm run desktop:build
+```
+
+The bundled window runs the local sample workspace. To use the existing company
+service, run `npm run build` and `NODE_ENV=production npm start`, then choose
+**Abrir espacio de empresa**. The desktop shell opens the service at
+`http://127.0.0.1:3001` in a separate window without native privileges, preserving
+its existing cookie and authorization boundary. On Windows PowerShell, set
+`$env:NODE_ENV="production"` before `npm start`. Automatic company synchronization
+is still a later phase.
+
+See [desktop implementation notes](docs/DESKTOP_PHASES_1_2.md) for verification,
+signing prerequisites, and the current native-build limitation.
+
 Use Node.js 22.12 or newer and npm. The current server uses Node's built-in SQLite module, which emits an experimental-feature warning under Node 22.
 
 ```sh

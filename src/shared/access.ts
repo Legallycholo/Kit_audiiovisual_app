@@ -55,7 +55,8 @@ export interface WorkspaceResponse {
 
 export function canSeeModule(user: WorkspaceUser | null, path: string) {
   if (!user || user.role === "Administrator") return true;
-  const module = path.split("/")[1];
+  const module = path.split(/[?#]/)[0].split("/")[1];
+  if (["library", "kit", "search"].includes(module)) return user.role !== "Client / Guest";
   const access: Record<Role, string[]> = {
     Administrator: [],
     "Sales Manager": [

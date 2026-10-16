@@ -760,7 +760,7 @@ test("dashboard, tablet navigation, assistant and mobile layout", async ({
     .click();
   await page
     .getByRole("navigation", { name: "Navegación principal" })
-    .getByRole("link", { name: "Eventos", exact: true })
+    .getByRole("link", { name: "Proyectos", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Eventos", level: 1 }),

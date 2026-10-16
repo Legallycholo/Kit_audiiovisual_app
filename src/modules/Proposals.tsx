@@ -327,7 +327,7 @@ function Editor({ original }: { original: Proposal }) {
       /* Historical validation remains visible through its saved values. */
     }
   const dirty = !sameValue(draft, original);
-  useUnsavedChanges(dirty);
+  useUnsavedChanges(dirty, () => save());
   const addCreativeVisual = (assetId: string) => {
     const asset = creativeOptions.find((item) => item.id === assetId);
     if (!asset) return;
