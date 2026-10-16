@@ -1,5 +1,6 @@
 import express from "express";
 import { SearchGateway, type SearchConfig } from "./search";
+import { KitService, type KitGenerator } from "./kit";
 import {
   proposalContext,
   materializeSuggestion,
@@ -42,6 +43,7 @@ export function createApp(
     proposalGenerator?: ProposalGenerator;
     messageTransport?: MessageTransport;
     search?: SearchConfig;
+    kitGenerator?: KitGenerator;
   },
 ) {
   const app = express();
@@ -62,6 +64,9 @@ export function createApp(
   searchGateway.mountDevice(app);
   app.use("/api", sessionMiddleware(repo), csrfMiddleware(config.origins));
   searchGateway.mountSession(app);
+  const kit=new KitService(repo,config.kitGenerator,config.proposalGenerator);
+  app.locals.kit=kit;
+  kit.mount(app);
   const response = (res: express.Response): WorkspaceResponse => {
     const user = userOf(res);
     const { workspace, revision } = repo.read();

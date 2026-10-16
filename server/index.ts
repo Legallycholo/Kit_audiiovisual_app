@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { Repository } from "./database";
 import { createApp } from "./app";
 import { httpSearchProvider, type SearchGateway } from "./search";
+import { openAIKitGenerator, type KitService } from "./kit";
 
 const port = Number(process.env.PORT || 3001);
 const origins = (
@@ -13,6 +14,7 @@ const repo = new Repository(
   resolve(process.env.KIT_DATABASE || "data/kit.sqlite"),
 );
 const app = createApp(repo, {
+  kitGenerator:process.env.OPENAI_API_KEY&&process.env.KIT_CHAT_MODEL?openAIKitGenerator(process.env.OPENAI_API_KEY,process.env.KIT_CHAT_MODEL):undefined,
   search: {
     name: process.env.KIT_SEARCH_PROVIDER_NAME || "No configurado",
     providerIdentity: process.env.KIT_SEARCH_PROVIDER_URL || "",
@@ -60,6 +62,7 @@ function shutdown() {
   clearInterval(searchRetry);
   server.close(async () => {
     await (app.locals.searchGateway as SearchGateway).drain();
+    await (app.locals.kit as KitService).drain();
     repo.close();
     process.exit(0);
   });
