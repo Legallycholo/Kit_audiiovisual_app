@@ -43,9 +43,9 @@ Purpose: improve structure, safety and maintainability of the KIT workspace **wi
 
 ## Stage 2 — CI improvements
 
-- [ ] Add `.github/workflows/ci.yml`: a **fast Ubuntu job** on PRs and pushes to `main`: `npm ci`, `npm run typecheck`, `npm run build`, `npm test`.
-- [ ] Keep the heavy desktop workflow as is (Windows/macOS, Rust, Playwright, signing). Optionally add a `typecheck` step there too.
-- [ ] Pin actions to the versions already used. Do not add secrets or deploy steps.
+- [x] Add `.github/workflows/ci.yml`: a **fast Ubuntu job** on PRs and pushes to `main`: `npm ci`, `npm run typecheck`, `npm run build`, `npm test`.
+- [x] Keep the heavy desktop workflow as is (Windows/macOS, Rust, Playwright, signing). Optionally add a `typecheck` step there too (skipped: its build step already type-checks).
+- [x] Pin actions to the versions already used. Do not add secrets or deploy steps.
 
 **Exit:** workflow YAML validated (use `actionlint` if available; otherwise careful review). It cannot be proven green until it runs on GitHub, so say so.
 
@@ -67,12 +67,12 @@ Rules: no renamed exports; no logic edits; no CSS changes. After each file, run 
 
 Add tests; do not change production code except to export something for testing, and flag any such change.
 
-- [ ] Inventory availability and double-booking edge cases (overlapping dates, buffers, partial returns, damage quarantine).
-- [ ] Permission matrix tests: each role × each protected route and workspace section; client-scoped proposal sharing; deactivated users; technician scope.
-- [ ] Workspace revision conflict behavior (two sessions saving).
-- [ ] Backup → preview → restore → recovery-point round trip with checksum verification.
-- [ ] Proposal money math: rounding, discount-before-tax, zero/negative inputs.
-- [ ] **AI evaluation harness (stub model only):** a fixtures folder of 10+ sample briefs (Spanish) and a checker that asserts structure rules the server already enforces (no unknown or duplicate equipment, model-supplied prices rejected, rates copied from catalog). It must run offline and make no network calls.
+- [x] Inventory availability and double-booking edge cases (overlapping dates, buffers, partial returns, damage quarantine).
+- [x] Permission matrix tests: each role × each protected route and workspace section; client-scoped proposal sharing; deactivated users; technician scope.
+- [x] Workspace revision conflict behavior (two sessions saving).
+- [x] Backup → preview → restore → recovery-point round trip with checksum verification.
+- [x] Proposal money math: rounding, discount-before-tax, zero/negative inputs.
+- [x] **AI evaluation harness (stub model only):** a fixtures folder of 10+ sample briefs (Spanish) and a checker that asserts structure rules the server already enforces (no unknown or duplicate equipment, model-supplied prices rejected, rates copied from catalog). It must run offline and make no network calls.
 
 **Exit:** new tests pass; report coverage gaps that remain.
 
@@ -80,20 +80,20 @@ Add tests; do not change production code except to export something for testing,
 
 Highest value, highest risk. Prepare a **design note first**, then wait for sign-off.
 
-- [ ] Write `docs/DATA_MODEL_PROPOSAL.md`: proposed tables (clients, events, venues, proposals and revisions, equipment, allocations, tasks, crew shifts, messages), per-record `version` columns, indexes, and how audit/backup/recovery map onto them.
-- [ ] Migration plan from the single `workspace.payload` row, with a dry-run command, row counts compared before and after, and a rollback path (original blob kept untouched until verified).
-- [ ] Only after approval: implement behind the existing `/api/workspace` contract first (server assembles the same payload from tables), so the frontend does not change in the first pass. Then add per-record conflict handling as a second pass.
-- [ ] Scheduled backups: a script/CLI that writes timestamped backups to a configurable folder with retention. No cloud destination.
+- [x] Write `docs/DATA_MODEL_PROPOSAL.md`: proposed tables (clients, events, venues, proposals and revisions, equipment, allocations, tasks, crew shifts, messages), per-record `version` columns, indexes, and how audit/backup/recovery map onto them.
+- [x] Migration plan from the single `workspace.payload` row, with a dry-run command, row counts compared before and after, and a rollback path (original blob kept untouched until verified).
+- [ ] **(Awaiting approval.)** Only after approval: implement behind the existing `/api/workspace` contract first (server assembles the same payload from tables), so the frontend does not change in the first pass. Then add per-record conflict handling as a second pass.
+- [x] Scheduled backups: a script/CLI that writes timestamped backups to a configurable folder with retention. No cloud destination.
 
 **Exit:** approved proposal document. Implementation is a separate decision.
 
 ## Stage 6 — Missing features that need no outside services (optional, pick individually)
 
-- [ ] Account lifecycle: change own password; admin can edit role/event grants; admin-issued one-time reset code shown in the UI (no email).
-- [ ] CSV import/export for the equipment catalog and clients, with a validation preview and error report before commit.
-- [ ] Structured server logging and consistent error shapes.
-- [ ] A seeded performance check (a few thousand clients/events/products) with timings recorded in the log.
-- [ ] Procedural 3D shapes for the most common equipment types.
+- [x] Account lifecycle: change own password; admin can edit role/event grants; admin-issued one-time reset code shown in the UI (no email). (Built as a temporary password shown once; not single-use, since that needs a new table.)
+- [x] CSV import/export for the equipment catalog and clients, with a validation preview and error report before commit.
+- [x] Structured server logging and consistent error shapes.
+- [x] A seeded performance check (a few thousand clients/events/products) with timings recorded in the log.
+- [x] Procedural 3D shapes for the most common equipment types.
 
 Each item is its own task with its own tests.
 

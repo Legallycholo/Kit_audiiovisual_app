@@ -10,7 +10,7 @@ Updated: October 17, 2026. One-page summary. Detailed evidence per requirement: 
 
 ## What is verified
 
-- Automated: typecheck, 88 unit/API tests, 46 Playwright browser journeys including axe accessibility checks. The latest baseline is in [CLEANUP_LOG.md](CLEANUP_LOG.md). One browser test currently fails because of a test bug.
+- Automated: typecheck, 150 unit/API tests (plus 1 expected failure documenting a half-cent rounding issue), 48 Playwright browser journeys including axe accessibility checks, and an offline AI-drafting evaluation harness. Details in [CLEANUP_LOG.md](CLEANUP_LOG.md).
 - Server-enforced authentication, CSRF, role/event scope, revision conflicts, audit, AI output validation (catalog prices only, unknown items rejected).
 - macOS native binary builds.
 
@@ -19,14 +19,14 @@ Updated: October 17, 2026. One-page summary. Detailed evidence per requirement: 
 - Live AI quality with a company credential; live WhatsApp/webhooks.
 - Business metric formulas, pricing/tax/deposit rules, reservation buffers.
 - Windows launch, code signing, OS-vault prompts, real OCR, real embedding provider.
-- Production hosting, HTTPS, operational backups, account recovery.
+- Production hosting, HTTPS, off-site backups, email-based account recovery.
 
 ## Next five priorities
 
 1. Reconcile reporting formulas with representative company data and get named business-owner approval.
 2. Record the approved external tools and API policies; validate AI drafting with real proposals; connect the messaging channel and signed webhook.
 3. Validate operations against real inventory, concurrent events, crew, supplier, damage and return cases; decide on serialized stock and equipment-only rentals.
-4. Account lifecycle (password change and recovery, editable grants), durable backup/restore, and safe concurrent editing.
+4. Approve and implement the per-record data model ([DATA_MODEL_PROPOSAL.md](DATA_MODEL_PROPOSAL.md)) for safe concurrent editing and faster saves at scale. Schedule `npm run backup` and copy backups off-site. Password change, admin-issued temporary passwords and grant editing are done; email recovery awaits a provider.
 5. Desktop release gates: Windows launch, signing, native acceptance checklist ([DESKTOP_PHASES_3_4.md](DESKTOP_PHASES_3_4.md#release-gates-not-claimed-complete)).
 
 Engineering cleanup is tracked separately in [claude-cleanup.md](claude-cleanup.md).
