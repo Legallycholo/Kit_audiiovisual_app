@@ -27,6 +27,8 @@ function sessionToken(req: Request) {
     .slice(12);
   return raw && /^[a-f0-9]{64}$/.test(raw) ? raw : "";
 }
+export const currentSessionHash = (req: Request) =>
+  hashToken(sessionToken(req));
 export function createSession(
   repo: Repository,
   userId: string,

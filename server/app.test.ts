@@ -1527,3 +1527,164 @@ it("keeps automation suggestions administrator-controlled, unique and auditable"
     ).status,
   ).toBe(422);
 });
+
+describe("account lifecycle", () => {
+  const login = (email: string, secret: string) =>
+    call("/login", "POST", { email, password: secret }, undefined as never, {
+      Cookie: "",
+      "x-csrf-token": "",
+    });
+  const session = (result: Awaited<ReturnType<typeof login>>) => ({
+    cookie: result.cookie,
+    csrf: result.json.csrf,
+  });
+
+  it("changes the user's own password and signs out only their other sessions", async () => {
+    const tech = await account("Technician", { eventIds: ["e1"] });
+    const other = session(await login("Technician@example.test", password));
+    const change = (body: unknown) =>
+      call("/account/password", "POST", body, tech);
+
+    expect(
+      (
+        await change({
+          currentPassword: "wrong-password",
+          newPassword: "a-new-password-456",
+        })
+      ).status,
+    ).toBe(422);
+    expect(
+      (await change({ currentPassword: password, newPassword: password }))
+        .status,
+    ).toBe(422);
+    expect(
+      (await change({ currentPassword: password, newPassword: "short" }))
+        .status,
+    ).toBe(422);
+    expect(
+      (
+        await change({
+          currentPassword: password,
+          newPassword: "a-new-password-456",
+        })
+      ).status,
+    ).toBe(200);
+
+    expect((await call("/workspace", "GET", undefined, tech)).status).toBe(200);
+    expect((await call("/workspace", "GET", undefined, other)).status).toBe(
+      401,
+    );
+    expect((await login("Technician@example.test", password)).status).toBe(401);
+    expect(
+      (await login("Technician@example.test", "a-new-password-456")).status,
+    ).toBe(200);
+  });
+
+  it("lets an administrator issue a temporary password that revokes sessions", async () => {
+    const tech = await account("Technician", { eventIds: ["e1"] });
+    const reset = await call(`/users/${tech.id}/reset-password`, "POST", {});
+    expect(reset.status).toBe(200);
+    expect(reset.json.temporaryPassword).toMatch(/^[A-Za-z0-9_-]{16}$/);
+    expect((await call("/workspace", "GET", undefined, tech)).status).toBe(401);
+    expect((await login("Technician@example.test", password)).status).toBe(401);
+    expect(
+      (await login("Technician@example.test", reset.json.temporaryPassword))
+        .status,
+    ).toBe(200);
+
+    const ownerId = (await workspace()).user.id;
+    expect(
+      (await call(`/users/${ownerId}/reset-password`, "POST", {})).status,
+    ).toBe(422);
+    const sales = await account("Sales Manager");
+    expect(
+      (await call(`/users/${tech.id}/reset-password`, "POST", {}, sales))
+        .status,
+    ).toBe(403);
+    const admin = await account("Administrator");
+    expect(
+      (await call(`/users/${ownerId}/reset-password`, "POST", {}, admin))
+        .status,
+    ).toBe(403);
+  });
+
+  it("edits role and event grants with the same validation as account creation", async () => {
+    const tech = await account("Technician", { eventIds: ["e1"] });
+    const access = (body: unknown, as = owner) =>
+      call(`/users/${tech.id}/access`, "PUT", body, as);
+
+    expect(
+      (await access({ role: "Production Manager", eventIds: ["missing"] }))
+        .status,
+    ).toBe(422);
+    const promoted = await access({
+      role: "Production Manager",
+      eventIds: ["e1", "e2"],
+    });
+    expect(promoted.status).toBe(200);
+    expect(promoted.json.user).toMatchObject({
+      role: "Production Manager",
+      eventIds: ["e1", "e2"],
+    });
+    // Sessions scoped to the previous grants are revoked.
+    expect((await call("/workspace", "GET", undefined, tech)).status).toBe(401);
+
+    const asClient = await access({
+      role: "Client / Guest",
+      eventIds: ["e1"],
+      clientId: "c1",
+      sharedProposalIds: ["p1"],
+    });
+    expect(asClient.status).toBe(200);
+    expect(asClient.json.user).toMatchObject({
+      eventIds: [],
+      clientId: "c1",
+      sharedProposalIds: ["p1"],
+    });
+    expect(
+      (
+        await access({
+          role: "Client / Guest",
+          clientId: "c1",
+          sharedProposalIds: ["p2"],
+        })
+      ).status,
+    ).toBe(422);
+
+    const ownerId = (await workspace()).user.id;
+    expect(
+      (await call(`/users/${ownerId}/access`, "PUT", { role: "Technician" }))
+        .status,
+    ).toBe(422);
+    const sales = await account("Sales Manager");
+    expect((await access({ role: "Administrator" }, sales)).status).toBe(403);
+  });
+
+  it("refuses to remove event access while the person holds tasks there", async () => {
+    const tech = await account("Technician", { eventIds: ["e1"] });
+    const task = {
+      id: "t-assigned",
+      eventId: "e1",
+      title: "Probar micrófonos",
+      assignee: "Test Person",
+      assigneeId: tech.id,
+      role: "Audio",
+      date: "2030-01-01",
+      done: false,
+      phase: "Preparation",
+    };
+    expect(
+      (await patch([{ collection: "tasks", id: task.id, value: task }])).status,
+    ).toBe(200);
+    const removed = await call(`/users/${tech.id}/access`, "PUT", {
+      role: "Technician",
+      eventIds: [],
+    });
+    expect(removed.status).toBe(422);
+    expect(removed.json.error).toContain("Reasigna");
+    expect(
+      (await call(`/users/${tech.id}/access`, "PUT", { role: "Administrator" }))
+        .status,
+    ).toBe(200);
+  });
+});

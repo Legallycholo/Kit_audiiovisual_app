@@ -4,6 +4,7 @@ import { createApp } from "../../server/app";
 import { Repository, HttpError } from "../../server/database";
 import { createSeed } from "../../src/shared/seed";
 import { ingestInboundMessage } from "../../server/messaging";
+import { passwordMatches } from "../../server/security";
 import AxeBuilder from "@axe-core/playwright";
 let repo: Repository;
 let server: Server;
@@ -592,4 +593,93 @@ test("ambiguous inbound acceptance is deduplicated into a linking review", async
       exact: true,
     }),
   ).toHaveCount(1);
+});
+test("administrator manages account access and passwords without email", async ({
+  page,
+}) => {
+  await setup(page);
+  repo.save(createSeed(), 0);
+  await page.goto("/settings");
+  await page
+    .getByRole("button", { name: "Users & roles", exact: true })
+    .click();
+
+  await page
+    .getByRole("button", { name: "Agregar usuario", exact: true })
+    .click();
+  const create = page.getByRole("dialog", { name: "Crear cuenta del espacio" });
+  await create.getByLabel("Nombre completo").fill("Técnica de audio");
+  await create.getByLabel("Correo electrónico").fill("audio@example.test");
+  await create.getByLabel("Contraseña inicial").fill("initial-password-123");
+  await create.getByLabel("Rol").selectOption("Technician");
+  await create.getByLabel("Oceanfront Partner Summit").check();
+  await create
+    .getByRole("button", { name: "Crear usuario", exact: true })
+    .click();
+  await expect(create).not.toBeVisible();
+  const row = page.locator(".role-row", { hasText: "audio@example.test" });
+  await expect(row).toContainText("Technician");
+
+  await row
+    .getByRole("button", { name: "Restablecer contraseña", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Restablecer contraseña" })
+    .getByRole("button", { name: "Generar contraseña temporal" })
+    .click();
+  const shown = page.getByRole("dialog", { name: "Contraseña temporal" });
+  const temporary = (await shown
+    .locator(".temporary-password")
+    .textContent())!.trim();
+  expect(temporary).toMatch(/^[A-Za-z0-9_-]{16}$/);
+  expect(
+    await passwordMatches(
+      temporary,
+      repo.userByEmail("audio@example.test")!.password_hash,
+    ),
+  ).toBe(true);
+  await shown.getByRole("button", { name: "Listo", exact: true }).click();
+
+  await row.getByRole("button", { name: "Editar acceso", exact: true }).click();
+  const edit = page.getByRole("dialog", { name: "Editar acceso de la cuenta" });
+  await expect(edit.getByLabel("Oceanfront Partner Summit")).toBeChecked();
+  await edit.getByLabel("Rol").selectOption("Production Manager");
+  await edit
+    .getByRole("button", { name: "Guardar acceso", exact: true })
+    .click();
+  await expect(edit).not.toBeVisible();
+  await expect(row).toContainText("Production Manager");
+  expect(repo.userByEmail("audio@example.test")!.role).toBe(
+    "Production Manager",
+  );
+
+  const own = page.locator("form", {
+    has: page.getByLabel("Contraseña actual"),
+  });
+  await own.getByLabel("Contraseña actual").fill("test-only-password-123");
+  // The field's accessible name also includes its hint text.
+  await own
+    .locator('input[name="newPassword"]')
+    .fill("a-new-owner-password-456");
+  await own
+    .getByLabel("Confirmar nueva contraseña")
+    .fill("a-new-owner-password-456");
+  await own
+    .getByRole("button", { name: "Cambiar contraseña", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "Contraseña cambiada. Se cerró la sesión en tus otros dispositivos.",
+    ),
+  ).toBeVisible();
+  expect(
+    await passwordMatches(
+      "a-new-owner-password-456",
+      repo.userByEmail("owner@example.test")!.password_hash,
+    ),
+  ).toBe(true);
+  expect(
+    (await new AxeBuilder({ page }).include(".settings-workspace").analyze())
+      .violations,
+  ).toEqual([]);
 });

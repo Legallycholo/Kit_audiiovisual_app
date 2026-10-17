@@ -16,6 +16,7 @@ import { mountMessagingRoutes } from "./routes/messaging";
 import { mountInventoryRoutes } from "./routes/inventory";
 import { mountAiRoutes } from "./routes/ai";
 import { mountUserRoutes } from "./routes/users";
+import { mountAccountRoutes } from "./routes/account";
 import { mountBackupRoutes } from "./routes/backup";
 
 export type { AppConfig } from "./routes/context";
@@ -67,6 +68,7 @@ export function createApp(repo: Repository, config: AppConfig) {
   mountInventoryRoutes(app, context);
   mountAiRoutes(app, context);
   mountUserRoutes(app, context);
+  mountAccountRoutes(app, context);
   mountBackupRoutes(app, context);
   app.use("/api", (_req, _res, next) =>
     next(new HttpError(404, "API route not found.")),

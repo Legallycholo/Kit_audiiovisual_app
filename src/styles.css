@@ -3218,6 +3218,25 @@ td small {
   color: #646f58;
   margin-top: 6px;
 }
+.role-row {
+  flex-wrap: wrap;
+}
+.temporary-password {
+  display: block;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font:
+    600 16px/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  user-select: all;
+  overflow-wrap: anywhere;
+}
 .integration-icon {
   width: 45px;
   height: 45px;

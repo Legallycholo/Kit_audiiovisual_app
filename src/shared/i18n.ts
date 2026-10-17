@@ -582,6 +582,44 @@ export const spanish: Record<string, string> = {
   "Restore sample data": "Restaurar datos de ejemplo",
   "Save company profile": "Guardar perfil de empresa",
   "Add user": "Agregar usuario",
+  "Create user": "Crear usuario",
+  "Creating…": "Creando…",
+  "Saving…": "Guardando…",
+  Deactivate: "Desactivar",
+  Reactivate: "Reactivar",
+  "Assigned events": "Eventos asignados",
+  "Client profile": "Perfil de cliente",
+  "Choose client": "Elegir cliente",
+  "Explicitly shared proposal revisions":
+    "Revisiones de propuesta compartidas explícitamente",
+  "Create events before assigning this account.":
+    "Crea eventos antes de asignar esta cuenta.",
+  "Edit access": "Editar acceso",
+  "Edit account access": "Editar acceso de la cuenta",
+  "Saving signs this person out so their next session uses the new access.":
+    "Al guardar se cerrará su sesión para que la próxima use el nuevo acceso.",
+  "Save access": "Guardar acceso",
+  "Access updated. Their open sessions were signed out.":
+    "Acceso actualizado. Se cerraron sus sesiones abiertas.",
+  "Reset password": "Restablecer contraseña",
+  "A temporary password is generated and shown once. This person's open sessions are signed out.":
+    "Se genera una contraseña temporal que se muestra una sola vez. Se cerrarán las sesiones abiertas de esta persona.",
+  "Generate temporary password": "Generar contraseña temporal",
+  "Temporary password": "Contraseña temporal",
+  "Share it through your established secure channel and ask them to change it after signing in. It is not shown again.":
+    "Compártela por tu canal seguro habitual y pide que la cambien al iniciar sesión. No se volverá a mostrar.",
+  Copy: "Copiar",
+  "Copied.": "Copiada.",
+  Done: "Listo",
+  "Change password": "Cambiar contraseña",
+  "Your other signed-in devices are signed out after the change.":
+    "Después del cambio se cerrará la sesión en tus otros dispositivos.",
+  "Current password": "Contraseña actual",
+  "New password": "Nueva contraseña",
+  "Confirm new password": "Confirmar nueva contraseña",
+  "The new passwords do not match.": "Las contraseñas nuevas no coinciden.",
+  "Password changed. Other devices were signed out.":
+    "Contraseña cambiada. Se cerró la sesión en tus otros dispositivos.",
 };
 export function uiLabel(value: string): string {
   return spanish[value] ?? value;

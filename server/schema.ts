@@ -691,6 +691,20 @@ export const userSchema = z
     password: z.string().min(12).max(256),
   })
   .strict();
+export const accessSchema = z
+  .object({
+    role: z.enum(roles),
+    eventIds: z.array(identifier).max(1000).default([]),
+    clientId: identifier.optional(),
+    sharedProposalIds: z.array(identifier).max(1000).default([]),
+  })
+  .strict();
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(256),
+    newPassword: z.string().min(12).max(256),
+  })
+  .strict();
 export const setupSchema = z
   .object({
     name,
