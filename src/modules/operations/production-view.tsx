@@ -16,7 +16,13 @@ export function useProductionView() {
   const { data, update, toast, mode, user, request } = useWorkspace();
   const [params] = useSearchParams();
   const [eventFilter, setEventFilter] = useState(params.get("event") || "all");
-  const [tab, setTab] = useState("Task board");
+  const [tab, setTab] = useState(
+    params.get("tab") === "crew"
+      ? "Crew schedule"
+      : params.get("tab") === "cues"
+        ? "Run of show"
+        : "Task board",
+  );
   const [draft, setDraft] = useState<Task | null>(null);
   const [members, setMembers] = useState<
     { id: string; name: string; role: string }[]

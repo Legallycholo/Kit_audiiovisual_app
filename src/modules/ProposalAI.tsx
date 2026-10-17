@@ -108,7 +108,10 @@ export function ProposalAI({
         de aplicarla.
       </p>
       {missingInformation.length > 0 && (
-        <section className="ai-readiness" aria-label="Información por confirmar">
+        <section
+          className="ai-readiness"
+          aria-label="Información por confirmar"
+        >
           <div>
             <AlertCircle size={18} />
             <strong>Información por confirmar</strong>

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useWorkspace, activity } from "../shared/store";
 import { canEditCollection } from "../shared/access";
+import { uiLabel } from "../shared/i18n";
 import { clientsToCsv, planClientImport } from "../shared/csv";
 import { CsvImportDialog } from "./CsvImport";
 import {
@@ -466,15 +467,17 @@ export function Venues() {
           wide
         >
           <div className="modal-body">
-            <Tabs
-              items={["Rooms & dimensions"]}
-              value="Rooms & dimensions"
-              onChange={() => {}}
-            />
+            <h3 className="section-title">{uiLabel("Rooms & dimensions")}</h3>
             {selected.rooms.length === 0 && (
               <Empty
-                title="Room details needed"
-                description="Room and dimension editing will be connected with venue management."
+                compact
+                title="No rooms recorded"
+                description="Room sizes for each event are set in the floor plan editor in Design."
+                action={
+                  <Link className="button secondary" to="/design">
+                    {uiLabel("Open Design")}
+                  </Link>
+                }
               />
             )}
             {selected.rooms.map((r) => (

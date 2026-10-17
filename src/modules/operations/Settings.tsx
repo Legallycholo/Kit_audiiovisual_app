@@ -9,8 +9,8 @@ import {
   Modal,
   PageHeader,
   Panel,
-  Placeholder,
 } from "../../shared/ui";
+import { uiLabel } from "../../shared/i18n";
 import { downloadFile, id, initials } from "../../shared/domain";
 import type { Workspace } from "../../shared/types";
 
@@ -330,10 +330,20 @@ export function SettingsPage() {
                     }}
                   />
                 </label>
-                <Placeholder
-                  title="Owner acceptance review"
-                  description="The owner reviews each client acceptance notification before the offer is marked accepted."
-                />
+                <div className="role-row">
+                  <ShieldCheck size={20} aria-hidden="true" />
+                  <div>
+                    <strong>
+                      {uiLabel("Owner confirms every client acceptance")}
+                    </strong>
+                    <p>
+                      {uiLabel(
+                        "A client's reply never marks an offer accepted on its own. The owner reviews the message and the exact offer first.",
+                      )}
+                    </p>
+                  </div>
+                  <Badge tone="green">{uiLabel("Always on")}</Badge>
+                </div>
               </div>
             </Panel>
           )}
@@ -351,10 +361,18 @@ export function SettingsPage() {
                   </div>
                   <Badge>Required</Badge>
                 </div>
-                <Placeholder
-                  title="Model, usage limits, and permitted context"
-                  description="These settings will be available when an AI service is connected."
-                />
+                <div className="info-note">
+                  {uiLabel(
+                    "Model, provider and monthly usage are shown in Integrations.",
+                  )}{" "}
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => setTab("Integrations")}
+                  >
+                    {uiLabel("Open Integrations")}
+                  </button>
+                </div>
               </div>
             </Panel>
           )}
@@ -371,10 +389,6 @@ export function SettingsPage() {
                   periods, rounding, tax treatment, deposits, and validity with
                   the business before live use.
                 </div>
-                <Placeholder
-                  title="Branded templates and commercial terms"
-                  description="Company-wide template editing will follow the core proposal workflow."
-                />
               </div>
             </Panel>
           )}
@@ -395,10 +409,6 @@ export function SettingsPage() {
                     <strong>Planning</strong>
                   </div>
                 </div>
-                <Placeholder
-                  title="Custom event types and transition rules"
-                  description="Further configuration will follow validation of the production workflow."
-                />
               </div>
             </Panel>
           )}

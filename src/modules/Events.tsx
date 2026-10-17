@@ -1,4 +1,5 @@
 import { canEditCollection } from "../shared/access";
+import { uiLabel } from "../shared/i18n";
 import { useState } from "react";
 import {
   Link,
@@ -17,6 +18,7 @@ import {
   Calendar,
   FileText,
   Layers3,
+  WandSparkles,
 } from "lucide-react";
 import { activity, useWorkspace } from "../shared/store";
 import {
@@ -31,7 +33,6 @@ import {
   SearchField,
   Tabs,
   TextLink,
-  Placeholder,
 } from "../shared/ui";
 import { id, money, shortDate } from "../shared/domain";
 import type { EventStatus, ProductionEvent } from "../shared/types";
@@ -582,13 +583,22 @@ export function EventDetail() {
                 <p>{event.timezone}</p>
               </div>
             </div>
-            <Placeholder
-              title="Setup, rehearsal, and teardown windows"
-              description="Detailed schedule blocks will be connected in the production phase."
-            />
-            <TextLink to={`/production?event=${event.id}`}>
-              Open production tasks
-            </TextLink>
+            <p className="muted">
+              {uiLabel(
+                "Setup, rehearsal and teardown are planned in Production as crew shifts and run-of-show cues.",
+              )}
+            </p>
+            <div className="link-row">
+              <TextLink to={`/production?event=${event.id}&tab=crew`}>
+                {uiLabel("Crew shifts")}
+              </TextLink>
+              <TextLink to={`/production?event=${event.id}&tab=cues`}>
+                {uiLabel("Run-of-show cues")}
+              </TextLink>
+              <TextLink to={`/production?event=${event.id}`}>
+                {uiLabel("Open production tasks")}
+              </TextLink>
+            </div>
           </div>
         </Panel>
       )}
@@ -751,10 +761,7 @@ export function EventDetail() {
         />
       )}
       {tab === "Documents" && (
-        <Empty
-          title="A home for every production document"
-          description="File upload, revision tracking, and client sharing will be connected in the document-management phase."
-        />
+        <EventDocuments eventId={event.id} canCreateProposal={commercial} />
       )}
       {tab === "Activity" && (
         <Panel title="Event history">
@@ -776,5 +783,80 @@ export function EventDetail() {
       )}
       {editing && <EventForm event={event} onClose={() => setEditing(false)} />}
     </>
+  );
+}
+
+/** Every document KIT keeps for one event: proposals, layouts and creative work. */
+function EventDocuments({
+  eventId,
+  canCreateProposal,
+}: {
+  eventId: string;
+  canCreateProposal: boolean;
+}) {
+  const { data } = useWorkspace();
+  const proposals = data.proposals.filter((p) => p.eventId === eventId);
+  const layouts = data.layouts.filter((l) => l.eventId === eventId);
+  const creative = data.creativeAssets.filter((a) => a.eventId === eventId);
+  if (!proposals.length && !layouts.length && !creative.length)
+    return (
+      <Empty
+        icon={<FileText size={26} />}
+        title="No documents for this event yet"
+        description="Proposals, floor plans and creative concepts created for this event appear here."
+        action={
+          canCreateProposal ? (
+            <Link className="button primary" to={`/proposals?event=${eventId}`}>
+              <Plus size={16} />
+              {uiLabel("New proposal")}
+            </Link>
+          ) : undefined
+        }
+      />
+    );
+  return (
+    <div className="document-groups">
+      {proposals.length > 0 && (
+        <Panel title="Proposals">
+          <ul className="document-list">
+            {proposals.map((p) => (
+              <li key={p.id}>
+                <FileText size={18} aria-hidden="true" />
+                <Link to={`/proposals/${p.id}`}>
+                  {p.number} · {p.title}
+                </Link>
+                <Badge>{p.status}</Badge>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+      {layouts.length > 0 && (
+        <Panel title="Floor plans and 3D">
+          <ul className="document-list">
+            {layouts.map((l) => (
+              <li key={l.id}>
+                <Layers3 size={18} aria-hidden="true" />
+                <Link to={`/design?event=${eventId}`}>{l.name}</Link>
+                <span className="muted">v{l.version}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+      {creative.length > 0 && (
+        <Panel title="Creative concepts">
+          <ul className="document-list">
+            {creative.map((a) => (
+              <li key={a.id}>
+                <WandSparkles size={18} aria-hidden="true" />
+                <Link to={`/creative?event=${eventId}`}>{a.title}</Link>
+                <Badge>{a.status}</Badge>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </div>
   );
 }

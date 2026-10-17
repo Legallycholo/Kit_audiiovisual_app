@@ -4,25 +4,27 @@ import { BrowserRouter, HashRouter } from "react-router-dom";
 import { WorkspaceProvider } from "./shared/store";
 import { KitProvider } from "./shared/kit-store";
 import { App } from "./application/App";
-import "./styles.css";
+import "./shared/tokens.css";
 import "@fontsource-variable/dm-sans";
 import "@fontsource-variable/manrope";
+import "./styles.css";
 import "./desktop.css";
 import "./desktop-modules.css";
 import "./file-search.css";
+import "./shared/ui/components.css";
+import {
+  applyAppearance,
+  defaultAppearance,
+  LAST_APPEARANCE_KEY,
+  readAppearance,
+} from "./shared/appearance";
 
-// Set the theme before the first paint so restored dark sessions never animate
-// from light surfaces or briefly display unreadable intermediate colors.
+// Apply the last appearance before the first paint so restored dark sessions
+// never flash light surfaces. Signed-in preferences replace it once known.
 try {
-  const preference = localStorage.getItem("kit.theme") || "system";
-  document.documentElement.dataset.theme =
-    preference === "system"
-      ? matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      : preference;
+  applyAppearance(readAppearance(LAST_APPEARANCE_KEY));
 } catch {
-  document.documentElement.dataset.theme = "light";
+  applyAppearance(defaultAppearance);
 }
 
 const Router =

@@ -637,6 +637,27 @@ export const spanish: Record<string, string> = {
     "Corrige estas filas y vuelve a elegir el archivo:",
   "Import records": "Importar registros",
   "Importing…": "Importando…",
+  "Setup, rehearsal and teardown are planned in Production as crew shifts and run-of-show cues.":
+    "El montaje, los ensayos y el desmontaje se planifican en Producción como turnos del equipo y cues del guion técnico.",
+  "Crew shifts": "Turnos del equipo",
+  "Run-of-show cues": "Cues del guion técnico",
+  "No documents for this event yet": "Este evento aún no tiene documentos",
+  "Proposals, floor plans and creative concepts created for this event appear here.":
+    "Aquí aparecen las propuestas, los planos y los conceptos creativos de este evento.",
+  "Floor plans and 3D": "Planos y 3D",
+  "Creative concepts": "Conceptos creativos",
+  "No rooms recorded": "Sin salas registradas",
+  "Room sizes for each event are set in the floor plan editor in Design.":
+    "Las medidas de cada sala se definen en el editor de planos de Diseño.",
+  "Open Design": "Abrir Diseño",
+  "Owner confirms every client acceptance":
+    "El propietario confirma cada aceptación del cliente",
+  "A client's reply never marks an offer accepted on its own. The owner reviews the message and the exact offer first.":
+    "La respuesta de un cliente nunca marca una oferta como aceptada por sí sola. El propietario revisa antes el mensaje y la oferta exacta.",
+  "Always on": "Siempre activo",
+  "Model, provider and monthly usage are shown in Integrations.":
+    "El modelo, el proveedor y el uso del mes se muestran en Integraciones.",
+  "Open Integrations": "Abrir Integraciones",
 };
 export function uiLabel(value: string): string {
   return spanish[value] ?? value;
