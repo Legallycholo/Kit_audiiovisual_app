@@ -16,6 +16,7 @@
     "dev:server": "tsx watch --env-file-if-exists=.env server/index.ts",
     "start": "tsx --env-file-if-exists=.env server/index.ts",
     "backup": "tsx --env-file-if-exists=.env server/scheduled-backup.ts",
+    "perf": "tsx server/perf/workspace-perf.ts",
     "test:server": "vitest run server"
   },
   "dependencies": {
