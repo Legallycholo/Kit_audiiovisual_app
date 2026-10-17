@@ -287,17 +287,6 @@ export function App() {
               <option value="dark">Oscuro</option>
             </select>
           </label>
-          <button
-            className="sidebar-ai"
-            onClick={() => toggleAssistant(!assistant)}
-          >
-            <Sparkles size={18} />
-            <span>
-              {uiLabel("Your production copilot")}
-              <small>{uiLabel("Plan a little smarter")}</small>
-            </span>
-            <ArrowUpRight size={15} />
-          </button>
           <NavLink to="/settings">
             <Settings size={18} />
             {uiLabel("Settings")}

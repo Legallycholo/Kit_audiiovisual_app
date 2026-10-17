@@ -56,9 +56,7 @@ export function Clients() {
   return (
     <>
       <PageHeader
-        eyebrow="RELATIONSHIPS THAT LAST"
         title="Clients"
-        description="Your people, their projects, and a shared history of great events."
         actions={
           <>
             <Button
@@ -383,9 +381,7 @@ export function Venues() {
   return (
     <>
       <PageHeader
-        eyebrow="THE SETTING FOR SOMETHING GREAT"
         title="Venues"
-        description="Know the space. Reuse the details. Bring every room to life."
         actions={
           <Button onClick={() => setAdding(true)}>
             <Plus size={17} />

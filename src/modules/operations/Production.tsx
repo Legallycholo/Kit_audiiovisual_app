@@ -13,9 +13,7 @@ export function Production() {
   return (
     <>
       <PageHeader
-        eyebrow="GOOD PEOPLE. GREAT PRODUCTIONS."
         title="Team & production"
-        description="Keep the crew aligned, the gear ready, and the show on schedule."
         actions={
           <Button
             disabled={Boolean(
@@ -30,7 +28,7 @@ export function Production() {
                     ? data.events[0]?.id || ""
                     : eventFilter,
                 title: "",
-                assignee: "Alex Morgan",
+                assignee: user?.name || "Alex Morgan",
                 role: "Production manager",
                 date: "",
                 done: false,

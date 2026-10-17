@@ -51,9 +51,7 @@ export function Events() {
   return (
     <>
       <PageHeader
-        eyebrow="PLAN. PRODUCE. REPEAT."
         title="Events"
-        description="Every detail, from the first brief to the final curtain."
         actions={
           <Button onClick={() => setParams({ new: "1" })}>
             <Plus size={17} />

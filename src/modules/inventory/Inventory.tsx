@@ -21,7 +21,6 @@ export function Inventory() {
   return (
     <>
       <PageHeader
-        eyebrow="THE RIGHT GEAR. IN THE RIGHT PLACE."
         title="Equipment & inventory"
         description="Your owned equipment, availability, and event allocations."
         actions={

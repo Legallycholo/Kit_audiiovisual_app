@@ -199,7 +199,6 @@ export function Reports() {
   return (
     <>
       <PageHeader
-        eyebrow="A CLEARER PICTURE"
         title="Reports"
         description="Métricas trazables con alcance, costos y permisos claramente separados."
         actions={

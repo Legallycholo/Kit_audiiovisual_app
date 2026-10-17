@@ -147,7 +147,6 @@ export function Inbox() {
   return (
     <>
       <PageHeader
-        eyebrow="KEEP THE CONVERSATION CONNECTED"
         title="Client Inbox"
         description="Every client exchange, with the right event and proposal alongside it."
         actions={
@@ -171,7 +170,9 @@ export function Inbox() {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             >
-              <option value="All conversations">Todas las conversaciones</option>
+              <option value="All conversations">
+                Todas las conversaciones
+              </option>
               <option value="Needs review">Aceptaciones pendientes</option>
               <option value="Send review">Mensajes por revisar</option>
             </select>
@@ -298,9 +299,7 @@ export function Inbox() {
                     onClick={async () => {
                       if (!(await saveDraft(outgoingDraft(draft)))) return;
                       setDraft("");
-                      toast(
-                        "Borrador guardado. No se envió ningún mensaje.",
-                      );
+                      toast("Borrador guardado. No se envió ningún mensaje.");
                     }}
                   >
                     Guardar borrador
@@ -406,8 +405,10 @@ export function Inbox() {
                   </p>
                   {conversation.acceptanceEvidence && (
                     <p className="tiny muted">
-                      Evidencia: mensaje {conversation.acceptanceEvidence.messageId}
-                      {" · "}versión {conversation.acceptanceEvidence.proposalVersion}
+                      Evidencia: mensaje{" "}
+                      {conversation.acceptanceEvidence.messageId}
+                      {" · "}versión{" "}
+                      {conversation.acceptanceEvidence.proposalVersion}
                     </p>
                   )}
                 </div>
@@ -438,12 +439,12 @@ export function Inbox() {
               {
                 (conversation.reviewMessageId
                   ? conversation.messages.find(
-                      (message) =>
-                        message.id === conversation.reviewMessageId,
+                      (message) => message.id === conversation.reviewMessageId,
                     )
                   : conversation.messages
                       .filter((message) => message.direction === "in")
-                      .at(-1))?.text
+                      .at(-1)
+                )?.text
               }
               ”
               <small>
@@ -467,9 +468,9 @@ export function Inbox() {
               </span>
             </div>
             <p>
-              Confirma que este sea el cliente, la oferta y la versión correctos.
-              El inventario, el pago y el calendario aún deben verificarse antes
-              de producción.
+              Confirma que este sea el cliente, la oferta y la versión
+              correctos. El inventario, el pago y el calendario aún deben
+              verificarse antes de producción.
             </p>
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setReview(false)}>
@@ -532,9 +533,7 @@ export function Inbox() {
               disabled={!ownerReview || !channel.configured}
               onClick={async () => {
                 setError("");
-                if (
-                  await confirmMessageSend(conversation.id, sendPreview.id)
-                )
+                if (await confirmMessageSend(conversation.id, sendPreview.id))
                   setSendPreview(null);
               }}
             >

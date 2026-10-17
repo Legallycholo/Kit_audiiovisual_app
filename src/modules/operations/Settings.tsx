@@ -90,11 +90,7 @@ export function SettingsPage() {
     );
   return (
     <>
-      <PageHeader
-        eyebrow="MAKE THE WORKSPACE YOURS"
-        title="Settings"
-        description="Your company, your preferences, and the way your team works."
-      />
+      <PageHeader title="Settings" />
       <div className="settings-workspace">
         <aside className="settings-nav">
           {[

@@ -51,9 +51,7 @@ export function Design() {
   return (
     <>
       <PageHeader
-        eyebrow="GIVE YOUR VISION SOME SPACE"
         title="Design Studio"
-        description="One layout. Two perspectives. Every object connected."
         actions={
           <select
             aria-label="Design event"

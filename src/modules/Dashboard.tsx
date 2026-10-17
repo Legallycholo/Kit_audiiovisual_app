@@ -7,13 +7,13 @@ import {
   Clock3,
   FileText,
   Plus,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWorkspace } from "../shared/store";
 import { Avatar, Badge, PageHeader, Panel, Stat, TextLink } from "../shared/ui";
 import { shortDate } from "../shared/domain";
+import { uiLabel } from "../shared/i18n";
 export function Dashboard() {
   const { data, update } = useWorkspace();
   const active = data.events.filter(
@@ -34,8 +34,7 @@ export function Dashboard() {
     <>
       <PageHeader
         eyebrow={date}
-        title="Your next great event starts here."
-        description="A clear view of your projects, your people, and what's next."
+        title="Dashboard"
         actions={
           <Link className="button primary" to="/events?new=1">
             <Plus size={17} />
@@ -47,12 +46,6 @@ export function Dashboard() {
         <Stat
           label="Active events"
           value={active.length.toString().padStart(2, "0")}
-          detail={
-            <>
-              <span className="mini-dot green" />
-              Moving from plan to production
-            </>
-          }
           icon={<CalendarDays size={18} />}
         />
         <Stat
@@ -86,7 +79,7 @@ export function Dashboard() {
             .padStart(2, "0")}
           detail={
             <Link to="/production">
-              Keep your team in sync <ArrowUpRight size={13} />
+              {uiLabel("Production")} <ArrowUpRight size={13} />
             </Link>
           }
           icon={<Users size={18} />}
@@ -99,19 +92,15 @@ export function Dashboard() {
               <span className="live-dot" />
               NEXT ON THE CALENDAR
             </span>
-            <h2>{next?.name || "Room for your next big idea."}</h2>
-            <p>
-              {venue?.name || "Create an event to get started."}
-              <span>·</span>
-              {next ? shortDate(next.date) : "Your workspace is ready"}
-            </p>
+            <h2>{next?.name || uiLabel("No upcoming events")}</h2>
+            {next && (
+              <p>
+                {venue?.name}
+                <span>·</span>
+                {shortDate(next.date)}
+              </p>
+            )}
             <div className="next-event-bottom">
-              <div className="avatar-stack">
-                <Avatar label="AM" small />
-                <Avatar label="SR" color="lavender" small />
-                <Avatar label="MD" color="peach" small />
-                <span>Your production team</span>
-              </div>
               {next && (
                 <Link to={`/events/${next.id}`}>
                   Open event
@@ -157,7 +146,6 @@ export function Dashboard() {
       <div className="dashboard-columns">
         <Panel
           title="Upcoming events"
-          subtitle="The work taking shape over the next few weeks."
           action={<TextLink to="/events">All events</TextLink>}
         >
           <div className="table-wrap">
@@ -212,7 +200,6 @@ export function Dashboard() {
         </Panel>
         <Panel
           title="Your production checklist"
-          subtitle="Small steps. Seamless events."
           action={<TextLink to="/production">View all</TextLink>}
         >
           <div className="task-list">
@@ -247,59 +234,27 @@ export function Dashboard() {
           </div>
         </Panel>
       </div>
-      <div className="dashboard-bottom">
-        <Panel
-          title="Recent activity"
-          action={<span className="muted tiny">Sample workspace activity</span>}
-        >
-          <div className="activity-list">
-            {data.activity.slice(0, 3).map((item, i) => (
-              <div className="activity-row" key={item.id}>
-                <span className={`activity-dot dot-${i}`} />
-                <div>
-                  <strong>{item.title}</strong>
-                  <p>{item.detail}</p>
-                </div>
-                {item.eventId && (
-                  <Link
-                    to={`/events/${item.eventId}`}
-                    aria-label={`View event for ${item.title}`}
-                  >
-                    <ChevronRight size={16} />
-                  </Link>
-                )}
+      <Panel title="Recent activity">
+        <div className="activity-list">
+          {data.activity.slice(0, 3).map((item, i) => (
+            <div className="activity-row" key={item.id}>
+              <span className={`activity-dot dot-${i}`} />
+              <div>
+                <strong>{item.title}</strong>
+                <p>{item.detail}</p>
               </div>
-            ))}
-          </div>
-        </Panel>
-        <div className="creative-prompt">
-          <span className="creative-prompt-icon">
-            <Sparkles size={23} />
-          </span>
-          <div className="eyebrow">FROM IDEA TO EXPERIENCE</div>
-          <h2>
-            Make room for
-            <br />
-            your next big idea.
-          </h2>
-          <p>
-            Bring layouts, visuals, and your event story together in one place.
-          </p>
-          <Link to="/design">
-            Explore Design Studio
-            <ArrowUpRight size={17} />
-          </Link>
+              {item.eventId && (
+                <Link
+                  to={`/events/${item.eventId}`}
+                  aria-label={`View event for ${item.title}`}
+                >
+                  <ChevronRight size={16} />
+                </Link>
+              )}
+            </div>
+          ))}
         </div>
-      </div>
-      <footer className="workspace-footer">
-        <span>
-          <span className="brand-small">kit.</span> A little more organized. A
-          lot more possible.
-        </span>
-        <span>
-          Production workspace <span className="mini-dot green" />
-        </span>
-      </footer>
+      </Panel>
     </>
   );
 }

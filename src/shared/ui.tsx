@@ -306,7 +306,7 @@ export function Stat({
 }: {
   label: string;
   value: ReactNode;
-  detail: ReactNode;
+  detail?: ReactNode;
   icon: ReactNode;
 }) {
   return (
@@ -316,7 +316,7 @@ export function Stat({
         <span>{icon}</span>
       </div>
       <div className="stat-value">{value}</div>
-      <div className="stat-detail">{detail}</div>
+      {detail && <div className="stat-detail">{detail}</div>}
     </div>
   );
 }

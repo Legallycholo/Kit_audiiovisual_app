@@ -7,7 +7,7 @@ test("all main destinations load without runtime errors", async ({ page }) => {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Tu próximo gran evento empieza aquí." }),
+    page.getByRole("heading", { name: "Inicio", level: 1 }),
   ).toBeVisible();
   for (const [path, title] of [
     ["/events", "Eventos"],
@@ -794,7 +794,7 @@ test("dashboard, tablet navigation, assistant and mobile layout", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Tu próximo gran evento empieza aquí." }),
+    page.getByRole("heading", { name: "Inicio", level: 1 }),
   ).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,

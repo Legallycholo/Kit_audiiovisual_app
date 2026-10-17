@@ -1,6 +1,7 @@
 // Interface labels only. Business records, messages and proposal content keep their original language.
 export const spanish: Record<string, string> = {
   Dashboard: "Inicio",
+  "No upcoming events": "Sin eventos próximos",
   Events: "Eventos",
   Clients: "Clientes",
   Venues: "Lugares",

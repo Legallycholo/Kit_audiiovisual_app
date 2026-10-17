@@ -228,9 +228,7 @@ export function Creative() {
   return (
     <>
       <PageHeader
-        eyebrow="IMAGINE THE EXPERIENCE"
         title="AI Creative Studio"
-        description="A space for concepts, visual direction, and the details that make it yours."
         actions={<Badge tone="neutral">Local showcase · no API cost</Badge>}
       />
       <Tabs
