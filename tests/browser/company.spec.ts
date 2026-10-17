@@ -9,9 +9,11 @@ let repo: Repository;
 let server: Server;
 let root: string;
 let failGeneration = false;
+let offlinePatches = false;
 const deliveredMessages: string[] = [];
 test.beforeEach(async ({ page }) => {
   failGeneration = false;
+  offlinePatches = false;
   deliveredMessages.length = 0;
   repo = new Repository(":memory:");
   server = createApp(repo, {
@@ -57,6 +59,10 @@ test.beforeEach(async ({ page }) => {
   root = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   // Proxy to an isolated real API/database. The model boundary alone is a test fixture.
   await page.route("**/api/**", async (route) => {
+    if (offlinePatches && route.request().method() === "PATCH") {
+      await route.abort("internetdisconnected");
+      return;
+    }
     const response = await route.fetch({
       url:
         root +
@@ -95,6 +101,141 @@ async function setup(page: import("@playwright/test").Page) {
     page.getByRole("button", { name: "Cerrar sesión", exact: true }),
   ).toBeVisible();
 }
+test("encrypted offline save requires explicit conflict resolution", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto("/clients");
+  offlinePatches = true;
+  await page
+    .getByRole("button", { name: "Agregar cliente", exact: true })
+    .click();
+  await page
+    .getByLabel("Nombre de empresa o cliente")
+    .fill("Cliente pendiente cifrado");
+  await page.getByLabel("Contacto principal").fill("Contacto pendiente");
+  await page
+    .getByRole("button", { name: "Guardar cliente", exact: true })
+    .click();
+  await expect(
+    page.getByText("Sin conexión · 1 guardado cifrado pendiente", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(repo.read().workspace.clients).toEqual([]);
+  const encrypted = await page.evaluate(() =>
+    localStorage.getItem("kit.company-sync.v1"),
+  );
+  expect(encrypted).toBeTruthy();
+  expect(encrypted).not.toContain("Cliente pendiente cifrado");
+  await page.reload();
+  await expect(
+    page.getByText("Sin conexión · 1 guardado cifrado pendiente", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Cliente pendiente cifrado", { exact: true }),
+  ).toBeVisible();
+
+  repo.save(createSeed(), 0);
+  offlinePatches = false;
+  await page
+    .getByRole("button", { name: "Reintentar sincronización", exact: true })
+    .click();
+  await expect(
+    page.getByText("Conflicto de sincronización · requiere revisión", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Estado de sincronización" }),
+  ).toContainText("clients/");
+  expect(repo.read().workspace.clients).not.toContainEqual(
+    expect.objectContaining({ name: "Cliente pendiente cifrado" }),
+  );
+
+  await page
+    .getByRole("button", {
+      name: "Aplicar mis cambios revisados",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByText("Espacio de empresa · datos en el servidor", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(repo.read().workspace.clients).toContainEqual(
+    expect.objectContaining({ name: "Cliente pendiente cifrado" }),
+  );
+  expect(
+    await page.evaluate(() => localStorage.getItem("kit.company-sync.v1")),
+  ).toBeNull();
+});
+test("administrator previews, restores and rolls back a verified backup", async ({
+  page,
+}) => {
+  await setup(page);
+  const backup = await page.evaluate(async () => {
+    const response = await fetch("/api/backup", { credentials: "same-origin" });
+    if (!response.ok) throw new Error("Backup export failed in the test.");
+    return response.json();
+  });
+  const current = repo.read();
+  const changed = structuredClone(current.workspace);
+  changed.clients[0].name = "Cliente cambiado después de la copia";
+  repo.save(changed, current.revision);
+
+  await page.goto("/settings");
+  await page
+    .getByRole("button", { name: "Workspace data", exact: true })
+    .click();
+  await page.locator('input[type="file"][accept*="json"]').setInputFiles({
+    name: "kit-company-backup.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(backup)),
+  });
+  const restoreDialog = page.getByRole("dialog", {
+    name: "Confirmar restauración de empresa",
+  });
+  await expect(restoreDialog).toContainText("4 clientes");
+  await restoreDialog
+    .getByLabel("Escribe RESTORE KIT Audiovisual para confirmar")
+    .fill("RESTORE KIT Audiovisual");
+  await restoreDialog
+    .getByRole("button", { name: "Restaurar registros", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "Copia restaurada. La versión anterior quedó protegida como punto de recuperación.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  expect(repo.read().workspace.clients[0].name).not.toBe(
+    "Cliente cambiado después de la copia",
+  );
+
+  await page
+    .getByRole("button", { name: "Recuperar", exact: true })
+    .first()
+    .click();
+  const rollbackDialog = page.getByRole("dialog", {
+    name: "Recuperar versión anterior",
+  });
+  await rollbackDialog
+    .getByLabel("Escribe ROLL BACK para confirmar")
+    .fill("ROLL BACK");
+  await rollbackDialog
+    .getByRole("button", { name: "Recuperar revisión", exact: true })
+    .click();
+  await expect(
+    page.getByText("Versión anterior recuperada.", { exact: true }),
+  ).toBeVisible();
+  expect(repo.read().workspace.clients[0].name).toBe(
+    "Cliente cambiado después de la copia",
+  );
+});
 test("company setup separates sample data and durable records survive sign-out", async ({
   page,
 }) => {

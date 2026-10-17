@@ -607,6 +607,11 @@ test("layout object editing, revision saving, undo and 3D rendering", async ({
     .click();
   await expect(page.getByLabel("Texto de marca")).toHaveValue("KIT EXPO");
   await page.reload();
+  await page
+    .getByText("Confirmo que tengo permiso para usar y procesar este plano.", {
+      exact: true,
+    })
+    .click();
   await page.getByLabel("Cargar plano de referencia").setInputFiles({
     name: "salon-reference.png",
     mimeType: "image/png",
@@ -697,6 +702,21 @@ test("layout object editing, revision saving, undo and 3D rendering", async ({
     .click();
   expect((await sceneDownload).suggestedFilename()).toMatch(
     /scene-layout1-v\d+-vista-1\.png/,
+  );
+  await page
+    .getByRole("button", { name: "Guardar cámara", exact: true })
+    .click();
+  await page.getByLabel("Duración de la ruta de cámara").selectOption("15");
+  await expect(
+    page.getByRole("button", { name: "Vista previa", exact: true }),
+  ).toBeEnabled();
+  await page
+    .getByRole("button", { name: "Guardar versión", exact: true })
+    .click();
+  const glbDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "GLB", exact: true }).click();
+  expect((await glbDownload).suggestedFilename()).toMatch(
+    /scene-layout1-v\d+\.glb/,
   );
   await page.reload();
   await page.getByRole("button", { name: "Vista 3D", exact: true }).click();

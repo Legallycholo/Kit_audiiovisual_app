@@ -556,8 +556,17 @@ export function applyChanges(
           snapshot.verified !== old.verified ||
           snapshot.verifiedAt !== old.verifiedAt ||
           snapshot.verificationNote !== old.verificationNote ||
-          !same(snapshot.cameras, old.cameras),
+          !same(snapshot.cameras, old.cameras) ||
+          !same(snapshot.cameraPath, old.cameraPath) ||
+          !same(snapshot.provenance, old.provenance),
         "A layout revision must preserve an exact snapshot of the prior geometry and measurement status.",
+      );
+      invalid(
+        Boolean(layout.cameraPath) &&
+          layout.cameraPath!.cameraIds.some(
+            (id) => !layout.cameras?.some((camera) => camera.id === id),
+          ),
+        "A camera path can only reference saved cameras in the layout.",
       );
     }
     if (collection === "layouts" && !before) {
@@ -565,6 +574,13 @@ export function applyChanges(
       invalid(
         layout.version !== 1 || layout.history.length !== 0,
         "New layouts must begin at version one without revision history.",
+      );
+      invalid(
+        Boolean(layout.cameraPath) &&
+          layout.cameraPath!.cameraIds.some(
+            (id) => !layout.cameras?.some((camera) => camera.id === id),
+          ),
+        "A camera path can only reference saved cameras in the layout.",
       );
     }
     const index = next[collection].findIndex((r) => r.id === row.id);

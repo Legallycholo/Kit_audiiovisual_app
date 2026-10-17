@@ -24,6 +24,9 @@ const object = z
   .object({
     id: identifier,
     kind: z.enum([
+      "Wall",
+      "Door",
+      "Window",
       "Stage",
       "Table",
       "Chair",
@@ -51,6 +54,9 @@ const object = z
       .regex(/^#[0-9a-fA-F]{6}$/)
       .optional(),
     surfaceLabel: z.string().trim().max(200).optional(),
+    source: z.enum(["Manual", "Extracted"]).optional(),
+    confidence: z.number().finite().min(0).max(1).optional(),
+    reviewStatus: z.enum(["Suggested", "Accepted", "Corrected"]).optional(),
   })
   .strict();
 const layoutReference = z
@@ -65,6 +71,11 @@ const layoutReference = z
     intrinsicHeight: z.number().int().positive().max(50_000),
     opacity: z.number().finite().min(0.05).max(1),
     calibratedAt: z.string().datetime().optional(),
+    rightsConfirmed: z.boolean().optional(),
+    uploadedAt: z.string().datetime().optional(),
+    knownMeasurement: dimension.optional(),
+    ceilingHeight: dimension.optional(),
+    units: z.literal("meters").optional(),
   })
   .strict();
 const sceneVector = z
@@ -81,6 +92,23 @@ const layoutCamera = z
     position: sceneVector,
     target: sceneVector,
     createdAt: z.string().datetime(),
+  })
+  .strict();
+const layoutCameraPath = z
+  .object({
+    cameraIds: z.array(identifier).min(2).max(50),
+    durationSeconds: z.union([z.literal(15), z.literal(30), z.literal(60)]),
+  })
+  .strict();
+const layoutProvenance = z
+  .object({
+    method: z.enum(["Manual", "Structured extraction"]),
+    provider: name.optional(),
+    model: name.optional(),
+    requestId: identifier.optional(),
+    extractedAt: z.string().datetime().optional(),
+    reviewedAt: z.string().datetime().optional(),
+    sourceName: name.optional(),
   })
   .strict();
 const creativeKind = z.enum([
@@ -580,6 +608,8 @@ export const schemas = {
       verificationNote: z.string().trim().max(1000).optional(),
       reference: layoutReference.optional(),
       cameras: z.array(layoutCamera).max(50).optional(),
+      cameraPath: layoutCameraPath.optional(),
+      provenance: layoutProvenance.optional(),
       history: z
         .array(
           z
@@ -593,6 +623,8 @@ export const schemas = {
               verifiedAt: z.string().datetime().optional(),
               verificationNote: z.string().trim().max(1000).optional(),
               cameras: z.array(layoutCamera).max(50).optional(),
+              cameraPath: layoutCameraPath.optional(),
+              provenance: layoutProvenance.optional(),
             })
             .strict(),
         )

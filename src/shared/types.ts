@@ -321,6 +321,9 @@ export interface AutomationRecord {
   failureReason?: string;
 }
 export type ObjectKind =
+  | "Wall"
+  | "Door"
+  | "Window"
   | "Stage"
   | "Table"
   | "Chair"
@@ -347,6 +350,9 @@ export interface LayoutObject {
   equipmentQuantity?: number;
   surfaceColor?: string;
   surfaceLabel?: string;
+  source?: "Manual" | "Extracted";
+  confidence?: number;
+  reviewStatus?: "Suggested" | "Accepted" | "Corrected";
 }
 export interface LayoutReference {
   name: string;
@@ -356,6 +362,11 @@ export interface LayoutReference {
   intrinsicHeight: number;
   opacity: number;
   calibratedAt?: string;
+  rightsConfirmed?: boolean;
+  uploadedAt?: string;
+  knownMeasurement?: number;
+  ceilingHeight?: number;
+  units?: "meters";
 }
 export interface LayoutCamera {
   id: string;
@@ -363,6 +374,19 @@ export interface LayoutCamera {
   position: { x: number; y: number; z: number };
   target: { x: number; y: number; z: number };
   createdAt: string;
+}
+export interface LayoutCameraPath {
+  cameraIds: string[];
+  durationSeconds: 15 | 30 | 60;
+}
+export interface LayoutProvenance {
+  method: "Manual" | "Structured extraction";
+  provider?: string;
+  model?: string;
+  requestId?: string;
+  extractedAt?: string;
+  reviewedAt?: string;
+  sourceName?: string;
 }
 export interface Layout {
   id: string;
@@ -377,6 +401,8 @@ export interface Layout {
   verificationNote?: string;
   reference?: LayoutReference;
   cameras?: LayoutCamera[];
+  cameraPath?: LayoutCameraPath;
+  provenance?: LayoutProvenance;
   history: {
     version: number;
     objects: LayoutObject[];
@@ -387,6 +413,8 @@ export interface Layout {
     verifiedAt?: string;
     verificationNote?: string;
     cameras?: LayoutCamera[];
+    cameraPath?: LayoutCameraPath;
+    provenance?: LayoutProvenance;
   }[];
 }
 export interface Activity {

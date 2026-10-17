@@ -14,6 +14,9 @@ const escapeXml = (value: string) =>
     .replaceAll("'", "&apos;");
 
 const colors: Record<LayoutObject["kind"], string> = {
+  Wall: "#7f8b84",
+  Door: "#a98266",
+  Window: "#6ea6bc",
   Stage: "#526b43",
   Table: "#9a805f",
   Chair: "#b49d79",

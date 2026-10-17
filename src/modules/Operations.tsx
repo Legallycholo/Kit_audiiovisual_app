@@ -10,6 +10,7 @@ import {
   Clock3,
   CircleDollarSign,
   Download,
+  FileUp,
   FileText,
   Image,
   Plus,
@@ -2202,8 +2203,13 @@ export function Creative() {
     "Event concept",
   );
   const [referenceIds, setReferenceIds] = useState<string[]>([]);
-  const [selectedAssetId, setSelectedAssetId] = useState(params.get("asset") || "");
-  useEffect(()=>{if(params.get("event"))setEventId(params.get("event")!);if(params.get("asset"))setSelectedAssetId(params.get("asset")!);},[params]);
+  const [selectedAssetId, setSelectedAssetId] = useState(
+    params.get("asset") || "",
+  );
+  useEffect(() => {
+    if (params.get("event")) setEventId(params.get("event")!);
+    if (params.get("asset")) setSelectedAssetId(params.get("asset")!);
+  }, [params]);
   const [revisionParentId, setRevisionParentId] = useState("");
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [generationError, setGenerationError] = useState("");
@@ -2796,7 +2802,8 @@ export function Creative() {
   );
 }
 export function SettingsPage() {
-  const { data, update, toast, reset, mode, user, request } = useWorkspace();
+  const { data, update, toast, reset, mode, user, request, refresh, sync } =
+    useWorkspace();
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   useEffect(() => {
     let active = true;
@@ -2815,6 +2822,52 @@ export function SettingsPage() {
   const [tab, setTab] = useState("Company profile");
   const [settings, setSettings] = useState({ ...data.settings });
   const [resetting, setResetting] = useState(false);
+  type BackupPreview = {
+    backup: {
+      exportedAt: string;
+      sourceRevision: number;
+      checksum: string;
+      company: string;
+      counts: Record<string, number>;
+    };
+    current: { company: string; revision: number };
+    confirmation: string;
+  };
+  type RecoveryPoint = {
+    id: string;
+    createdAt: string;
+    previousRevision: number;
+    restoredRevision: number;
+  };
+  const [selectedBackup, setSelectedBackup] = useState<unknown>(null);
+  const [backupPreview, setBackupPreview] = useState<BackupPreview | null>(
+    null,
+  );
+  const [restoreConfirmation, setRestoreConfirmation] = useState("");
+  const [recoveryPoints, setRecoveryPoints] = useState<RecoveryPoint[]>([]);
+  const [recoveryRevision, setRecoveryRevision] = useState(0);
+  const [rollbackPoint, setRollbackPoint] = useState<RecoveryPoint | null>(
+    null,
+  );
+  const [rollbackConfirmation, setRollbackConfirmation] = useState("");
+  const [dataAction, setDataAction] = useState(false);
+  const loadRecoveryPoints = async () => {
+    const result = await request<{
+      recoveryPoints: RecoveryPoint[];
+      currentRevision: number;
+    }>("/backup/recovery-points");
+    setRecoveryPoints(result.recoveryPoints);
+    setRecoveryRevision(result.currentRevision);
+  };
+  useEffect(() => {
+    if (
+      mode !== "company" ||
+      user?.role !== "Administrator" ||
+      tab !== "Workspace data"
+    )
+      return;
+    void loadRecoveryPoints().catch((error) => toast((error as Error).message));
+  }, [mode, user?.role, tab]);
   if (mode === "company" && user?.role !== "Administrator")
     return (
       <>
@@ -3141,27 +3194,124 @@ export function SettingsPage() {
             </Panel>
           )}
           {tab === "Workspace data" && mode === "company" && (
-            <Panel title="Datos de la empresa">
+            <Panel
+              title="Copia y recuperación de la empresa"
+              subtitle="Flujo exclusivo para administradores; no incluye contraseñas, sesiones ni el historial de auditoría."
+            >
               <div className="panel-body">
                 <p>
-                  Los registros se guardan en el servidor. Esta exportación
-                  contiene datos comerciales; guárdala en un lugar apropiado.
+                  Descarga una copia versionada de los registros compartidos. El
+                  archivo incluye una suma de verificación para detectar
+                  contenido incompleto o modificado.
                 </p>
                 <Button
+                  disabled={dataAction}
                   onClick={async () => {
                     try {
-                      const exported = await request("/export");
+                      setDataAction(true);
+                      const exported = await request("/backup");
                       downloadFile(
-                        "kit-company-export.json",
+                        `kit-company-backup-${new Date().toISOString().slice(0, 10)}.json`,
                         JSON.stringify(exported, null, 2),
                       );
                     } catch (e) {
                       toast((e as Error).message);
+                    } finally {
+                      setDataAction(false);
                     }
                   }}
                 >
-                  Exportar registros de empresa
+                  <Download size={16} />
+                  Descargar copia verificada
                 </Button>
+                <hr />
+                <h3>Restaurar desde una copia</h3>
+                <p>
+                  Primero se valida y resume el archivo. Antes de reemplazar
+                  registros, el servidor crea automáticamente un punto de
+                  recuperación de la versión actual.
+                </p>
+                {sync.pending && (
+                  <div className="info-note">
+                    Resuelve el guardado pendiente antes de iniciar una
+                    restauración.
+                  </div>
+                )}
+                <label
+                  className="button secondary"
+                  aria-disabled={dataAction || Boolean(sync.pending)}
+                >
+                  <FileUp size={16} />
+                  Seleccionar copia para revisar
+                  <input
+                    className="visually-hidden"
+                    type="file"
+                    accept="application/json,.json"
+                    disabled={dataAction || Boolean(sync.pending)}
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (!file) return;
+                      if (file.size > 5_500_000) {
+                        toast("La copia supera el límite permitido de 5.5 MB.");
+                        return;
+                      }
+                      try {
+                        setDataAction(true);
+                        const parsed = JSON.parse(await file.text()) as unknown;
+                        const preview = await request<BackupPreview>(
+                          "/backup/preview",
+                          { method: "POST", body: { backup: parsed } },
+                        );
+                        setSelectedBackup(parsed);
+                        setBackupPreview(preview);
+                        setRestoreConfirmation("");
+                      } catch (error) {
+                        setSelectedBackup(null);
+                        setBackupPreview(null);
+                        toast((error as Error).message);
+                      } finally {
+                        setDataAction(false);
+                      }
+                    }}
+                  />
+                </label>
+                <hr />
+                <h3>Puntos de recuperación recientes</h3>
+                <p>
+                  Se conservan las diez versiones previas creadas por
+                  restauraciones. Cada reversión genera primero otro punto de
+                  seguridad.
+                </p>
+                {recoveryPoints.length ? (
+                  <div className="recovery-list">
+                    {recoveryPoints.map((point) => (
+                      <div className="role-row" key={point.id}>
+                        <ShieldCheck size={20} />
+                        <div>
+                          <strong>
+                            Revisión {point.previousRevision} protegida
+                          </strong>
+                          <p>{new Date(point.createdAt).toLocaleString()}</p>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          disabled={dataAction || Boolean(sync.pending)}
+                          onClick={() => {
+                            setRollbackPoint(point);
+                            setRollbackConfirmation("");
+                          }}
+                        >
+                          Recuperar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="info-note">
+                    Todavía no se han creado puntos de recuperación.
+                  </div>
+                )}
               </div>
             </Panel>
           )}
@@ -3219,6 +3369,162 @@ export function SettingsPage() {
             >
               Replace with sample data
             </Button>
+          </div>
+        </Modal>
+      )}
+      {backupPreview && selectedBackup !== null && (
+        <Modal
+          title="Confirmar restauración de empresa"
+          description="La operación reemplaza todos los registros compartidos, pero conserva cuentas, sesiones y auditoría."
+          onClose={() => {
+            setBackupPreview(null);
+            setSelectedBackup(null);
+          }}
+        >
+          <div className="modal-body">
+            <div className="detail-facts">
+              <div>
+                <span>Empresa en la copia</span>
+                <strong>{backupPreview.backup.company}</strong>
+              </div>
+              <div>
+                <span>Exportada</span>
+                <strong>
+                  {new Date(backupPreview.backup.exportedAt).toLocaleString()}
+                </strong>
+              </div>
+              <div>
+                <span>Revisión de origen</span>
+                <strong>{backupPreview.backup.sourceRevision}</strong>
+              </div>
+            </div>
+            <p>
+              Contenido: {backupPreview.backup.counts.projects} proyectos,{" "}
+              {backupPreview.backup.counts.clients} clientes,{" "}
+              {backupPreview.backup.counts.proposals} propuestas y{" "}
+              {backupPreview.backup.counts.layouts} diseños.
+            </p>
+            {backupPreview.current.company !== backupPreview.backup.company && (
+              <div className="error-note" role="alert">
+                La copia pertenece a “{backupPreview.backup.company}”, pero el
+                espacio actual se llama “{backupPreview.current.company}”.
+              </div>
+            )}
+            <Field
+              label={`Escribe ${backupPreview.confirmation} para confirmar`}
+            >
+              <input
+                autoComplete="off"
+                value={restoreConfirmation}
+                onChange={(event) => setRestoreConfirmation(event.target.value)}
+              />
+            </Field>
+            <div className="modal-actions">
+              <Button
+                variant="secondary"
+                disabled={dataAction}
+                onClick={() => {
+                  setBackupPreview(null);
+                  setSelectedBackup(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                disabled={
+                  dataAction ||
+                  restoreConfirmation !== backupPreview.confirmation
+                }
+                onClick={async () => {
+                  try {
+                    setDataAction(true);
+                    await request("/backup/restore", {
+                      method: "POST",
+                      body: {
+                        backup: selectedBackup,
+                        expectedRevision: backupPreview.current.revision,
+                        confirmation: restoreConfirmation,
+                      },
+                    });
+                    setBackupPreview(null);
+                    setSelectedBackup(null);
+                    await refresh();
+                    await loadRecoveryPoints();
+                    toast(
+                      "Copia restaurada. La versión anterior quedó protegida como punto de recuperación.",
+                    );
+                  } catch (error) {
+                    toast((error as Error).message);
+                  } finally {
+                    setDataAction(false);
+                  }
+                }}
+              >
+                Restaurar registros
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {rollbackPoint && (
+        <Modal
+          title="Recuperar versión anterior"
+          description={`Se reemplazarán los registros actuales con la revisión ${rollbackPoint.previousRevision}.`}
+          onClose={() => setRollbackPoint(null)}
+        >
+          <div className="modal-body">
+            <p>
+              El estado actual también se guardará como un nuevo punto de
+              seguridad antes de continuar.
+            </p>
+            <Field label="Escribe ROLL BACK para confirmar">
+              <input
+                autoComplete="off"
+                value={rollbackConfirmation}
+                onChange={(event) =>
+                  setRollbackConfirmation(event.target.value)
+                }
+              />
+            </Field>
+            <div className="modal-actions">
+              <Button
+                variant="secondary"
+                disabled={dataAction}
+                onClick={() => setRollbackPoint(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                disabled={dataAction || rollbackConfirmation !== "ROLL BACK"}
+                onClick={async () => {
+                  try {
+                    setDataAction(true);
+                    await request(
+                      `/backup/recovery-points/${rollbackPoint.id}/restore`,
+                      {
+                        method: "POST",
+                        body: {
+                          expectedRevision: recoveryRevision,
+                          confirmation: rollbackConfirmation,
+                        },
+                      },
+                    );
+                    setRollbackPoint(null);
+                    await refresh();
+                    await loadRecoveryPoints();
+                    toast("Versión anterior recuperada.");
+                  } catch (error) {
+                    toast((error as Error).message);
+                  } finally {
+                    setDataAction(false);
+                  }
+                }}
+              >
+                Recuperar revisión
+              </Button>
+            </div>
           </div>
         </Modal>
       )}

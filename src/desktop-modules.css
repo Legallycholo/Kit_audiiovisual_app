@@ -24,6 +24,20 @@
 :root[data-theme="dark"] .eyebrow {
   color: var(--ink);
 }
+:root[data-theme="dark"] .rights-confirmation {
+  color: #b8c5b9;
+}
+:root[data-theme="dark"] .extraction-status,
+:root[data-theme="dark"] .geometry-review-card,
+:root[data-theme="dark"] .camera-path-editor {
+  background: var(--elevated);
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .extraction-status small,
+:root[data-theme="dark"] .geometry-review-card small,
+:root[data-theme="dark"] .camera-path-editor small {
+  color: var(--ink);
+}
 :root[data-theme="dark"] .button.secondary {
   border-color: var(--line);
   color: var(--ink);
@@ -153,6 +167,16 @@
 }
 :root[data-theme="dark"] .sample-banner > span:first-child {
   color: var(--ink);
+}
+:root[data-theme="dark"] .sync-review {
+  background: var(--elevated);
+  color: var(--ink);
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .sync-review.conflict {
+  background: #30271a;
+  color: #f3d9a8;
+  border-color: #604d2c;
 }
 :root[data-theme="dark"] .page-header p {
   color: var(--ink);

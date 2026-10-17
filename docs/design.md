@@ -141,13 +141,13 @@ The current repository already provides a React and TypeScript interface, an Exp
 
 Use five primary destinations. Settings, Help, notifications, Search, and History remain utilities rather than primary sections.
 
-| Destination | Purpose | Existing capabilities grouped here |
-| --- | --- | --- |
-| Home | Priorities, recent work, reports, alerts | Dashboard, report summaries, recent activity |
-| Projects | Work organized around each event or job | Events, proposals, inbox, production, project inventory |
-| Design | Floor plans, 3D rooms, creative concepts | Design Studio, AI Creative Studio |
-| Library | Reusable people, places, equipment, and files | Clients, venues, contacts, equipment, indexed files |
-| KIT | Full AI conversation workspace | New dedicated chat, AI proposal help, agent outputs |
+| Destination | Purpose                                       | Existing capabilities grouped here                      |
+| ----------- | --------------------------------------------- | ------------------------------------------------------- |
+| Home        | Priorities, recent work, reports, alerts      | Dashboard, report summaries, recent activity            |
+| Projects    | Work organized around each event or job       | Events, proposals, inbox, production, project inventory |
+| Design      | Floor plans, 3D rooms, creative concepts      | Design Studio, AI Creative Studio                       |
+| Library     | Reusable people, places, equipment, and files | Clients, venues, contacts, equipment, indexed files     |
+| KIT         | Full AI conversation workspace                | New dedicated chat, AI proposal help, agent outputs     |
 
 Settings appears at the bottom of the left rail. Global Search, History, notifications, and the KIT sidebar appear in the top bar.
 
@@ -396,25 +396,25 @@ Long-running jobs continue in the background. Closing the tab does not cancel a 
 
 #### Error and recovery states
 
-| Problem | User experience and recovery |
-| --- | --- |
-| Unsupported or damaged file | Preserve project draft and ask for a supported replacement |
-| Low resolution or unreadable labels | Show problem areas and allow upload, crop, rotate, or manual tracing |
-| No reliable scale | Require one manual measurement before measured 3D generation |
-| Low-confidence wall or opening | Highlight in amber and require review |
-| Invalid geometry | Explain overlaps or gaps and offer automatic repair plus manual editing |
-| Provider unavailable | Keep the upload and settings, then allow retry or manual tracing |
-| Budget or quota exceeded | Show estimated cost and allow admin approval or local manual mode |
-| Render failure | Preserve the scene and camera path, then retry at a lower quality |
-| Export location unavailable | Ask for a new save location without rerendering |
+| Problem                             | User experience and recovery                                            |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| Unsupported or damaged file         | Preserve project draft and ask for a supported replacement              |
+| Low resolution or unreadable labels | Show problem areas and allow upload, crop, rotate, or manual tracing    |
+| No reliable scale                   | Require one manual measurement before measured 3D generation            |
+| Low-confidence wall or opening      | Highlight in amber and require review                                   |
+| Invalid geometry                    | Explain overlaps or gaps and offer automatic repair plus manual editing |
+| Provider unavailable                | Keep the upload and settings, then allow retry or manual tracing        |
+| Budget or quota exceeded            | Show estimated cost and allow admin approval or local manual mode       |
+| Render failure                      | Preserve the scene and camera path, then retry at a lower quality       |
+| Export location unavailable         | Ask for a new save location without rerendering                         |
 
 #### Technical options
 
-| Option | Approach | Benefits | Drawbacks | Relative cost and complexity |
-| --- | --- | --- | --- | --- |
-| Local deterministic extraction | Local computer vision, OCR, line detection, and manual correction produce geometry | Strong privacy, predictable geometry, offline capability, no per-job AI fee | Weak with messy plans, highest internal algorithm effort, more manual correction | High engineering cost, low operating cost |
-| Cloud image-to-3D generation | Send the image to a specialized service and receive a mesh or video | Fastest visual result, useful for room photos and concepts | Measurements can be unreliable, vendor lock-in, limited editability, variable fees | Low to medium engineering cost, medium to high operating cost |
-| Hybrid structured extraction | Cloud vision returns walls, openings, labels, and confidence; local validation creates authoritative geometry and renders it | Best balance of speed, editability, measurement review, and existing Three.js reuse | Requires provider integration plus local geometry validation | Medium to high engineering cost, controlled medium operating cost |
+| Option                         | Approach                                                                                                                     | Benefits                                                                            | Drawbacks                                                                          | Relative cost and complexity                                      |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Local deterministic extraction | Local computer vision, OCR, line detection, and manual correction produce geometry                                           | Strong privacy, predictable geometry, offline capability, no per-job AI fee         | Weak with messy plans, highest internal algorithm effort, more manual correction   | High engineering cost, low operating cost                         |
+| Cloud image-to-3D generation   | Send the image to a specialized service and receive a mesh or video                                                          | Fastest visual result, useful for room photos and concepts                          | Measurements can be unreliable, vendor lock-in, limited editability, variable fees | Low to medium engineering cost, medium to high operating cost     |
+| Hybrid structured extraction   | Cloud vision returns walls, openings, labels, and confidence; local validation creates authoritative geometry and renders it | Best balance of speed, editability, measurement review, and existing Three.js reuse | Requires provider integration plus local geometry validation                       | Medium to high engineering cost, controlled medium operating cost |
 
 **Recommendation:** Use the hybrid structured extraction option. Cloud AI should return structured candidate geometry, never the final authoritative scene. The user-reviewed local geometry becomes the single source for 2D, 3D, GLB, and video outputs.
 
@@ -472,37 +472,37 @@ Red, blue, and green should communicate meaning rather than compete on every scr
 
 #### Light mode
 
-| Role | Token | Hex | Usage |
-| --- | --- | --- | --- |
-| Primary | Blue 600 | `#2563EB` | Primary buttons, selected tabs, links, focus |
-| Primary hover | Blue 700 | `#1D4ED8` | Hover and pressed states |
-| Brand accent | Red 500 | `#E5484D` | Brand detail, active node, selected creative cue |
-| Success | Green 600 | `#168B5B` | Complete, connected, approved |
-| Error | Red 700 | `#B42318` | Destructive and failed states |
-| Warning | Amber 600 | `#D97706` | Review and low-confidence states |
-| Background | Neutral 25 | `#F7F8FA` | App background |
-| Surface | White | `#FFFFFF` | Panels, cards, menus |
-| Surface elevated | Neutral 50 | `#F1F4F8` | Hovered or nested surfaces |
-| Border | Neutral 200 | `#DDE2EA` | Dividers and controls |
-| Text | Navy 950 | `#172033` | Primary text |
-| Muted text | Slate 600 | `#667085` | Secondary text |
+| Role             | Token       | Hex       | Usage                                            |
+| ---------------- | ----------- | --------- | ------------------------------------------------ |
+| Primary          | Blue 600    | `#2563EB` | Primary buttons, selected tabs, links, focus     |
+| Primary hover    | Blue 700    | `#1D4ED8` | Hover and pressed states                         |
+| Brand accent     | Red 500     | `#E5484D` | Brand detail, active node, selected creative cue |
+| Success          | Green 600   | `#168B5B` | Complete, connected, approved                    |
+| Error            | Red 700     | `#B42318` | Destructive and failed states                    |
+| Warning          | Amber 600   | `#D97706` | Review and low-confidence states                 |
+| Background       | Neutral 25  | `#F7F8FA` | App background                                   |
+| Surface          | White       | `#FFFFFF` | Panels, cards, menus                             |
+| Surface elevated | Neutral 50  | `#F1F4F8` | Hovered or nested surfaces                       |
+| Border           | Neutral 200 | `#DDE2EA` | Dividers and controls                            |
+| Text             | Navy 950    | `#172033` | Primary text                                     |
+| Muted text       | Slate 600   | `#667085` | Secondary text                                   |
 
 #### Dark mode
 
-| Role | Token | Hex | Usage |
-| --- | --- | --- | --- |
-| Primary | Blue 400 | `#6EA8FE` | Primary actions, links, focus |
-| Primary hover | Blue 300 | `#8DB9FF` | Hover and pressed states |
-| Brand accent | Red 400 | `#FF6B72` | Brand detail and creative cue |
-| Success | Green 400 | `#3DDC97` | Complete, connected, approved |
-| Error | Red 400 | `#FF5C5C` | Destructive and failed states |
-| Warning | Amber 400 | `#F5B942` | Review and low-confidence states |
-| Background | Navy 1000 | `#0E1117` | App background |
-| Surface | Navy 900 | `#151A23` | Panels, cards, menus |
-| Surface elevated | Navy 800 | `#1D2430` | Hovered or nested surfaces |
-| Border | Slate 750 | `#2A3442` | Dividers and controls |
-| Text | Neutral 50 | `#F3F6FA` | Primary text |
-| Muted text | Slate 350 | `#A6B0C3` | Secondary text |
+| Role             | Token      | Hex       | Usage                            |
+| ---------------- | ---------- | --------- | -------------------------------- |
+| Primary          | Blue 400   | `#6EA8FE` | Primary actions, links, focus    |
+| Primary hover    | Blue 300   | `#8DB9FF` | Hover and pressed states         |
+| Brand accent     | Red 400    | `#FF6B72` | Brand detail and creative cue    |
+| Success          | Green 400  | `#3DDC97` | Complete, connected, approved    |
+| Error            | Red 400    | `#FF5C5C` | Destructive and failed states    |
+| Warning          | Amber 400  | `#F5B942` | Review and low-confidence states |
+| Background       | Navy 1000  | `#0E1117` | App background                   |
+| Surface          | Navy 900   | `#151A23` | Panels, cards, menus             |
+| Surface elevated | Navy 800   | `#1D2430` | Hovered or nested surfaces       |
+| Border           | Slate 750  | `#2A3442` | Dividers and controls            |
+| Text             | Neutral 50 | `#F3F6FA` | Primary text                     |
+| Muted text       | Slate 350  | `#A6B0C3` | Secondary text                   |
 
 Do not rely on color alone. Every status also needs text, an icon, or a shape change.
 
@@ -550,15 +550,15 @@ Do not rely on color alone. Every status also needs text, an icon, or a shape ch
 
 ### 9.1 Desktop and interface
 
-| Layer | Recommendation | Reasoning |
-| --- | --- | --- |
-| Desktop shell | Tauri 2 | Small native package, Windows and macOS support, scoped native capabilities, and good fit for the existing Vite UI |
-| UI | Existing React, TypeScript, Vite, and React Router | Preserves current work and minimizes interface migration |
-| Native core | Rust commands and background workers | Safe boundary for file discovery, hashing, watching, encryption, and long-running jobs |
-| 3D | Existing Three.js scene model | Keeps one geometry source for 2D and 3D and supports GLB export through official tooling |
-| Local database | SQLite with FTS5 and application-level encryption | Supports local-first records, keyword search, tabs, history, jobs, and an offline queue |
-| Company service | Evolve the existing Express API behind a versioned sync interface | Preserves existing authorization and business workflows while allowing optional synchronization |
-| Testing | Existing Vitest, Playwright, and axe plus native integration tests | Extends current verification rather than introducing a parallel test system |
+| Layer           | Recommendation                                                     | Reasoning                                                                                                          |
+| --------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Desktop shell   | Tauri 2                                                            | Small native package, Windows and macOS support, scoped native capabilities, and good fit for the existing Vite UI |
+| UI              | Existing React, TypeScript, Vite, and React Router                 | Preserves current work and minimizes interface migration                                                           |
+| Native core     | Rust commands and background workers                               | Safe boundary for file discovery, hashing, watching, encryption, and long-running jobs                             |
+| 3D              | Existing Three.js scene model                                      | Keeps one geometry source for 2D and 3D and supports GLB export through official tooling                           |
+| Local database  | SQLite with FTS5 and application-level encryption                  | Supports local-first records, keyword search, tabs, history, jobs, and an offline queue                            |
+| Company service | Evolve the existing Express API behind a versioned sync interface  | Preserves existing authorization and business workflows while allowing optional synchronization                    |
+| Testing         | Existing Vitest, Playwright, and axe plus native integration tests | Extends current verification rather than introducing a parallel test system                                        |
 
 Tauri's use of the operating-system webview means Windows and macOS rendering can differ. The design system must be tested on both platforms throughout development, not only before release.
 
@@ -676,6 +676,11 @@ Exit criteria:
 
 ### Milestone 6: Floor plan to measured 3D
 
+Development status: provider-neutral foundation implemented October 17, 2026.
+Production extraction, PDF rasterization, and MP4 rendering remain intentionally
+gated until the AI/OCR/rendering tools are selected. See
+[DESKTOP_PHASE_6.md](DESKTOP_PHASE_6.md).
+
 Deliverables:
 
 - Add upload validation, scale calibration, structured geometry extraction, confidence overlay, and correction tools.
@@ -688,6 +693,8 @@ Exit criteria:
 - Representative clean and imperfect floor plans can produce reviewed editable rooms, reproducible exports, and clearly labeled measurement status.
 
 ### Milestone 7: Sync, hardening, and release
+
+Development status: sync and conflict-recovery foundation started October 17, 2026. See [DESKTOP_PHASE_7.md](DESKTOP_PHASE_7.md).
 
 Deliverables:
 
@@ -702,19 +709,19 @@ Exit criteria:
 
 ## 11. Risks and mitigations
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| Broad home access exposes sensitive or irrelevant files | High privacy and trust risk | Explicit consent, strong default exclusions, read-only access, secret redaction, visible scope, immediate revocation, audit report |
-| Cloud indexing creates retention or residency concerns | Legal and customer risk | Provider contract review, tenant isolation, configurable region, deletion reconciliation, retention controls, admin policy |
-| File parsers process malicious documents | Device compromise or denial of service | Sandboxed workers, time and memory limits, no macros or active content, updated dependencies, security testing |
-| Search claims completeness before indexing finishes | Users miss important files | Coverage indicators, last-indexed time, failure counts, and clear local versus cloud states |
-| Automatic tabs create clutter | Navigation becomes harder | Canonical deduplication, one preview tab, pinning, overflow search, and session controls |
-| Sidebar context leaks unrelated data | Incorrect or unsafe KIT answers | Visible removable context, scope preview, role checks, exact citations, and no invisible workspace-wide attachment |
-| AI produces incorrect geometry | Bad planning and misleading visuals | Scale requirement, confidence overlay, human review gate, measured versus conceptual label, provenance |
-| Video rendering is slow or costly | Poor experience and uncontrolled spend | Preview quality, cost and time estimate, background queue, cancellation, quotas, and lower-quality retry |
-| Tauri webview differences cause UI defects | Platform inconsistency | Windows and macOS CI, visual regression tests, early device testing, Electron fallback spike |
-| Local-first and shared server data conflict | Lost or overwritten business work | Versioned records, offline queue, immutable audit evidence, and explicit conflict review |
-| Current modules regress during navigation redesign | Business workflow disruption | Capability mapping, route compatibility, regression tests, and phased release flags |
+| Risk                                                    | Impact                                 | Mitigation                                                                                                                         |
+| ------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Broad home access exposes sensitive or irrelevant files | High privacy and trust risk            | Explicit consent, strong default exclusions, read-only access, secret redaction, visible scope, immediate revocation, audit report |
+| Cloud indexing creates retention or residency concerns  | Legal and customer risk                | Provider contract review, tenant isolation, configurable region, deletion reconciliation, retention controls, admin policy         |
+| File parsers process malicious documents                | Device compromise or denial of service | Sandboxed workers, time and memory limits, no macros or active content, updated dependencies, security testing                     |
+| Search claims completeness before indexing finishes     | Users miss important files             | Coverage indicators, last-indexed time, failure counts, and clear local versus cloud states                                        |
+| Automatic tabs create clutter                           | Navigation becomes harder              | Canonical deduplication, one preview tab, pinning, overflow search, and session controls                                           |
+| Sidebar context leaks unrelated data                    | Incorrect or unsafe KIT answers        | Visible removable context, scope preview, role checks, exact citations, and no invisible workspace-wide attachment                 |
+| AI produces incorrect geometry                          | Bad planning and misleading visuals    | Scale requirement, confidence overlay, human review gate, measured versus conceptual label, provenance                             |
+| Video rendering is slow or costly                       | Poor experience and uncontrolled spend | Preview quality, cost and time estimate, background queue, cancellation, quotas, and lower-quality retry                           |
+| Tauri webview differences cause UI defects              | Platform inconsistency                 | Windows and macOS CI, visual regression tests, early device testing, Electron fallback spike                                       |
+| Local-first and shared server data conflict             | Lost or overwritten business work      | Versioned records, offline queue, immutable audit evidence, and explicit conflict review                                           |
+| Current modules regress during navigation redesign      | Business workflow disruption           | Capability mapping, route compatibility, regression tests, and phased release flags                                                |
 
 ## 12. Suggested improvements summary
 

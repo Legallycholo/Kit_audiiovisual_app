@@ -33,6 +33,9 @@ import {
   Layers3,
   ChartNoAxesCombined,
   CheckCheck,
+  CloudOff,
+  RefreshCw,
+  TriangleAlert,
 } from "lucide-react";
 import { useWorkspace } from "../shared/store";
 import { Avatar, Badge, Button, Modal } from "../shared/ui";
@@ -99,6 +102,9 @@ export function App() {
     openCompany,
     signOut,
     refresh,
+    sync,
+    retrySync,
+    resolveSync,
   } = useWorkspace();
   const location = useLocation();
   const navigate = useNavigate();
@@ -378,9 +384,15 @@ export function App() {
           <span>
             {mode === "sample"
               ? "Datos ilustrativos · guardados en este dispositivo"
-              : saving
-                ? "Guardando…"
-                : "Espacio de empresa · datos en el servidor"}
+              : sync.state === "queued"
+                ? "Sin conexión · 1 guardado cifrado pendiente"
+                : sync.state === "conflict"
+                  ? "Conflicto de sincronización · requiere revisión"
+                  : sync.state === "syncing"
+                    ? "Sincronizando cambios pendientes…"
+                    : saving
+                      ? "Guardando…"
+                      : "Espacio de empresa · datos en el servidor"}
           </span>
           {mode === "sample" ? (
             <button
@@ -406,15 +418,80 @@ export function App() {
             </button>
           ) : (
             <span className="workspace-actions">
-              <button disabled={saving} onClick={refresh}>
-                Actualizar
+              <button
+                disabled={saving}
+                onClick={() =>
+                  sync.pending ? void retrySync() : void refresh()
+                }
+              >
+                {sync.pending ? "Reintentar sincronización" : "Actualizar"}
               </button>
-              <button disabled={saving} onClick={signOut}>
+              <button
+                disabled={saving || Boolean(sync.pending)}
+                onClick={signOut}
+              >
                 Cerrar sesión
               </button>
             </span>
           )}
         </div>
+        {mode === "company" && sync.pending && (
+          <section
+            className={`sync-review ${sync.state === "conflict" ? "conflict" : "queued"}`}
+            aria-label="Estado de sincronización"
+            aria-live="polite"
+          >
+            {sync.state === "conflict" ? (
+              <TriangleAlert size={18} />
+            ) : sync.state === "syncing" ? (
+              <RefreshCw size={18} />
+            ) : (
+              <CloudOff size={18} />
+            )}
+            <div>
+              <strong>
+                {sync.state === "conflict"
+                  ? "Revisa el guardado pendiente"
+                  : "Cambio protegido en este dispositivo"}
+              </strong>
+              <p>
+                {sync.state === "conflict"
+                  ? "Otra sesión cambió el espacio. Elige conservar el servidor o aplicar conscientemente tus valores locales sobre la revisión más reciente."
+                  : "El contenido está cifrado con esta sesión y no se enviará hasta que reintentes la conexión."}
+              </p>
+              <small>
+                Registros:{" "}
+                {sync.targets
+                  .map((target) => `${target.collection}/${target.id}`)
+                  .join(", ")}
+              </small>
+            </div>
+            <div className="sync-review-actions">
+              {sync.state === "conflict" && (
+                <>
+                  <Button
+                    variant="secondary"
+                    disabled={saving}
+                    onClick={() => void resolveSync("server")}
+                  >
+                    Usar versión del servidor
+                  </Button>
+                  <Button
+                    disabled={saving}
+                    onClick={() => void resolveSync("local")}
+                  >
+                    Aplicar mis cambios revisados
+                  </Button>
+                </>
+              )}
+              {sync.state !== "conflict" && (
+                <Button disabled={saving} onClick={() => void retrySync()}>
+                  Reintentar ahora
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
         {storageError && (
           <div className="error-note" role="alert">
             {storageError}

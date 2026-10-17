@@ -1,7 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, chmodSync } from "node:fs";
 import { dirname } from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Workspace } from "../src/shared/types";
 import type { WorkspaceUser } from "../src/shared/access";
 
@@ -80,8 +80,10 @@ export class Repository {
       CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, csrf_token TEXT NOT NULL, expires_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS audit (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, action TEXT NOT NULL, detail TEXT NOT NULL, event_id TEXT, created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS workspace_recovery (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, previous_revision INTEGER NOT NULL, restored_revision INTEGER NOT NULL, payload TEXT NOT NULL, payload_checksum TEXT NOT NULL, source_checksum TEXT NOT NULL, created_at TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
       CREATE INDEX IF NOT EXISTS audit_time ON audit(created_at);
+      CREATE INDEX IF NOT EXISTS workspace_recovery_time ON workspace_recovery(created_at);
       PRAGMA user_version=1;`);
   }
   close() {
@@ -161,6 +163,97 @@ export class Repository {
         409,
         "The workspace changed in another session. Reload the latest records before saving.",
       );
+  }
+  replaceWorkspace(
+    workspace: Workspace,
+    expected: number,
+    actor: string,
+    sourceChecksum: string,
+  ) {
+    const current = this.db
+      .prepare("SELECT revision,payload FROM workspace WHERE id=1")
+      .get() as { revision: number; payload: string } | undefined;
+    if (!current || current.revision !== expected)
+      throw new HttpError(
+        409,
+        "The workspace changed after the recovery preview. Preview the backup again before restoring.",
+      );
+    const id = randomUUID();
+    const createdAt = new Date().toISOString();
+    const restoredRevision = current.revision + 1;
+    const payloadChecksum = createHash("sha256")
+      .update(current.payload)
+      .digest("hex");
+    this.db
+      .prepare(
+        "INSERT INTO workspace_recovery (id,actor_id,previous_revision,restored_revision,payload,payload_checksum,source_checksum,created_at) VALUES (?,?,?,?,?,?,?,?)",
+      )
+      .run(
+        id,
+        actor,
+        current.revision,
+        restoredRevision,
+        current.payload,
+        payloadChecksum,
+        sourceChecksum,
+        createdAt,
+      );
+    const result = this.db
+      .prepare(
+        "UPDATE workspace SET payload=?, revision=? WHERE id=1 AND revision=?",
+      )
+      .run(
+        JSON.stringify({ ...workspace, activity: [] }),
+        restoredRevision,
+        expected,
+      );
+    if (result.changes !== 1)
+      throw new HttpError(
+        409,
+        "The workspace changed while recovery was running. No records were replaced.",
+      );
+    this.db.exec(`DELETE FROM workspace_recovery
+      WHERE id NOT IN (
+        SELECT id FROM workspace_recovery ORDER BY rowid DESC LIMIT 10
+      )`);
+    return {
+      id,
+      createdAt,
+      previousRevision: current.revision,
+      restoredRevision,
+    };
+  }
+  recoveryPoints() {
+    return this.db
+      .prepare(
+        "SELECT id,created_at AS createdAt,previous_revision AS previousRevision,restored_revision AS restoredRevision,source_checksum AS sourceChecksum FROM workspace_recovery ORDER BY rowid DESC LIMIT 10",
+      )
+      .all() as unknown as {
+      id: string;
+      createdAt: string;
+      previousRevision: number;
+      restoredRevision: number;
+      sourceChecksum: string;
+    }[];
+  }
+  recoveryWorkspace(id: string) {
+    const row = this.db
+      .prepare(
+        "SELECT payload,payload_checksum AS payloadChecksum FROM workspace_recovery WHERE id=?",
+      )
+      .get(id) as { payload: string; payloadChecksum: string } | undefined;
+    if (!row) throw new HttpError(404, "Recovery point not found.");
+    const expected = Buffer.from(row.payloadChecksum, "hex");
+    const actual = Buffer.from(
+      createHash("sha256").update(row.payload).digest("hex"),
+      "hex",
+    );
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual))
+      throw new HttpError(
+        409,
+        "The recovery point failed its integrity check and cannot be used.",
+      );
+    return JSON.parse(row.payload) as Workspace;
   }
   audit(actor: string, action: string, detail: string, eventId?: string) {
     this.db

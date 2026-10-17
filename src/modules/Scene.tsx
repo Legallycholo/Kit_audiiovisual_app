@@ -16,6 +16,12 @@ export interface SceneHandle {
   applyCamera: (camera: Pick<LayoutCamera, "position" | "target">) => void;
   resetCamera: () => void;
   captureSnapshot: (caption: string) => string | null;
+  exportGlb: () => Promise<ArrayBuffer | null>;
+  previewCameraPath: (
+    cameras: Pick<LayoutCamera, "position" | "target">[],
+    durationSeconds: number,
+  ) => boolean;
+  stopCameraPath: () => void;
 }
 
 type Runtime = {
@@ -45,6 +51,7 @@ const Scene = forwardRef<
   const runtime = useRef<Runtime | null>(null);
   const meshes = useRef(new Map<string, THREE.Mesh>());
   const onSelectRef = useRef(onSelect);
+  const pathFrame = useRef<number | null>(null);
   const [error, setError] = useState("");
   const visibleObjects = layout.objects.filter(
     (object) => !hidden.includes(object.layer),
@@ -124,6 +131,58 @@ const Scene = forwardRef<
         source.height + 53,
       );
       return output.toDataURL("image/png");
+    },
+    exportGlb: async () => {
+      const current = runtime.current;
+      if (!current) return null;
+      const { GLTFExporter } =
+        await import("three/addons/exporters/GLTFExporter.js");
+      const exporter = new GLTFExporter();
+      const result = await exporter.parseAsync(current.scene, {
+        binary: true,
+        onlyVisible: true,
+      });
+      return result instanceof ArrayBuffer ? result : null;
+    },
+    previewCameraPath: (cameras, durationSeconds) => {
+      const current = runtime.current;
+      if (!current || cameras.length < 2) return false;
+      if (pathFrame.current !== null) cancelAnimationFrame(pathFrame.current);
+      current.controls.enabled = false;
+      const startedAt = performance.now();
+      const duration = Math.max(1, durationSeconds) * 1_000;
+      const renderPath = (now: number) => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const scaled = progress * (cameras.length - 1);
+        const fromIndex = Math.min(Math.floor(scaled), cameras.length - 2);
+        const amount = scaled - fromIndex;
+        const from = cameras[fromIndex];
+        const to = cameras[fromIndex + 1];
+        current.camera.position.set(
+          THREE.MathUtils.lerp(from.position.x, to.position.x, amount),
+          THREE.MathUtils.lerp(from.position.y, to.position.y, amount),
+          THREE.MathUtils.lerp(from.position.z, to.position.z, amount),
+        );
+        current.controls.target.set(
+          THREE.MathUtils.lerp(from.target.x, to.target.x, amount),
+          THREE.MathUtils.lerp(from.target.y, to.target.y, amount),
+          THREE.MathUtils.lerp(from.target.z, to.target.z, amount),
+        );
+        current.camera.lookAt(current.controls.target);
+        if (progress < 1) pathFrame.current = requestAnimationFrame(renderPath);
+        else {
+          pathFrame.current = null;
+          current.controls.enabled = true;
+          current.controls.update();
+        }
+      };
+      pathFrame.current = requestAnimationFrame(renderPath);
+      return true;
+    },
+    stopCameraPath: () => {
+      if (pathFrame.current !== null) cancelAnimationFrame(pathFrame.current);
+      pathFrame.current = null;
+      if (runtime.current) runtime.current.controls.enabled = true;
     },
   }));
 
@@ -217,6 +276,9 @@ const Scene = forwardRef<
     grid.position.set(layout.width / 2, 0, layout.depth / 2);
     scene.add(grid);
     const colors: Record<string, string> = {
+      Wall: "#7f8b84",
+      Door: "#a98266",
+      Window: "#6ea6bc",
       Stage: "#596b60",
       Table: "#b9c9ab",
       Chair: "#afc3cf",
@@ -350,6 +412,8 @@ const Scene = forwardRef<
     };
     render();
     return () => {
+      if (pathFrame.current !== null) cancelAnimationFrame(pathFrame.current);
+      pathFrame.current = null;
       cancelAnimationFrame(frame);
       observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown", pointerDown);

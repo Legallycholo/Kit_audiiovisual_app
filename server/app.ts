@@ -29,10 +29,18 @@ import {
   userSchema,
   date,
 } from "./schema";
-import { applyChanges, scopeWorkspace } from "./permissions";
+import { applyChanges, scopeWorkspace, validateWorkspace } from "./permissions";
 import { acceptConversation, availableStock } from "../src/shared/domain";
+import type { Workspace } from "../src/shared/types";
 import type { WorkspaceResponse } from "../src/shared/access";
 import { ingestInboundMessage, type MessageTransport } from "./messaging";
+import { DesignService, type FloorPlanExtractor } from "./design";
+import {
+  backupSummary,
+  createWorkspaceBackup,
+  readWorkspaceBackup,
+  type WorkspaceBackup,
+} from "./backup";
 
 export function createApp(
   repo: Repository,
@@ -44,6 +52,7 @@ export function createApp(
     messageTransport?: MessageTransport;
     search?: SearchConfig;
     kitGenerator?: KitGenerator;
+    floorPlanExtractor?: FloorPlanExtractor;
   },
 ) {
   const app = express();
@@ -53,6 +62,10 @@ export function createApp(
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
       "Referrer-Policy": "same-origin",
+      "Content-Security-Policy":
+        "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'",
+      "Permissions-Policy":
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
       "Cache-Control": "no-store",
     });
     next();
@@ -72,10 +85,52 @@ export function createApp(
   );
   app.locals.kit = kit;
   kit.mount(app);
+  const design = new DesignService(repo, config.floorPlanExtractor);
+  app.locals.design = design;
+  design.mount(app);
   const response = (res: express.Response): WorkspaceResponse => {
     const user = userOf(res);
     const { workspace, revision } = repo.read();
     return { workspace: scopeWorkspace(workspace, user), revision, user };
+  };
+  const restorableWorkspace = (backup: WorkspaceBackup): Workspace => ({
+    ...structuredClone(backup.workspace),
+    activity: [],
+  });
+  const validateRecovery = (workspace: Workspace) => {
+    validateWorkspace(workspace, workspace);
+    for (const task of workspace.tasks) {
+      if (!task.assigneeId) continue;
+      const assignee = repo.user(task.assigneeId);
+      if (
+        !assignee?.active ||
+        assignee.role === "Client / Guest" ||
+        (assignee.role !== "Administrator" &&
+          !JSON.parse(assignee.event_ids).includes(task.eventId)) ||
+        assignee.name !== task.assignee
+      )
+        throw new HttpError(
+          422,
+          `Task ${task.id} references an unavailable or unauthorized team account.`,
+        );
+    }
+    for (const operation of workspace.operations) {
+      for (const shift of operation.crewShifts) {
+        if (!shift.memberId) continue;
+        const member = repo.user(shift.memberId);
+        if (
+          !member?.active ||
+          member.role === "Client / Guest" ||
+          (member.role !== "Administrator" &&
+            !JSON.parse(member.event_ids).includes(operation.eventId)) ||
+          member.name !== shift.person
+        )
+          throw new HttpError(
+            422,
+            `Crew shift ${shift.id} references an unavailable or unauthorized team account.`,
+          );
+      }
+    }
   };
   app.get("/api/health", (_req, res) =>
     res.json({ ok: true, initialized: repo.initialized() }),
@@ -649,14 +704,107 @@ export function createApp(
     });
     res.json({ user: publicUser(repo.user(userId)!) });
   });
+  app.get("/api/backup", (_req, res) => {
+    const user = requireAdmin(res);
+    const current = repo.read();
+    const backup = createWorkspaceBackup(current.workspace, current.revision);
+    repo.audit(
+      user.id,
+      "Workspace backup exported",
+      `Revision ${current.revision} · ${backup.checksum.slice(0, 12)}`,
+    );
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="kit-workspace-backup.json"',
+    );
+    res.json(backup);
+  });
+  app.post("/api/backup/preview", (req, res) => {
+    requireAdmin(res);
+    const input = z.object({ backup: z.unknown() }).strict().parse(req.body);
+    const backup = readWorkspaceBackup(input.backup);
+    const workspace = restorableWorkspace(backup);
+    validateRecovery(workspace);
+    const current = repo.read();
+    res.json({
+      backup: backupSummary(backup),
+      current: {
+        company: current.workspace.settings.company,
+        revision: current.revision,
+      },
+      confirmation: `RESTORE ${backup.workspace.settings.company}`,
+    });
+  });
+  app.post("/api/backup/restore", (req, res) => {
+    const user = requireAdmin(res);
+    const input = z
+      .object({
+        backup: z.unknown(),
+        expectedRevision: z.number().int().nonnegative(),
+        confirmation: z.string().max(220),
+      })
+      .strict()
+      .parse(req.body);
+    const backup = readWorkspaceBackup(input.backup);
+    if (input.confirmation !== `RESTORE ${backup.workspace.settings.company}`)
+      throw new HttpError(422, "The restore confirmation does not match.");
+    const workspace = restorableWorkspace(backup);
+    validateRecovery(workspace);
+    let recoveryPoint!: ReturnType<Repository["replaceWorkspace"]>;
+    repo.transaction(() => {
+      recoveryPoint = repo.replaceWorkspace(
+        workspace,
+        input.expectedRevision,
+        user.id,
+        backup.checksum,
+      );
+      repo.audit(
+        user.id,
+        "Workspace backup restored",
+        `${backup.workspace.settings.company} · source revision ${backup.sourceRevision} · safety point ${recoveryPoint.id}`,
+      );
+    });
+    res.json({ ...response(res), recoveryPoint });
+  });
+  app.get("/api/backup/recovery-points", (_req, res) => {
+    requireAdmin(res);
+    res.json({
+      recoveryPoints: repo.recoveryPoints(),
+      currentRevision: repo.read().revision,
+    });
+  });
+  app.post("/api/backup/recovery-points/:id/restore", (req, res) => {
+    const user = requireAdmin(res);
+    const recoveryId = identifier.parse(req.params.id);
+    const input = z
+      .object({
+        expectedRevision: z.number().int().nonnegative(),
+        confirmation: z.literal("ROLL BACK"),
+      })
+      .strict()
+      .parse(req.body);
+    const workspace = repo.recoveryWorkspace(recoveryId);
+    validateRecovery(workspace);
+    let recoveryPoint!: ReturnType<Repository["replaceWorkspace"]>;
+    repo.transaction(() => {
+      recoveryPoint = repo.replaceWorkspace(
+        workspace,
+        input.expectedRevision,
+        user.id,
+        `recovery:${recoveryId}`,
+      );
+      repo.audit(
+        user.id,
+        "Workspace recovery point restored",
+        `${recoveryId} · safety point ${recoveryPoint.id}`,
+      );
+    });
+    res.json({ ...response(res), recoveryPoint });
+  });
   app.get("/api/export", (_req, res) => {
     const user = requireAdmin(res);
     const current = repo.read();
-    repo.audit(
-      user.id,
-      "Workspace exported",
-      "Authenticated administrator export",
-    );
+    repo.audit(user.id, "Workspace exported", "Legacy workspace JSON export");
     res.setHeader(
       "Content-Disposition",
       'attachment; filename="kit-workspace-export.json"',

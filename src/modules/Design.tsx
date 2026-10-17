@@ -41,6 +41,9 @@ import type { SceneHandle } from "./Scene";
 import { useUnsavedChanges } from "../shared/useUnsavedChanges";
 const Scene = lazy(() => import("./Scene"));
 const palette: Record<string, string> = {
+  Wall: "#8c9890",
+  Door: "#b89070",
+  Window: "#76a9bd",
   Stage: "#667c70",
   Table: "#c7d4bd",
   Chair: "#c6d3dc",
@@ -54,6 +57,9 @@ const palette: Record<string, string> = {
   Decoration: "#c7ad9b",
 };
 const kinds: ObjectKind[] = [
+  "Wall",
+  "Door",
+  "Window",
   "Stage",
   "Table",
   "Chair",
@@ -77,6 +83,8 @@ const editableLayout = (layout: Layout) => ({
   verificationNote: layout.verificationNote,
   reference: layout.reference,
   cameras: layout.cameras,
+  cameraPath: layout.cameraPath,
+  provenance: layout.provenance,
 });
 export function Design() {
   const { data, update, toast } = useWorkspace();
@@ -202,7 +210,7 @@ function LayoutEditor({
   view: string;
   setView: (s: string) => void;
 }) {
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, mode, request } = useWorkspace();
   const initial = useRef<{ layout: Layout; recovered: boolean } | null>(null);
   if (!initial.current) {
     let recovered: Layout | undefined;
@@ -228,6 +236,18 @@ function LayoutEditor({
   const [versions, setVersions] = useState(false);
   const [equipmentReview, setEquipmentReview] = useState(false);
   const [selectedCameraId, setSelectedCameraId] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [extractor, setExtractor] = useState<{
+    configured: boolean;
+    provider?: string;
+    model?: string;
+  }>({ configured: false });
+  const [rightsConfirmed, setRightsConfirmed] = useState(
+    Boolean(initial.current.layout.reference?.rightsConfirmed),
+  );
+  const [ceilingHeight, setCeilingHeight] = useState(
+    String(initial.current.layout.reference?.ceilingHeight || 3),
+  );
   const [calibrationWidth, setCalibrationWidth] = useState(
     String(initial.current.layout.width),
   );
@@ -249,6 +269,9 @@ function LayoutEditor({
     JSON.stringify(editableLayout(layout)) !==
     JSON.stringify(editableLayout(original));
   const reconciliation = reconcileLayoutEquipment(data, layout);
+  const suggestions = layout.objects.filter(
+    (item) => item.reviewStatus === "Suggested",
+  );
   useUnsavedChanges(dirty, save, () =>
     localStorage.removeItem(layoutDraftKey(original.id)),
   );
@@ -267,6 +290,14 @@ function LayoutEditor({
     }, 400);
     return () => window.clearTimeout(timer);
   }, [dirty, layout, original.id, original.version]);
+  useEffect(() => {
+    if (mode !== "company") return;
+    void request<{ configured: boolean; provider?: string; model?: string }>(
+      "/design/status",
+    )
+      .then(setExtractor)
+      .catch(() => setExtractor({ configured: false }));
+  }, [mode, request]);
   function change(objects: LayoutObject[]) {
     setPast([...past.slice(-49), structuredClone(layout.objects)]);
     setFuture([]);
@@ -274,8 +305,14 @@ function LayoutEditor({
   }
   function edit(patch: Partial<LayoutObject>) {
     if (!object) return;
+    const reviewed =
+      object.source === "Extracted" && object.reviewStatus === "Suggested"
+        ? { reviewStatus: "Corrected" as const }
+        : {};
     change(
-      layout.objects.map((o) => (o.id === object.id ? { ...o, ...patch } : o)),
+      layout.objects.map((o) =>
+        o.id === object.id ? { ...o, ...reviewed, ...patch } : o,
+      ),
     );
   }
   function add(kind: ObjectKind) {
@@ -285,20 +322,45 @@ function LayoutEditor({
       x: 2,
       y: 2,
       width:
-        kind === "Stage"
-          ? 6
-          : kind === "LED wall"
-            ? 4
-            : kind === "Chair"
-              ? 0.5
-              : 2,
-      depth: kind === "LED wall" ? 0.3 : kind === "Chair" ? 0.5 : 2,
-      height: kind === "LED wall" ? 3 : kind === "Speaker" ? 2 : 0.75,
+        kind === "Wall"
+          ? 4
+          : kind === "Door"
+            ? 1
+            : kind === "Window"
+              ? 1.5
+              : kind === "Stage"
+                ? 6
+                : kind === "LED wall"
+                  ? 4
+                  : kind === "Chair"
+                    ? 0.5
+                    : 2,
+      depth: ["Wall", "Door", "Window"].includes(kind)
+        ? 0.15
+        : kind === "LED wall"
+          ? 0.3
+          : kind === "Chair"
+            ? 0.5
+            : 2,
+      height:
+        kind === "Wall"
+          ? 3
+          : kind === "Door"
+            ? 2.1
+            : kind === "Window"
+              ? 1.2
+              : kind === "LED wall"
+                ? 3
+                : kind === "Speaker"
+                  ? 2
+                  : 0.75,
       rotation: 0,
       label:
         kind === "Booth"
           ? `Booth ${layout.objects.filter((o) => o.kind === kind).length + 1}`
           : kind,
+      source: "Manual",
+      reviewStatus: "Accepted",
       layer: ["Chair", "Table", "Booth"].includes(kind)
         ? "Furniture"
         : ["Speaker"].includes(kind)
@@ -307,7 +369,7 @@ function LayoutEditor({
             ? "Video"
             : kind === "Stage"
               ? "Staging"
-              : kind === "Exit"
+              : ["Wall", "Door", "Window", "Exit"].includes(kind)
                 ? "Architecture"
                 : "Lighting",
     };
@@ -320,8 +382,20 @@ function LayoutEditor({
       toast(geometryErrors[0]);
       return;
     }
+    const reviewedLayout: Layout =
+      layout.provenance?.method === "Structured extraction" &&
+      !layout.objects.some((item) => item.reviewStatus === "Suggested") &&
+      !layout.provenance.reviewedAt
+        ? {
+            ...layout,
+            provenance: {
+              ...layout.provenance,
+              reviewedAt: new Date().toISOString(),
+            },
+          }
+        : layout;
     const next = {
-      ...layout,
+      ...reviewedLayout,
       version: original.version + 1,
       history: [
         ...original.history,
@@ -335,6 +409,8 @@ function LayoutEditor({
           verifiedAt: original.verifiedAt,
           verificationNote: original.verificationNote,
           cameras: structuredClone(original.cameras),
+          cameraPath: structuredClone(original.cameraPath),
+          provenance: structuredClone(original.provenance),
         },
       ],
     };
@@ -362,6 +438,12 @@ function LayoutEditor({
   }
   async function loadReference(file?: File) {
     if (!file) return;
+    if (!rightsConfirmed) {
+      toast(
+        "Confirma que tienes permiso para usar el plano antes de cargarlo.",
+      );
+      return;
+    }
     if (
       !(["image/png", "image/jpeg", "image/webp"] as string[]).includes(
         file.type,
@@ -400,6 +482,10 @@ function LayoutEditor({
         intrinsicWidth: dimensions.width,
         intrinsicHeight: dimensions.height,
         opacity: 0.35,
+        rightsConfirmed: true,
+        uploadedAt: new Date().toISOString(),
+        ceilingHeight: Number(ceilingHeight) || 3,
+        units: "meters",
       },
     }));
     setRecovered(false);
@@ -433,9 +519,69 @@ function LayoutEditor({
       reference: {
         ...layout.reference,
         calibratedAt: new Date().toISOString(),
+        knownMeasurement: width,
+        ceilingHeight: Number(ceilingHeight) || 3,
+        units: "meters",
       },
     });
     toast("Referencia calibrada. Verifica la fuente de las medidas.");
+  }
+  async function extractGeometry() {
+    const reference = layout.reference;
+    if (!reference?.calibratedAt || !reference.knownMeasurement) {
+      toast(
+        "Calibra el plano con una medida conocida antes de extraer geometría.",
+      );
+      return;
+    }
+    if (mode !== "company" || !extractor.configured) {
+      toast(
+        "La extracción automática espera el proveedor que selecciones. El trazado manual sigue disponible.",
+      );
+      return;
+    }
+    setExtracting(true);
+    try {
+      const result = await request<{
+        objects: LayoutObject[];
+        provenance: Layout["provenance"];
+      }>("/design/extract", {
+        method: "POST",
+        body: {
+          eventId: layout.eventId,
+          layoutId: layout.id,
+          name: reference.name,
+          mimeType: reference.mimeType,
+          dataUrl: reference.dataUrl,
+          intrinsicWidth: reference.intrinsicWidth,
+          intrinsicHeight: reference.intrinsicHeight,
+          roomWidth: layout.width,
+          roomDepth: layout.depth,
+          knownMeasurement: reference.knownMeasurement,
+          ceilingHeight: reference.ceilingHeight || 3,
+          units: "meters",
+          rightsConfirmed: true,
+        },
+      });
+      setLayout({
+        ...layout,
+        objects: [
+          ...layout.objects.filter((item) => item.reviewStatus !== "Suggested"),
+          ...result.objects,
+        ],
+        provenance: result.provenance,
+        verified: false,
+        verifiedAt: undefined,
+      });
+      setView("2D");
+      toast(
+        `${result.objects.length} elementos detectados. Revisa cada sugerencia antes de verificar el diseño.`,
+      );
+    } catch (error) {
+      toast((error as Error).message);
+    } finally {
+      setExtracting(false);
+    }
   }
   function saveCamera() {
     const current = scene.current?.readCamera();
@@ -466,6 +612,23 @@ function LayoutEditor({
     link.download = `scene-${layout.id}-v${layout.version}${camera ? `-${camera.name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}` : ""}.png`;
     link.click();
     toast(`Imagen exportada desde la revisión ${layout.version}.`);
+  }
+  async function downloadGlb() {
+    try {
+      const buffer = await scene.current?.exportGlb();
+      if (!buffer) throw new Error("No se pudo crear el modelo GLB.");
+      const url = URL.createObjectURL(
+        new Blob([buffer], { type: "model/gltf-binary" }),
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `scene-${layout.id}-v${layout.version}.glb`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+      toast(`Modelo GLB exportado desde la revisión ${layout.version}.`);
+    } catch (error) {
+      toast((error as Error).message);
+    }
   }
   function point(clientX: number, clientY: number) {
     const element = svg.current!;
@@ -656,11 +819,18 @@ function LayoutEditor({
                   className="icon-button danger-text"
                   aria-label="Eliminar cámara guardada"
                   onClick={() => {
+                    const remaining = (
+                      layout.cameraPath?.cameraIds || []
+                    ).filter((id) => id !== selectedCameraId);
                     setLayout({
                       ...layout,
                       cameras: (layout.cameras || []).filter(
                         (camera) => camera.id !== selectedCameraId,
                       ),
+                      cameraPath:
+                        remaining.length >= 2 && layout.cameraPath
+                          ? { ...layout.cameraPath, cameraIds: remaining }
+                          : undefined,
                     });
                     setSelectedCameraId("");
                   }}
@@ -680,6 +850,65 @@ function LayoutEditor({
               >
                 <ImageDown size={14} />
                 Exportar imagen
+              </Button>
+              <select
+                aria-label="Duración de la ruta de cámara"
+                value={layout.cameraPath?.durationSeconds || 30}
+                onChange={(event) =>
+                  setLayout({
+                    ...layout,
+                    cameraPath: {
+                      cameraIds:
+                        layout.cameraPath?.cameraIds ||
+                        (layout.cameras || []).map((camera) => camera.id),
+                      durationSeconds: Number(event.target.value) as
+                        15 | 30 | 60,
+                    },
+                  })
+                }
+                disabled={(layout.cameras?.length || 0) < 2}
+              >
+                <option value="15">Ruta · 15 s</option>
+                <option value="30">Ruta · 30 s</option>
+                <option value="60">Ruta · 60 s</option>
+              </select>
+              <Button
+                variant="secondary"
+                disabled={(layout.cameras?.length || 0) < 2}
+                onClick={() => {
+                  const cameraIds =
+                    layout.cameraPath?.cameraIds ||
+                    (layout.cameras || []).map((camera) => camera.id);
+                  const cameras = cameraIds
+                    .map((cameraId) =>
+                      layout.cameras?.find((camera) => camera.id === cameraId),
+                    )
+                    .filter(Boolean) as NonNullable<Layout["cameras"]>;
+                  setLayout({
+                    ...layout,
+                    cameraPath: {
+                      cameraIds,
+                      durationSeconds: layout.cameraPath?.durationSeconds || 30,
+                    },
+                  });
+                  scene.current?.previewCameraPath(
+                    cameras,
+                    layout.cameraPath?.durationSeconds || 30,
+                  );
+                }}
+              >
+                Vista previa
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={dirty}
+                title={
+                  dirty ? "Guarda la revisión antes de exportar." : undefined
+                }
+                onClick={() => void downloadGlb()}
+              >
+                <Download size={14} />
+                GLB
               </Button>
             </div>
           )}
@@ -837,9 +1066,18 @@ function LayoutEditor({
                         width={o.width}
                         height={o.depth}
                         rx=".06"
-                        fill={o.surfaceColor || palette[o.kind]}
+                        fill={
+                          o.reviewStatus === "Suggested"
+                            ? o.confidence !== undefined && o.confidence < 0.7
+                              ? "#e4b6a0"
+                              : "#e6d79b"
+                            : o.surfaceColor || palette[o.kind]
+                        }
                         stroke={selection === o.id ? "#2e674a" : "#ffffff"}
                         strokeWidth={selection === o.id ? ".14" : ".04"}
+                        strokeDasharray={
+                          o.reviewStatus === "Suggested" ? ".18 .1" : undefined
+                        }
                       />
                     )}
                     <text
@@ -866,6 +1104,18 @@ function LayoutEditor({
                         pointerEvents="none"
                       >
                         {o.width} × {o.depth} m
+                      </text>
+                    )}
+                    {o.reviewStatus === "Suggested" && (
+                      <text
+                        x={o.width / 2}
+                        y={Math.max(0.3, o.depth / 2 - 0.24)}
+                        textAnchor="middle"
+                        fontSize=".3"
+                        fill="#694f28"
+                        pointerEvents="none"
+                      >
+                        {Math.round((o.confidence || 0) * 100)}% · revisar
                       </text>
                     )}
                   </g>
@@ -958,6 +1208,44 @@ function LayoutEditor({
                       (item) => item.id === object.equipmentId,
                     )?.name || "Sin modelo de catálogo asignado"}
                   </small>
+                </div>
+              )}
+              {object.source === "Extracted" && (
+                <div className="geometry-review-card">
+                  <Badge
+                    tone={
+                      object.reviewStatus === "Suggested" ? "amber" : "green"
+                    }
+                  >
+                    {object.reviewStatus === "Suggested"
+                      ? `Sugerencia · ${Math.round((object.confidence || 0) * 100)}%`
+                      : object.reviewStatus === "Corrected"
+                        ? "Corregido manualmente"
+                        : "Aceptado"}
+                  </Badge>
+                  {object.reviewStatus === "Suggested" && (
+                    <div>
+                      <Button
+                        variant="secondary"
+                        onClick={() => edit({ reviewStatus: "Accepted" })}
+                      >
+                        Aceptar
+                      </Button>
+                      <button
+                        className="text-button danger-text"
+                        onClick={() => {
+                          change(
+                            layout.objects.filter(
+                              (item) => item.id !== object.id,
+                            ),
+                          );
+                          setSelection(null);
+                        }}
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               <Field label="Label">
@@ -1186,6 +1474,16 @@ function LayoutEditor({
                     </Badge>
                   )}
                 </div>
+                <label className="rights-confirmation">
+                  <input
+                    type="checkbox"
+                    checked={rightsConfirmed}
+                    onChange={(event) =>
+                      setRightsConfirmed(event.target.checked)
+                    }
+                  />
+                  Confirmo que tengo permiso para usar y procesar este plano.
+                </label>
                 <input
                   ref={referenceInput}
                   className="visually-hidden"
@@ -1201,6 +1499,7 @@ function LayoutEditor({
                 />
                 <Button
                   variant="secondary"
+                  disabled={!rightsConfirmed}
                   onClick={() => referenceInput.current?.click()}
                 >
                   <FileImage size={14} />
@@ -1240,6 +1539,18 @@ function LayoutEditor({
                         }
                       />
                     </Field>
+                    <Field label="Altura del techo · m">
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="100"
+                        step="0.1"
+                        value={ceilingHeight}
+                        onChange={(event) =>
+                          setCeilingHeight(event.target.value)
+                        }
+                      />
+                    </Field>
                     <small>
                       La calibración usa la proporción completa de la imagen
                       para calcular la profundidad.
@@ -1263,9 +1574,72 @@ function LayoutEditor({
                         Quitar
                       </button>
                     </div>
+                    <div className="extraction-status">
+                      <div>
+                        <strong>Extracción estructurada</strong>
+                        <small>
+                          {extractor.configured
+                            ? `${extractor.provider} · ${extractor.model}`
+                            : "Proveedor pendiente de tu selección. No se envía el plano."}
+                        </small>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        disabled={
+                          extracting ||
+                          !extractor.configured ||
+                          !layout.reference.calibratedAt
+                        }
+                        onClick={() => void extractGeometry()}
+                      >
+                        <ScanLine size={14} />
+                        {extracting ? "Analizando…" : "Extraer geometría"}
+                      </Button>
+                    </div>
                   </>
                 )}
               </div>
+              {(suggestions.length > 0 || layout.provenance) && (
+                <div className="geometry-review-card">
+                  <div>
+                    <strong>Revisión de geometría</strong>
+                    <Badge tone={suggestions.length ? "amber" : "green"}>
+                      {suggestions.length
+                        ? `${suggestions.length} pendientes`
+                        : "Revisada"}
+                    </Badge>
+                  </div>
+                  {layout.provenance && (
+                    <small>
+                      {layout.provenance.provider || "Manual"} ·{" "}
+                      {layout.provenance.sourceName || "sin archivo"}
+                    </small>
+                  )}
+                  {suggestions.length > 0 && (
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        setLayout({
+                          ...layout,
+                          objects: layout.objects.map((item) =>
+                            item.reviewStatus === "Suggested"
+                              ? { ...item, reviewStatus: "Accepted" }
+                              : item,
+                          ),
+                          provenance: layout.provenance
+                            ? {
+                                ...layout.provenance,
+                                reviewedAt: new Date().toISOString(),
+                              }
+                            : undefined,
+                        })
+                      }
+                    >
+                      Aceptar todas las sugerencias
+                    </Button>
+                  )}
+                </div>
+              )}
               <Field label="Fuente de las medidas">
                 <textarea
                   rows={3}
@@ -1283,7 +1657,10 @@ function LayoutEditor({
               </Field>
               <Button
                 variant="secondary"
-                disabled={!layout.verified && !layout.verificationNote?.trim()}
+                disabled={
+                  (!layout.verified && !layout.verificationNote?.trim()) ||
+                  suggestions.length > 0
+                }
                 onClick={() =>
                   setLayout({
                     ...layout,
@@ -1299,6 +1676,88 @@ function LayoutEditor({
                   ? "Marcar medidas sin verificar"
                   : "Confirmar medidas verificadas"}
               </Button>
+              {view === "3D" && (layout.cameras?.length || 0) >= 2 && (
+                <div className="camera-path-editor">
+                  <div>
+                    <strong>Ruta de cámara</strong>
+                    <Badge tone={layout.cameraPath ? "green" : "neutral"}>
+                      {layout.cameraPath ? "Configurada" : "Sin guardar"}
+                    </Badge>
+                  </div>
+                  <small>
+                    El orden define el recorrido del video cuando conectemos el
+                    codificador que selecciones.
+                  </small>
+                  {(
+                    layout.cameraPath?.cameraIds ||
+                    layout.cameras!.map((camera) => camera.id)
+                  ).map((cameraId, index, cameraIds) => {
+                    const camera = layout.cameras!.find(
+                      (item) => item.id === cameraId,
+                    );
+                    return (
+                      <div className="camera-path-row" key={cameraId}>
+                        <span>
+                          {index + 1}. {camera?.name || "Vista eliminada"}
+                        </span>
+                        <div>
+                          <button
+                            className="text-button"
+                            aria-label={`Subir ${camera?.name || "cámara"}`}
+                            disabled={index === 0}
+                            onClick={() => {
+                              const next = [...cameraIds];
+                              [next[index - 1], next[index]] = [
+                                next[index],
+                                next[index - 1],
+                              ];
+                              setLayout({
+                                ...layout,
+                                cameraPath: {
+                                  cameraIds: next,
+                                  durationSeconds:
+                                    layout.cameraPath?.durationSeconds || 30,
+                                },
+                              });
+                            }}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            className="text-button"
+                            aria-label={`Bajar ${camera?.name || "cámara"}`}
+                            disabled={index === cameraIds.length - 1}
+                            onClick={() => {
+                              const next = [...cameraIds];
+                              [next[index], next[index + 1]] = [
+                                next[index + 1],
+                                next[index],
+                              ];
+                              setLayout({
+                                ...layout,
+                                cameraPath: {
+                                  cameraIds: next,
+                                  durationSeconds:
+                                    layout.cameraPath?.durationSeconds || 30,
+                                },
+                              });
+                            }}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="export-gate">
+                    <Badge tone="amber">MP4 pendiente</Badge>
+                    <small>
+                      1080p · {layout.cameraPath?.durationSeconds || 30} s. Sin
+                      costo ni tiempo estimado hasta elegir codificador.
+                    </small>
+                  </div>
+                </div>
+              )}
             </>
           )}
           <div className="dimension-note">
@@ -1419,6 +1878,8 @@ function LayoutEditor({
                       verifiedAt: h.verifiedAt,
                       verificationNote: h.verificationNote,
                       cameras: structuredClone(h.cameras),
+                      cameraPath: structuredClone(h.cameraPath),
+                      provenance: structuredClone(h.provenance),
                     });
                     setVersions(false);
                     toast("Previous geometry restored as an unsaved draft.");

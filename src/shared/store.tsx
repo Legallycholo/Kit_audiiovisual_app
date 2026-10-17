@@ -17,6 +17,14 @@ import {
 } from "./access";
 import { api, ApiError } from "./api";
 import { SessionAccess } from "../application/SessionAccess";
+import {
+  applyPendingSync,
+  clearPendingSync,
+  pendingTargets,
+  readPendingSync,
+  writePendingSync,
+  type PendingSync,
+} from "./sync-queue";
 const STORAGE_KEY = "kit.workspace.v1";
 type Store = {
   data: Workspace;
@@ -28,6 +36,13 @@ type Store = {
   user: WorkspaceUser | null;
   mode: "sample" | "company";
   saving: boolean;
+  sync: {
+    state: "synced" | "queued" | "syncing" | "conflict";
+    pending: PendingSync | null;
+    targets: { collection: string; id: string }[];
+  };
+  retrySync: () => Promise<boolean>;
+  resolveSync: (choice: "server" | "local") => Promise<boolean>;
   openCompany: () => void;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -89,6 +104,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [storageError, setStorageError] = useState("");
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  const [syncState, setSyncState] = useState<
+    "synced" | "queued" | "syncing" | "conflict"
+  >("synced");
+  const [pendingSync, setPendingSync] = useState<PendingSync | null>(null);
+  const pendingRef = useRef<PendingSync | null>(null);
+  const userRef = useRef<WorkspaceUser | null>(null);
   const [gate, setGate] = useState(false);
   const [initialized, setInitialized] = useState<boolean | null>(null);
   const [connectionError, setConnectionError] = useState("");
@@ -111,17 +132,43 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const receive = (response: WorkspaceResponse) => {
     current.current = response.workspace;
     version.current = response.revision;
+    userRef.current = response.user;
     setData(response.workspace);
     setUser(response.user);
   };
+  const showPending = (
+    response: WorkspaceResponse,
+    pending: PendingSync,
+    state: "queued" | "conflict",
+  ) => {
+    current.current = applyPendingSync(response.workspace, pending);
+    version.current = response.revision;
+    userRef.current = response.user;
+    pendingRef.current = pending;
+    setData(current.current);
+    setUser(response.user);
+    setPendingSync(pending);
+    setSyncState(state);
+  };
+  const forgetPending = async () => {
+    clearPendingSync();
+    pendingRef.current = null;
+    setPendingSync(null);
+    setSyncState("synced");
+  };
   const refresh = async () => {
     if (modeRef.current === "sample") return;
+    if (pendingRef.current) {
+      await retrySync();
+      return;
+    }
     try {
       receive(await request<WorkspaceResponse>("/workspace"));
       setStorageError("");
     } catch (err) {
       setStorageError((err as Error).message);
       if (err instanceof ApiError && err.status === 401) {
+        await forgetPending();
         setGate(true);
         setInitialized(true);
       }
@@ -130,7 +177,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const authenticated = async (_user: WorkspaceUser, token: string) => {
     csrf.current = token;
     const response = await request<WorkspaceResponse>("/workspace");
-    receive(response);
+    const pending = await readPendingSync(response.user.id, token);
+    if (pending)
+      showPending(
+        response,
+        pending,
+        response.revision === pending.baseRevision ? "queued" : "conflict",
+      );
+    else receive(response);
     modeRef.current = "company";
     setMode("company");
     localStorage.setItem("kit.mode", "company");
@@ -149,6 +203,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setInitialized(status.initialized);
       if (status.user && status.csrf)
         await authenticated(status.user, status.csrf);
+      else if (status.initialized) await forgetPending();
     } catch (error) {
       setInitialized(null);
       setConnectionError((error as Error).message);
@@ -161,6 +216,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     modeRef.current = "sample";
     setMode("sample");
     setUser(null);
+    userRef.current = null;
+    pendingRef.current = null;
+    setPendingSync(null);
+    setSyncState("synced");
     setGate(false);
     setStorageError("");
     current.current = readSample();
@@ -168,6 +227,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("kit.mode", "sample");
   };
   const signOut = async () => {
+    if (pendingRef.current) {
+      toast("Resolve or discard the pending company save before signing out.");
+      return;
+    }
     try {
       await request("/logout", { method: "POST", body: {} });
       csrf.current = "";
@@ -184,9 +247,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       );
       return false;
     }
+    if (pendingRef.current) {
+      toast(
+        "Resolve the pending company save before making another shared change.",
+      );
+      return false;
+    }
+    let next: Workspace | undefined;
+    let changes: ReturnType<typeof diffWorkspace> = [];
     try {
       const before = current.current;
-      const next = fn(structuredClone(before));
+      next = fn(structuredClone(before));
       if (modeRef.current === "sample") {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         current.current = next;
@@ -194,7 +265,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setStorageError("");
         return true;
       }
-      const changes = diffWorkspace(before, next);
+      changes = diffWorkspace(before, next);
       if (!changes.length) return true;
       savingRef.current = true;
       setSaving(true);
@@ -207,9 +278,47 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setStorageError("");
       return true;
     } catch (error) {
+      if (
+        next &&
+        changes.length &&
+        userRef.current &&
+        error instanceof ApiError &&
+        [0, 409].includes(error.status)
+      ) {
+        const pending: PendingSync = {
+          id: id(),
+          userId: userRef.current.id,
+          baseRevision: version.current,
+          changes,
+          createdAt: new Date().toISOString(),
+          attempts: 0,
+          lastError: error.message,
+        };
+        try {
+          await writePendingSync(userRef.current.id, csrf.current, pending);
+          pendingRef.current = pending;
+          setPendingSync(pending);
+          setSyncState(error.status === 409 ? "conflict" : "queued");
+          current.current = next;
+          setData(next);
+          setStorageError("");
+          toast(
+            error.status === 409
+              ? "Your save is preserved for conflict review."
+              : "Server unavailable. Your encrypted save is queued on this device.",
+          );
+          return true;
+        } catch {
+          setStorageError(
+            "The server is unavailable and the encrypted local queue could not be written. Your draft remains open.",
+          );
+          return false;
+        }
+      }
       setStorageError((error as Error).message);
       toast("Changes were not saved. Review the error before trying again.");
       if (error instanceof ApiError && error.status === 401) {
+        await forgetPending();
         setGate(true);
         setInitialized(true);
       }
@@ -219,6 +328,95 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setSaving(false);
     }
   };
+  async function retrySync() {
+    const pending = pendingRef.current;
+    if (!pending || savingRef.current) return !pending;
+    savingRef.current = true;
+    setSaving(true);
+    setSyncState("syncing");
+    try {
+      const remote = await request<WorkspaceResponse>("/workspace");
+      if (remote.revision !== pending.baseRevision) {
+        showPending(remote, pending, "conflict");
+        setStorageError(
+          "Another session changed the company workspace. Review the pending records before choosing which version to keep.",
+        );
+        return false;
+      }
+      const saved = await request<WorkspaceResponse>("/workspace", {
+        method: "PATCH",
+        body: { revision: pending.baseRevision, changes: pending.changes },
+      });
+      await forgetPending();
+      receive(saved);
+      setStorageError("");
+      toast("Pending company changes synchronized.");
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await forgetPending();
+        setGate(true);
+        setInitialized(true);
+        setStorageError("Your company access changed. Sign in again.");
+        return false;
+      }
+      const attempted = {
+        ...pending,
+        attempts: pending.attempts + 1,
+        lastError: (error as Error).message,
+      };
+      pendingRef.current = attempted;
+      setPendingSync(attempted);
+      setSyncState(
+        error instanceof ApiError && error.status === 409
+          ? "conflict"
+          : "queued",
+      );
+      await writePendingSync(pending.userId, csrf.current, attempted);
+      setStorageError((error as Error).message);
+      return false;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
+  async function resolveSync(choice: "server" | "local") {
+    const pending = pendingRef.current;
+    if (!pending || savingRef.current) return !pending;
+    savingRef.current = true;
+    setSaving(true);
+    setSyncState("syncing");
+    try {
+      const remote = await request<WorkspaceResponse>("/workspace");
+      if (choice === "server") {
+        await forgetPending();
+        receive(remote);
+        setStorageError("");
+        toast("Pending local changes discarded. Server records restored.");
+        return true;
+      }
+      const saved = await request<WorkspaceResponse>("/workspace", {
+        method: "PATCH",
+        body: { revision: remote.revision, changes: pending.changes },
+      });
+      await forgetPending();
+      receive(saved);
+      setStorageError("");
+      toast("Reviewed local changes applied to the latest server revision.");
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await forgetPending();
+        setGate(true);
+        setInitialized(true);
+      } else setSyncState("conflict");
+      setStorageError((error as Error).message);
+      return false;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
   const confirmAcceptance = async (conversationId: string) => {
     if (modeRef.current === "sample")
       return update((s) => acceptConversation(s, conversationId));
@@ -319,6 +517,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         mode,
         user,
         saving,
+        sync: {
+          state: syncState,
+          pending: pendingSync,
+          targets: pendingSync ? pendingTargets(pendingSync) : [],
+        },
+        retrySync,
+        resolveSync,
         openCompany,
         signOut,
         refresh,

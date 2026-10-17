@@ -157,6 +157,11 @@ describe("authenticated company workspace", () => {
       password,
     );
     expect((await call("/setup", "POST", {})).status).toBe(409);
+    const headers = (await call("/health")).headers;
+    expect(headers.get("content-security-policy")).toContain(
+      "frame-ancestors 'none'",
+    );
+    expect(headers.get("permissions-policy")).toContain("camera=()");
     expect((await call("/users")).json.users[0]).not.toHaveProperty(
       "password_hash",
     );
@@ -179,6 +184,7 @@ describe("authenticated company workspace", () => {
       ).status,
     ).toBe(403);
     expect((await call("/export", "GET", undefined, tech)).status).toBe(403);
+    expect((await call("/backup", "GET", undefined, tech)).status).toBe(403);
     const proposal = repo
       .read()
       .workspace.proposals.find((p) => p.id === "p1")!;
@@ -193,6 +199,99 @@ describe("authenticated company workspace", () => {
     expect(shared.workspace.proposals.map((p) => p.id)).toEqual(["p1"]);
     expect(shared.workspace.activity).toEqual([]);
     expect(shared.workspace.equipment).toEqual([]);
+  });
+  it("previews, restores and rolls back an integrity-checked workspace backup", async () => {
+    const exported = await call("/backup");
+    expect(exported.status).toBe(200);
+    expect(exported.json).toMatchObject({
+      format: "kit-workspace-backup",
+      version: 1,
+      sourceRevision: 1,
+    });
+    expect(exported.json.workspace).not.toHaveProperty("activity");
+    expect(exported.json).not.toHaveProperty("users");
+
+    const before = await workspace();
+    const client = before.workspace.clients[0];
+    const changed = await patch(
+      [
+        {
+          collection: "clients",
+          id: client.id,
+          value: { ...client, name: "Changed after backup" },
+        },
+      ],
+      before.revision,
+    );
+    expect(changed.status).toBe(200);
+
+    const tampered = structuredClone(exported.json);
+    tampered.workspace.settings.company = "Tampered company";
+    expect(
+      (await call("/backup/preview", "POST", { backup: tampered })).status,
+    ).toBe(422);
+    expect(repo.read().workspace.clients[0].name).toBe("Changed after backup");
+
+    const preview = await call("/backup/preview", "POST", {
+      backup: exported.json,
+    });
+    expect(preview.status).toBe(200);
+    expect(preview.json).toMatchObject({
+      backup: {
+        company: "KIT Audiovisual",
+        counts: { clients: 4, projects: 4 },
+      },
+      current: { revision: changed.json.revision },
+      confirmation: "RESTORE KIT Audiovisual",
+    });
+    expect(
+      (
+        await call("/backup/restore", "POST", {
+          backup: exported.json,
+          expectedRevision: changed.json.revision,
+          confirmation: "RESTORE something else",
+        })
+      ).status,
+    ).toBe(422);
+
+    const restored = await call("/backup/restore", "POST", {
+      backup: exported.json,
+      expectedRevision: changed.json.revision,
+      confirmation: preview.json.confirmation,
+    });
+    expect(restored.status).toBe(200);
+    expect(restored.json.workspace.clients[0].name).toBe(client.name);
+    expect(restored.json.recoveryPoint).toMatchObject({
+      previousRevision: changed.json.revision,
+      restoredRevision: restored.json.revision,
+    });
+    const points = await call("/backup/recovery-points");
+    expect(points.json.recoveryPoints[0].id).toBe(
+      restored.json.recoveryPoint.id,
+    );
+
+    const rolledBack = await call(
+      `/backup/recovery-points/${restored.json.recoveryPoint.id}/restore`,
+      "POST",
+      {
+        expectedRevision: restored.json.revision,
+        confirmation: "ROLL BACK",
+      },
+    );
+    expect(rolledBack.status).toBe(200);
+    expect(rolledBack.json.workspace.clients[0].name).toBe(
+      "Changed after backup",
+    );
+    expect(
+      rolledBack.json.workspace.activity.map(
+        (entry: { title: string }) => entry.title,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        "Workspace backup restored",
+        "Workspace recovery point restored",
+      ]),
+    );
   });
   it("deactivation revokes existing sessions and cannot deactivate the owner", async () => {
     const tech = await account("Technician");
@@ -447,7 +546,27 @@ describe("authenticated company workspace", () => {
                 target: { x: 12, y: 0, z: 13 },
                 createdAt: new Date().toISOString(),
               },
+              {
+                id: "camera-test-2",
+                name: "Vista de prueba 2",
+                position: { x: 4, y: 8, z: 6 },
+                target: { x: 12, y: 0, z: 13 },
+                createdAt: new Date().toISOString(),
+              },
             ],
+            cameraPath: {
+              cameraIds: ["camera-test", "camera-test-2"],
+              durationSeconds: 30,
+            },
+            provenance: {
+              method: "Structured extraction",
+              provider: "Fixture",
+              model: "fixture-v1",
+              requestId: "request-test",
+              extractedAt: new Date().toISOString(),
+              reviewedAt: new Date().toISOString(),
+              sourceName: "floor-plan.png",
+            },
             history: [...layout.history, snapshot],
           },
         },
@@ -458,6 +577,64 @@ describe("authenticated company workspace", () => {
     expect(cameraRevision.json.workspace.layouts[0].cameras[0].name).toBe(
       "Vista de prueba",
     );
+    expect(
+      cameraRevision.json.workspace.layouts[0].cameraPath.durationSeconds,
+    ).toBe(30);
+    const savedLayout = cameraRevision.json.workspace.layouts[0];
+    const incompleteSnapshot = {
+      version: savedLayout.version,
+      objects: structuredClone(savedLayout.objects),
+      savedAt: new Date().toISOString(),
+      width: savedLayout.width,
+      depth: savedLayout.depth,
+      verified: savedLayout.verified,
+      verifiedAt: savedLayout.verifiedAt,
+      verificationNote: savedLayout.verificationNote,
+      cameras: structuredClone(savedLayout.cameras),
+    };
+    const rewrittenEvidence = await patch(
+      [
+        {
+          collection: "layouts",
+          id: savedLayout.id,
+          value: {
+            ...savedLayout,
+            version: savedLayout.version + 1,
+            name: `${savedLayout.name} reviewed`,
+            history: [...savedLayout.history, incompleteSnapshot],
+          },
+        },
+      ],
+      cameraRevision.json.revision,
+    );
+    expect(rewrittenEvidence.status).toBe(422);
+    expect(rewrittenEvidence.json.error).toContain("exact snapshot");
+  });
+
+  it("keeps floor-plan extraction provider-gated and leaves the layout unchanged", async () => {
+    const initial = await workspace();
+    const layout = initial.workspace.layouts[0];
+    const status = await call("/design/status");
+    expect(status.status).toBe(200);
+    expect(status.json).toEqual({ configured: false });
+    const extraction = await call("/design/extract", "POST", {
+      eventId: layout.eventId,
+      layoutId: layout.id,
+      name: "floor-plan.png",
+      mimeType: "image/png",
+      dataUrl: "data:image/png;base64,YQ==",
+      intrinsicWidth: 1200,
+      intrinsicHeight: 800,
+      roomWidth: layout.width,
+      roomDepth: layout.depth,
+      knownMeasurement: layout.width,
+      ceilingHeight: 3,
+      units: "meters",
+      rightsConfirmed: true,
+    });
+    expect(extraction.status).toBe(503);
+    expect(extraction.json.error).toContain("proveedor configurado");
+    expect((await workspace()).workspace.layouts[0]).toEqual(layout);
   });
 
   it("preserves creative provenance and only attaches an approved same-event asset", async () => {
