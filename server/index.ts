@@ -14,7 +14,13 @@ const repo = new Repository(
   resolve(process.env.KIT_DATABASE || "data/kit.sqlite"),
 );
 const app = createApp(repo, {
-  kitGenerator:process.env.OPENAI_API_KEY&&process.env.KIT_CHAT_MODEL?openAIKitGenerator(process.env.OPENAI_API_KEY,process.env.KIT_CHAT_MODEL):undefined,
+  kitGenerator:
+    process.env.OPENAI_API_KEY && process.env.KIT_CHAT_MODEL
+      ? openAIKitGenerator(
+          process.env.OPENAI_API_KEY,
+          process.env.KIT_CHAT_MODEL,
+        )
+      : undefined,
   search: {
     name: process.env.KIT_SEARCH_PROVIDER_NAME || "No configurado",
     providerIdentity: process.env.KIT_SEARCH_PROVIDER_URL || "",

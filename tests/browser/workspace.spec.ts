@@ -748,7 +748,7 @@ test("dashboard, tablet navigation, assistant and mobile layout", async ({
     .getByRole("button", { name: "Consultar a KIT", exact: true })
     .click();
   await expect(
-    page.getByText("Asistente general pendiente", { exact: true }),
+    page.getByText("Modo de ejemplo: mensajes guardados", { exact: false }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Cerrar asistente", exact: true })

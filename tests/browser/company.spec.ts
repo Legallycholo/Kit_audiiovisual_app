@@ -33,6 +33,15 @@ test.beforeEach(async ({ page }) => {
         };
       },
     },
+    kitGenerator: {
+      model: "kit-test-model",
+      generate: async (input) => ({
+        text: "El proyecto tiene contexto verificado y tareas visibles.",
+        citations: input.sources.map((source) => source.key),
+        artifact: null,
+        action: null,
+      }),
+    },
     messageTransport: {
       label: "Canal de demostración",
       send: async (message) => {
@@ -57,7 +66,8 @@ test.beforeEach(async ({ page }) => {
     await route.fulfill({ response });
   });
 });
-test.afterEach(async () => {
+test.afterEach(async ({ page }) => {
+  await page.close();
   await new Promise<void>((resolve) => server.close(() => resolve()));
   repo.close();
 });
@@ -91,10 +101,14 @@ test("company setup separates sample data and durable records survive sign-out",
   await setup(page);
   expect(repo.read().workspace.clients).toEqual([]);
   await page.goto("/clients");
-  await page.getByRole("button", { name: "Agregar cliente", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Agregar cliente", exact: true })
+    .click();
   await page.getByLabel("Nombre de empresa o cliente").fill("Empresa nueva");
   await page.getByLabel("Contacto principal").fill("Persona de contacto");
-  await page.getByRole("button", { name: "Guardar cliente", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guardar cliente", exact: true })
+    .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
   expect(repo.read().workspace.clients[0].name).toBe("Empresa nueva");
   await page
@@ -120,6 +134,41 @@ test("company setup separates sample data and durable records survive sign-out",
     page.getByRole("button", { name: /^EN Empresa nueva/ }),
   ).toBeVisible();
 });
+test("company KIT keeps one cited thread between the sidebar and full workspace", async ({
+  page,
+}) => {
+  await setup(page);
+  repo.save(createSeed(), 0);
+  await page.getByRole("button", { name: "Actualizar", exact: true }).click();
+  await page.goto("/events/e1");
+  await page.getByRole("button", { name: "Consultar a KIT" }).click();
+  const sidebar = page.locator(".kit-chat-sidebar");
+  await sidebar
+    .getByRole("button", { name: "Adjuntar contexto de esta página" })
+    .click();
+  await sidebar
+    .getByLabel("Mensaje para KIT")
+    .fill("Resume este proyecto usando la fuente adjunta.");
+  await sidebar.getByLabel("Enviar este mensaje", { exact: false }).check();
+  await sidebar.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(
+    sidebar.getByText("El proyecto tiene contexto verificado", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  const answer = sidebar
+    .getByRole("article")
+    .filter({ hasText: "El proyecto tiene contexto verificado" });
+  await answer.getByText("Contexto y citas (1)").click();
+  await expect(answer.getByText("Citada:", { exact: false })).toBeVisible();
+  await sidebar
+    .getByRole("link", { name: "Abrir chat completo", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/kit\?thread=/);
+  await expect(
+    page.getByText("El proyecto tiene contexto verificado", { exact: false }),
+  ).toBeVisible();
+});
 test("owner reviews AI suggestion, edits, saves, reopens and preserves manual edits on regeneration", async ({
   page,
 }) => {
@@ -143,7 +192,9 @@ test("owner reviews AI suggestion, edits, saves, reopens and preserves manual ed
   await expect(
     page.getByRole("region", { name: "Sugerencia de propuesta" }),
   ).toBeVisible();
-  await expect(page.getByText("Generada por IA", { exact: false })).toBeVisible();
+  await expect(
+    page.getByText("Generada por IA", { exact: false }),
+  ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Historial de generación" }),
   ).toContainText("test-model");
@@ -275,10 +326,14 @@ test("owner reviews an exact outgoing message and sees its delivery state", asyn
   repo.save(seed, 0);
   await page.getByRole("button", { name: "Actualizar", exact: true }).click();
   await page.goto("/inbox?conversation=m2");
-  await expect(page.getByText("Canal de demostración", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Canal de demostración", { exact: true }),
+  ).toBeVisible();
   await page
     .getByLabel("Responder al cliente")
-    .fill("Podemos incluir una segunda pantalla. Confirmaremos la tarifa antes de emitir la oferta.");
+    .fill(
+      "Podemos incluir una segunda pantalla. Confirmaremos la tarifa antes de emitir la oferta.",
+    );
   await page.getByRole("button", { name: "Revisar", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Podemos incluir una segunda pantalla");
@@ -307,18 +362,19 @@ test("proposal review creates an exact message and issues only after delivery", 
   await page
     .getByRole("button", { name: "Revisar y enviar", exact: true })
     .click();
-  await page.getByLabel("Mensaje al cliente").fill(
-    "Te compartimos esta versión exacta para revisión.",
-  );
+  await page
+    .getByLabel("Mensaje al cliente")
+    .fill("Te compartimos esta versión exacta para revisión.");
   await page
     .getByRole("button", { name: "Preparar en mensajes", exact: true })
     .click();
   await expect(page).toHaveURL(/\/inbox\?conversation=/);
   await expect(
-    page.locator(".messages").getByText(
-      "Te compartimos esta versión exacta para revisión.",
-      { exact: true },
-    ),
+    page
+      .locator(".messages")
+      .getByText("Te compartimos esta versión exacta para revisión.", {
+        exact: true,
+      }),
   ).toBeVisible();
   expect(
     repo.read().workspace.proposals.find((proposal) => proposal.id === "p2")

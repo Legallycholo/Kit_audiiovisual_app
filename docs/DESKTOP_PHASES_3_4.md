@@ -177,6 +177,8 @@ Desktop CI runs native tests and that fixture on macOS and Windows.
   in the company deletion policy. Encrypted local deletion is not a promise to erase
   independent OS snapshots or backups.
 
-Recommended next step: run the native acceptance checklist with a small approved
-fixture folder, then approve a provider if cloud semantic search is wanted. Phase 5
-can then build KIT conversations and citations on these explicit permission boundaries.
+Recommended next step for phases 3 and 4: run the native acceptance checklist
+with a small approved fixture folder, then approve a provider if cloud semantic
+search is wanted. Phase 5 now builds KIT conversations and citations on these
+explicit permission boundaries; its separate acceptance notes are in
+[DESKTOP_PHASE_5.md](DESKTOP_PHASE_5.md).

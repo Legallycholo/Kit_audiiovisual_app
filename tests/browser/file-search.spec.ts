@@ -64,6 +64,45 @@ test("browser file permissions fail closed and search remains accessible", async
     .analyze();
   expect(result.violations).toEqual([]);
 });
+test("KIT full workspace and sidebar share the active conversation", async ({
+  page,
+}) => {
+  await page.goto("/kit");
+  await expect(
+    page.getByRole("heading", { name: "Tu espacio con KIT", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Nueva conversación" }).click();
+  await page
+    .getByLabel("Mensaje para KIT")
+    .fill("Resume las tareas de producción de ejemplo.");
+  await page
+    .getByRole("button", { name: "Guardar mensaje de ejemplo" })
+    .click();
+  await expect(
+    page
+      .getByLabel("Mensajes de KIT")
+      .getByText("Resume las tareas de producción de ejemplo.", {
+        exact: true,
+      }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("La IA no está conectada en modo de ejemplo", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Consultar a KIT" }).click();
+  const sidebar = page.locator(".kit-chat-sidebar");
+  await expect(sidebar).toBeVisible();
+  await expect(
+    sidebar.getByText("Resume las tareas de producción de ejemplo.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  const result = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(result.violations).toEqual([]);
+});
 test("native permission UI requires consent, then supports pause and revocation (mock IPC)", async ({
   page,
 }) => {

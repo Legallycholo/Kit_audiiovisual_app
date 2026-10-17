@@ -91,21 +91,3 @@ export function LibraryHub() {
     </section>
   );
 }
-export function KitHub() {
-  return (
-    <section className="kit-landing">
-      <span className="kit-mark">KIT</span>
-      <h1>Tu espacio con KIT</h1>
-      <p>
-        La conversación completa y el historial compartido con la barra lateral
-        llegarán en la fase 5.
-      </p>
-      <Link className="button primary" to="/proposals">
-        Redactar una propuesta con IA
-      </Link>
-      <p className="muted">
-        Disponible con una conexión de empresa configurada.
-      </p>
-    </section>
-  );
-}

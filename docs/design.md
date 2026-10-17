@@ -658,6 +658,10 @@ Exit criteria:
 
 ### Milestone 5: Shared KIT conversation system
 
+Development status: implemented October 17, 2026. Production acceptance still
+requires an approved provider, representative source validation, and the release
+gates in [DESKTOP_PHASE_5.md](DESKTOP_PHASE_5.md).
+
 Deliverables:
 
 - Add persisted conversations, messages, context references, citations, artifacts, model metadata, and error states.

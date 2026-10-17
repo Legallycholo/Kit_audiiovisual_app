@@ -64,8 +64,13 @@ export function createApp(
   searchGateway.mountDevice(app);
   app.use("/api", sessionMiddleware(repo), csrfMiddleware(config.origins));
   searchGateway.mountSession(app);
-  const kit=new KitService(repo,config.kitGenerator,config.proposalGenerator);
-  app.locals.kit=kit;
+  const kit = new KitService(
+    repo,
+    config.kitGenerator,
+    config.proposalGenerator,
+    searchGateway,
+  );
+  app.locals.kit = kit;
   kit.mount(app);
   const response = (res: express.Response): WorkspaceResponse => {
     const user = userOf(res);

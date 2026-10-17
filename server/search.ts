@@ -467,6 +467,32 @@ export class SearchGateway {
       return { configured: true, results: [...unique.values()] };
     });
   }
+  source(user: string, id: string) {
+    this.checkUser(user);
+    if (!/^[a-f0-9]{64}$/.test(id))
+      throw new HttpError(422, "Invalid indexed source identifier.");
+    const row = this.repo.db
+      .prepare(
+        "SELECT hash,payload,updated FROM search_sources WHERE user_id=? AND id=? AND state='ready'",
+      )
+      .get(user, id) as
+      { hash: string; payload: string; updated: string } | undefined;
+    if (!row?.payload)
+      throw new HttpError(404, "Indexed file source is unavailable.");
+    const data = this.decrypt(row.payload) as {
+      title: string;
+      mime: string;
+      chunks: string[];
+    };
+    return {
+      id,
+      hash: row.hash,
+      title: data.title,
+      mime: data.mime,
+      text: data.chunks.join("\n").slice(0, 64_000),
+      modified: row.updated,
+    };
+  }
   status(user: string) {
     this.checkUser(user);
     const account = this.repo.user(user)!;
@@ -559,6 +585,24 @@ export class SearchGateway {
         ),
       ),
     );
+    app.get("/api/search/sources/:id", (req, res) => {
+      const source = this.source(
+        userOf(res).id,
+        z
+          .string()
+          .regex(/^[a-f0-9]{64}$/)
+          .parse(req.params.id),
+      );
+      res.json({
+        id: source.id,
+        title: source.title,
+        mime: source.mime,
+        excerpt: source.text.slice(0, 350),
+        modified: source.modified,
+        source: "cloud",
+        reason: "Fuente indexada aprobada",
+      });
+    });
     app.delete("/api/search/sources", async (_req, res) =>
       res.json(await this.remove(userOf(res).id)),
     );

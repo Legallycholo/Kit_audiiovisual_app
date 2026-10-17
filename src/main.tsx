@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, HashRouter } from "react-router-dom";
 import { WorkspaceProvider } from "./shared/store";
+import { KitProvider } from "./shared/kit-store";
 import { App } from "./application/App";
 import "./styles.css";
 import "@fontsource-variable/dm-sans";
@@ -33,7 +34,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Router>
       <WorkspaceProvider>
-        <App />
+        <KitProvider>
+          <App />
+        </KitProvider>
       </WorkspaceProvider>
     </Router>
   </React.StrictMode>,

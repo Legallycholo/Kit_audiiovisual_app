@@ -69,6 +69,12 @@ describe("cloud search privacy boundary", () => {
     expect((await gateway.search("alice", "Rolando")).results).toHaveLength(1);
     const namespaces = vi.mocked(provider.replace).mock.calls.map((c) => c[0]);
     expect(namespaces[0]).not.toBe(namespaces[1]);
+    expect(gateway.source("alice", id)).toMatchObject({
+      id,
+      hash: "c".repeat(64),
+      title: "Rolando proposal",
+    });
+    expect(() => gateway.source("bob", id)).toThrow("unavailable");
   });
   it("hides content immediately while deletion retries await confirmation", async () => {
     await gateway.put("alice", source(gateway));

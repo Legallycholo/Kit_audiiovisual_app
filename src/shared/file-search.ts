@@ -30,6 +30,7 @@ export interface IndexedFile {
   modified: number;
   bytes: number;
   hash: string;
+  cloudHash?: string;
   text: string;
   excerpt: string;
   reason: string;

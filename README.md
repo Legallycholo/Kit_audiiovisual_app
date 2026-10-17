@@ -21,8 +21,9 @@ Spanish is the primary interface language. The Phase 1 shell, account entry, com
 The interface now has five hubs (Inicio, Proyectos, Diseño, Biblioteca, KIT),
 light/dark/system appearance, bundled fonts, persistent workspace tabs, preview
 and pinned tabs, searchable history, recovery, and unsaved-editor confirmation.
-Existing business routes remain available inside their hubs. KIT's shared full
-chat remains a later phase. File indexing and search are described below.
+Existing business routes remain available inside their hubs. KIT's full chat
+and sidebar now share persisted conversations. File indexing and search are
+described below.
 
 With the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
 
@@ -58,6 +59,26 @@ See [phase 3 and 4 setup, verification and release gates](docs/DESKTOP_PHASES_3_
 The macOS native binary now builds; Windows launch, signing and real-provider
 acceptance checks remain required before release.
 
+### Desktop design phase 5
+
+The KIT workspace and right sidebar now use the same conversation records.
+Company conversations persist in SQLite and support explicit context,
+revisioned citations, draft artifacts, stopping, retry preparation, branching,
+and Ask/Act modes. Act mode can only propose the small server allowlist of
+actions, and every mutation requires a fresh authorization check and a specific
+confirmation.
+
+Files enter KIT only after the user separately approves and synchronizes them
+to their personal encrypted company search namespace. KIT resolves the indexed
+ID on the server and ignores renderer-supplied titles or contents. Revoked
+sources are hidden immediately and changed hashes are marked stale. Local
+originals stay behind the Tauri boundary.
+
+Configure `KIT_CHAT_MODEL` together with `OPENAI_API_KEY` only after approving
+a provider and data policy. Without them, conversations remain usable but
+clearly report that generation is unavailable. See [phase 5 implementation and
+security notes](docs/DESKTOP_PHASE_5.md).
+
 Use Node.js 22.12 or newer and npm. The current server uses Node's built-in SQLite module, which emits an experimental-feature warning under Node 22.
 
 ```sh
@@ -92,7 +113,7 @@ The owner workflow is: create/select a client and event, review the equipment ca
 
 The provider receives the entered brief, selected event summary, client name, and equipment catalog/rates. It does not receive unrelated conversations, contacts, passwords, or the entire workspace. Requests use strict structured output, a timeout, an output-token cap, and per-user/company request limits. Rates are copied from the server catalog; unknown or duplicate equipment and model-supplied prices are rejected. Quantities and rental days remain suggestions requiring business review. The current catalog context is limited to 500 products; larger catalogs need scoped retrieval before live use.
 
-Generation produces a suggestion and audit entry; it does not mutate a proposal until the owner applies and saves it. Internal assumptions and unanswered questions persist with the draft and are omitted from client print views and client account responses. These notes are a review aid, not a claim that model-generated prose is factually guaranteed. The app's general AI sidebar remains unfinished. Creative generation currently uses a local provider-neutral showcase rather than a live image service.
+Generation produces a suggestion and audit entry; it does not mutate a proposal until the owner applies and saves it. Internal assumptions and unanswered questions persist with the draft and are omitted from client print views and client account responses. These notes are a review aid, not a claim that model-generated prose is factually guaranteed. The shared KIT sidebar is implemented; live model quality still requires an approved provider and representative validation. Creative generation currently uses a local provider-neutral showcase rather than a live image service.
 
 **Live model generation has not been verified with a company credential.** Automated tests use an explicit substitute at the model boundary while exercising the real UI, API, database, and permission checks. No real client messages or model requests were sent during those tests.
 

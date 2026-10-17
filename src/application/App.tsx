@@ -24,9 +24,7 @@ import {
   MapPin,
   Menu,
   MessageCircle,
-  PanelLeftClose,
   Search,
-  Send,
   Settings,
   Sparkles,
   Users,
@@ -53,9 +51,10 @@ import {
 import { Design } from "../modules/Design";
 import { WorkspaceTabs } from "./WorkspaceTabs";
 import { DraftNavigation } from "./DraftNavigation";
-import { hubs, activeHub, HubNavigation, LibraryHub, KitHub } from "./Hubs";
+import { hubs, activeHub, HubNavigation, LibraryHub } from "./Hubs";
 import { SearchPage } from "../modules/UniversalSearch";
 import { FileLibrary, FilePreview } from "../modules/FileLibrary";
+import { KitChat } from "../modules/KitChat";
 const navigation = [
   {
     label: uiLabel("Overview"),
@@ -430,7 +429,7 @@ export function App() {
               <Route path="/library" element={<LibraryHub />} />
               <Route path="/library/files" element={<FileLibrary />} />
               <Route path="/files/:id" element={<FilePreview />} />
-              <Route path="/kit" element={<KitHub />} />
+              <Route path="/kit" element={<KitChat />} />
               <Route
                 path="/search"
                 element={
@@ -477,9 +476,7 @@ export function App() {
           )}
         </main>
       </div>
-      {assistant && (
-        <Assistant page={currentLabel} onClose={() => toggleAssistant(false)} />
-      )}
+      {assistant && <KitChat sidebar onClose={() => toggleAssistant(false)} />}
       {notice && (
         <div className="toast" role="status">
           <Check size={17} />
@@ -629,104 +626,5 @@ export function App() {
         </Modal>
       )}
     </div>
-  );
-}
-function Assistant({ page, onClose }: { page: string; onClose: () => void }) {
-  const [prompt, setPrompt] = useState("");
-  const [messages, setMessages] = useState<string[]>([]);
-  const location = useLocation();
-  return (
-    <aside className="assistant">
-      <header>
-        <div>
-          <Sparkles size={20} />
-          <strong>{uiLabel("KIT assistant")}</strong>
-        </div>
-        <button
-          className="icon-button"
-          aria-label={uiLabel("Close assistant")}
-          onClick={onClose}
-        >
-          <PanelLeftClose size={18} />
-        </button>
-      </header>
-      <div className="assistant-context">
-        <span className="live-dot" />
-        {uiLabel("Context:")} {page}
-        <small>{location.pathname}</small>
-      </div>
-      <div className="assistant-content">
-        <div className="assistant-orb">
-          <Sparkles size={26} />
-        </div>
-        <h2>
-          {uiLabel("A little help.")}
-          <br />
-          {uiLabel("A better production.")}
-        </h2>
-        <p>
-          {uiLabel(
-            "Bring your next event into focus with a copilot that understands your workspace.",
-          )}
-        </p>
-        <Badge tone="neutral">Asistente general pendiente</Badge>
-        <Link className="button secondary" to="/proposals" onClick={onClose}>
-          Redactar una propuesta con IA
-        </Link>
-        <div className="prompt-suggestions">
-          {[
-            "Draft a proposal for this event",
-            "Summarize upcoming production tasks",
-            "Help me plan an equipment list",
-          ].map((text) => (
-            <button key={text} onClick={() => setPrompt(text)}>
-              {uiLabel(text)}
-              <ArrowUpRight size={15} />
-            </button>
-          ))}
-        </div>
-        {messages.map((message, i) => (
-          <div className="assistant-message" key={i}>
-            <strong>{uiLabel("You")}</strong>
-            <p>{message}</p>
-            <div className="assistant-response">
-              Esta solicitud permanece en esta sesión. El asistente general
-              todavía no ejecuta acciones. La redacción con IA está disponible
-              desde Propuestas cuando la conexión de empresa está configurada.
-              <Link to="/proposals">
-                {uiLabel("Open proposals")} <ArrowUpRight size={13} />
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
-      <form
-        className="assistant-composer"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (prompt.trim()) {
-            setMessages([...messages, prompt]);
-            setPrompt("");
-          }
-        }}
-      >
-        <textarea
-          aria-label={uiLabel("Ask KIT")}
-          placeholder={uiLabel("What are we working on?")}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
-        <div>
-          <small>{uiLabel("Drafts always stay in your control.")}</small>
-          <button
-            className="icon-button"
-            aria-label={uiLabel("Save assistant request")}
-            disabled={!prompt.trim()}
-          >
-            <Send size={17} />
-          </button>
-        </div>
-      </form>
-    </aside>
   );
 }

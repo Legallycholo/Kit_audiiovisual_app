@@ -341,6 +341,23 @@ export function FilePreview() {
           >
             Abrir en aplicación predeterminada
           </button>
+          {file.cloudHash === file.hash ? (
+            <button
+              className="button primary"
+              onClick={() =>
+                void files("open_company_window", {
+                  route: `/kit?source=${encodeURIComponent(file.id)}&sourceTitle=${encodeURIComponent(file.title)}`,
+                }).catch((e) => setError(String(e)))
+              }
+            >
+              Preguntar a KIT sobre este archivo
+            </button>
+          ) : (
+            <p className="muted">
+              Para usar este archivo con KIT, conecta el dispositivo, aprueba la
+              política de nube y sincroniza la versión actual.
+            </p>
+          )}
           {image ? (
             <img className="file-preview-image" src={image} alt={file.title} />
           ) : (

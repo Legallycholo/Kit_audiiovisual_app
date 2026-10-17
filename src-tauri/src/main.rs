@@ -23,7 +23,14 @@ async fn open_company_window(
             || route.contains('\\')
             || !matches!(
                 module,
-                "events" | "clients" | "proposals" | "creative" | "venues" | "inventory"
+                "events"
+                    | "clients"
+                    | "proposals"
+                    | "creative"
+                    | "venues"
+                    | "inventory"
+                    | "kit"
+                    | "search"
             )
         {
             return Err("Unsupported company record route".into());

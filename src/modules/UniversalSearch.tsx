@@ -12,6 +12,7 @@ export function SearchPage() {
   const { data, user, mode, request } = useWorkspace();
   const [params] = useSearchParams();
   const q = params.get("q") || "";
+  const sourceId = params.get("source") || "";
   const [query, setQuery] = useState(q);
   const navigate = useNavigate();
   const [remote, setRemote] = useState<SearchResult[]>([]);
@@ -44,9 +45,31 @@ export function SearchPage() {
     let active = true;
     setRemote([]);
     setError("");
-    if (!q) return;
+    if (!q && !(mode === "company" && sourceId)) return;
     setBusy(true);
     void (async () => {
+      if (mode === "company" && sourceId) {
+        const source = await request<{
+          id: string;
+          title: string;
+          mime: string;
+          excerpt: string;
+          reason: string;
+        }>(`/search/sources/${encodeURIComponent(sourceId)}`);
+        if (active) {
+          setRemote([
+            {
+              ...source,
+              path: `/search?source=${encodeURIComponent(source.id)}`,
+              type: source.mime.startsWith("image/") ? "Imágenes" : "Archivos",
+              source: "cloud",
+              score: 100,
+            },
+          ]);
+          setCoverage("Fuente indexada aprobada para esta cuenta.");
+        }
+        if (!q) return;
+      }
       if (nativeFiles()) {
         const status = await files<FileStatus>("file_status");
         const found = await files<IndexedFile[]>("file_search", { query: q });
@@ -123,15 +146,18 @@ export function SearchPage() {
               ? "Índice semántico personal de empresa. No incluye archivos sin sincronizar."
               : "Nube desactivada. Se muestran registros del espacio.",
           );
-          setRemote(
-            result.results.map((f) => ({
-              ...f,
-              path: `/search?q=${encodeURIComponent(q)}&source=${f.id}`,
-              type: f.mime.startsWith("image/") ? "Imágenes" : "Archivos",
-              source: "cloud",
-              score: 50 + Math.min(20, Math.max(0, f.score) * 20),
-            })),
-          );
+          setRemote((previous) => [
+            ...previous.filter((item) => item.id === sourceId),
+            ...result.results
+              .filter((item) => item.id !== sourceId)
+              .map((f) => ({
+                ...f,
+                path: `/search?q=${encodeURIComponent(q)}&source=${f.id}`,
+                type: f.mime.startsWith("image/") ? "Imágenes" : "Archivos",
+                source: "cloud" as const,
+                score: 50 + Math.min(20, Math.max(0, f.score) * 20),
+              })),
+          ]);
         }
       } else if (active)
         setCoverage(
@@ -147,7 +173,7 @@ export function SearchPage() {
     return () => {
       active = false;
     };
-  }, [q, mode, request]);
+  }, [q, sourceId, mode, request]);
   const all = [
     ...(companyConnected ? [] : searchWorkspace(data, user, q)),
     ...remote,
@@ -236,6 +262,14 @@ export function SearchPage() {
             Extracto de nube. El original solo se abre desde el equipo
             autorizado.
           </p>
+          {selected.source === "cloud" && mode === "company" && (
+            <Link
+              className="button primary"
+              to={`/kit?source=${encodeURIComponent(selected.id)}&sourceTitle=${encodeURIComponent(selected.title)}`}
+            >
+              Preguntar a KIT sobre esta fuente
+            </Link>
+          )}
         </article>
       )}
       {groups.map((group) => (
