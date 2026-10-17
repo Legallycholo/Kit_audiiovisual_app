@@ -15,6 +15,7 @@ npm run build          # typecheck + vite build
 npm test               # vitest (src + server)
 npm run test:browser   # Playwright, isolated headless Chrome (~2.5 min)
 npm run format         # prettier
+npm run backup         # checksummed workspace backup to KIT_BACKUP_DIR (never run against data/ in tests)
 npm run desktop:dev    # Tauri (needs Rust + Tauri prerequisites)
 ```
 

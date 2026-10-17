@@ -36,6 +36,14 @@ NODE_ENV=production npm start
 
 Open **http://127.0.0.1:3001**. Public deployment still requires HTTPS, operational backups, account recovery, deployment hardening, and business acceptance; none has been deployed here.
 
+### Scheduled backups
+
+```sh
+npm run backup
+```
+
+Writes a checksummed backup of the company workspace (the same format as the administrator export) to `KIT_BACKUP_DIR` (default `data/backups/`) and keeps the newest `KIT_BACKUP_KEEP` files (default 14). Schedule it with cron, launchd or Task Scheduler. Backups stay on this machine. Copying them off-site is a deployment decision.
+
 ### Desktop app
 
 With the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
