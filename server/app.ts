@@ -1,4 +1,5 @@
 import express from "express";
+import { randomUUID } from "node:crypto";
 import { SearchGateway } from "./search";
 import { KitService } from "./kit";
 import { resolve } from "node:path";
@@ -8,6 +9,7 @@ import { csrfMiddleware, sessionMiddleware, userOf } from "./security";
 import { scopeWorkspace } from "./permissions";
 import type { WorkspaceResponse } from "../src/shared/access";
 import { DesignService } from "./design";
+import { jsonLogger } from "./logger";
 import type { AppConfig, RouteContext } from "./routes/context";
 import { mountAuthRoutes } from "./routes/auth";
 import { mountWorkspaceRoutes } from "./routes/workspace";
@@ -23,9 +25,26 @@ export type { AppConfig } from "./routes/context";
 
 export function createApp(repo: Repository, config: AppConfig) {
   const app = express();
+  // Without a configured logger only failures are reported, as before.
+  const logger = config.logger ?? jsonLogger("warn");
   app.disable("x-powered-by");
-  app.use((_req, res, next) => {
+  app.use((req, res, next) => {
+    const requestId = randomUUID();
+    const started = performance.now();
+    res.locals.requestId = requestId;
+    if (req.path.startsWith("/api/"))
+      res.on("finish", () =>
+        logger.log("info", "http_request", {
+          requestId,
+          method: req.method,
+          path: req.path,
+          status: res.statusCode,
+          durationMs: Math.round(performance.now() - started),
+          userId: res.locals.user?.id,
+        }),
+      );
     res.set({
+      "X-Request-Id": requestId,
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
       "Referrer-Policy": "same-origin",
@@ -83,7 +102,7 @@ export function createApp(repo: Repository, config: AppConfig) {
   app.use(
     (
       error: unknown,
-      _req: express.Request,
+      req: express.Request,
       res: express.Response,
       _next: express.NextFunction,
     ) => {
@@ -104,10 +123,27 @@ export function createApp(repo: Repository, config: AppConfig) {
         )
       )
         return res.status(422).json({ error: error.message });
-      console.error(
-        "Request failed",
-        error instanceof Error ? error.name : "Unknown error",
-      );
+      // Body-parser and similar client errors (for example an oversized payload).
+      const clientError = error as { status?: unknown; expose?: unknown };
+      if (
+        typeof clientError?.status === "number" &&
+        clientError.status >= 400 &&
+        clientError.status < 500 &&
+        clientError.expose === true
+      )
+        return res.status(clientError.status).json({
+          error:
+            clientError.status === 413
+              ? "La solicitud supera el tamaño permitido."
+              : "La solicitud no es válida.",
+        });
+      // Only the error name is logged; messages may contain record data.
+      logger.log("error", "request_failed", {
+        requestId: res.locals.requestId,
+        method: req.method,
+        path: req.path,
+        error: error instanceof Error ? error.name : "Unknown error",
+      });
       return res
         .status(500)
         .json({ error: "The server could not complete this request." });

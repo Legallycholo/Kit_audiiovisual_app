@@ -4,6 +4,7 @@ import { Repository } from "./database";
 import { createApp } from "./app";
 import { httpSearchProvider, type SearchGateway } from "./search";
 import { openAIKitGenerator, type KitService } from "./kit";
+import { jsonLogger, parseLogLevel } from "./logger";
 
 const port = Number(process.env.PORT || 3001);
 const origins = (
@@ -14,6 +15,7 @@ const repo = new Repository(
   resolve(process.env.KIT_DATABASE || "data/kit.sqlite"),
 );
 const app = createApp(repo, {
+  logger: jsonLogger(parseLogLevel(process.env.KIT_LOG_LEVEL)),
   kitGenerator:
     process.env.OPENAI_API_KEY && process.env.KIT_CHAT_MODEL
       ? openAIKitGenerator(

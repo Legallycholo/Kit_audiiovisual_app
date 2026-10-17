@@ -5,6 +5,7 @@ import type { KitGenerator } from "../kit";
 import type { ProposalGenerator } from "../proposal-ai";
 import type { MessageTransport } from "../messaging";
 import type { FloorPlanExtractor } from "../design";
+import type { Logger } from "../logger";
 import type { WorkspaceResponse } from "../../src/shared/access";
 
 export type AppConfig = {
@@ -16,6 +17,7 @@ export type AppConfig = {
   search?: SearchConfig;
   kitGenerator?: KitGenerator;
   floorPlanExtractor?: FloorPlanExtractor;
+  logger?: Logger;
 };
 
 export type RouteContext = {
