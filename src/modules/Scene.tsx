@@ -8,6 +8,7 @@ import {
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { Layout, LayoutCamera } from "../shared/types";
+import { addEquipmentDetail, createShapeAssets } from "./scene-shapes";
 
 const MAX_SCENE_OBJECTS = 500;
 
@@ -292,6 +293,7 @@ const Scene = forwardRef<
       Decoration: "#bba48f",
     };
     meshes.current.clear();
+    const shapes = createShapeAssets();
     for (const object of visibleObjects.slice(0, MAX_SCENE_OBJECTS)) {
       const geometry =
         object.kind === "Table"
@@ -324,6 +326,9 @@ const Scene = forwardRef<
         }),
       );
       mesh.add(edges);
+      // Detail goes after the edges, which the selection effect reads as children[0].
+      if (addEquipmentDetail(object, mesh, shapes))
+        mesh.userData.assetStatus = "procedural-placeholder";
       if (object.id === selection) {
         const material = mesh.material as THREE.MeshStandardMaterial;
         material.emissive.set("#9fbd72");
