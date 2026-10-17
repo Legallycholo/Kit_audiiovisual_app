@@ -38,3 +38,20 @@ Cause: the test sets up a fresh company, and company setup creates an **empty** 
 - The cleanup plan was moved by the user from the root to `docs/claude-cleanup.md`. Links point there.
 - The build warns about large chunks (`index` 619 kB, `Scene`/Three.js 525 kB). This is a candidate for later code-splitting, not part of this plan's no-behavior-change stages.
 - `docs/` now has both `design.md` (desktop plan) and `IMPLEMENTATION_PLAN.md` (product plan). The names don't make that difference clear. Consider renaming `design.md` to `DESKTOP_PLAN.md` later, which would mean updating its inbound links.
+
+### Baseline failure resolved (commit `d694c0d`)
+
+With the user's go-ahead to finish the plan, the backup test was fixed in test code only. It had two problems:
+
+1. It never seeded the repository. Every sibling test calls `repo.save(createSeed(), 0)` after `setup`.
+2. Once seeded, `/api/backup` rejected the sample data. `src/shared/seed.ts` writes conversation message times without a UTC offset (for example `2026-10-16T14:00:00`), and the backup schema requires `z.string().datetime()`.
+
+The test now normalizes those four timestamps before saving. **Finding:** the sample seed does not pass the server's backup validation. Real company records always use `toISOString()`, so production data is unaffected. Fixing the seed itself would change the displayed sample times, so it is left as a follow-up.
+
+**New baseline: 46/46 browser tests expected to pass.**
+
+## Stage 2 — CI
+
+- Added `.github/workflows/ci.yml`: one Ubuntu job on pull requests and pushes to `main` that runs `npm ci`, typecheck, build and unit tests, with a 15-minute timeout and superseded runs cancelled. It uses the same `actions/checkout@v4` / `actions/setup-node@v4` versions as the desktop workflow, with no secrets and no deploy step.
+- The desktop workflow is unchanged. It already runs unit, cargo and browser tests, and its build step type-checks.
+- Validation: the YAML parses and passes Prettier. `actionlint` is not installed locally. **The workflow has not run on GitHub yet, so it is not proven green.**
