@@ -177,6 +177,12 @@ test("administrator previews, restores and rolls back a verified backup", async 
   page,
 }) => {
   await setup(page);
+  // Sample message times omit a UTC offset; backups require ISO datetimes.
+  const seed = createSeed();
+  for (const conversation of seed.conversations)
+    for (const message of conversation.messages)
+      message.at = new Date(message.at).toISOString();
+  repo.save(seed, 0);
   const backup = await page.evaluate(async () => {
     const response = await fetch("/api/backup", { credentials: "same-origin" });
     if (!response.ok) throw new Error("Backup export failed in the test.");
