@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { readFile } from "node:fs/promises";
 
 test("all main destinations load without runtime errors", async ({ page }) => {
   const errors: string[] = [];
@@ -803,4 +804,45 @@ test("dashboard, tablet navigation, assistant and mobile layout", async ({
     path: "artifacts/dashboard-mobile.png",
     fullPage: true,
   });
+});
+
+test("equipment CSV export and validated import", async ({ page }) => {
+  await page.goto("/inventory");
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Exportar CSV", exact: true }).click();
+  const exported = await readFile((await (await downloading).path())!, "utf8");
+  expect(exported).toContain(
+    "sku,nombre,categoría,cantidad,mantenimiento,tarifa,descripción",
+  );
+
+  await page.getByRole("button", { name: "Importar CSV", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Importar equipos desde CSV",
+  });
+  const file = dialog.getByLabel("Archivo CSV");
+  await file.setInputFiles({
+    name: "con-errores.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "sku,nombre,categoría,cantidad,tarifa\nX-1,Consola,Audio,dos,10\n",
+    ),
+  });
+  await expect(dialog).toContainText("Fila 2");
+  await expect(
+    dialog.getByRole("button", { name: "Importar registros" }),
+  ).toBeDisabled();
+
+  await file.setInputFiles({
+    name: "equipos.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      `${exported.trimEnd()}\r\nQA-CSV-1,Consola digital QA,Audio,3,0,120,Importada por prueba\r\n`,
+    ),
+  });
+  await expect(dialog).toContainText("1 nuevos · 0 actualizados");
+  await expect(dialog).toContainText("Nuevo · QA-CSV-1 · Consola digital QA");
+  await dialog.getByRole("button", { name: "Importar registros" }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Consola digital QA").first()).toBeVisible();
 });

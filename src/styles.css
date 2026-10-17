@@ -3221,6 +3221,21 @@ td small {
 .role-row {
   flex-wrap: wrap;
 }
+.csv-preview {
+  margin: 4px 0 12px;
+}
+.csv-summary {
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.csv-preview ul {
+  margin: 6px 0 0 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 220px;
+  overflow: auto;
+}
 .temporary-password {
   display: block;
   margin: 12px 0;

@@ -620,6 +620,22 @@ export const spanish: Record<string, string> = {
   "The new passwords do not match.": "Las contraseñas nuevas no coinciden.",
   "Password changed. Other devices were signed out.":
     "Contraseña cambiada. Se cerró la sesión en tus otros dispositivos.",
+  "Export CSV": "Exportar CSV",
+  "Import CSV": "Importar CSV",
+  "Import equipment from CSV": "Importar equipos desde CSV",
+  "Rows are matched to the catalog by SKU. Nothing changes until you confirm.":
+    "Las filas se asocian al catálogo por SKU. Nada cambia hasta que confirmes.",
+  "Import clients from CSV": "Importar clientes desde CSV",
+  "Rows are matched by email, or by name when there is no email. Nothing changes until you confirm.":
+    "Las filas se asocian por correo, o por nombre si no hay correo. Nada cambia hasta que confirmes.",
+  "CSV file": "Archivo CSV",
+  "Up to 200 rows. Export the current list to use it as a template.":
+    "Hasta 200 filas. Exporta la lista actual para usarla como plantilla.",
+  "The file is larger than 2 MB.": "El archivo supera 2 MB.",
+  "Fix these rows and choose the file again:":
+    "Corrige estas filas y vuelve a elegir el archivo:",
+  "Import records": "Importar registros",
+  "Importing…": "Importando…",
 };
 export function uiLabel(value: string): string {
   return spanish[value] ?? value;

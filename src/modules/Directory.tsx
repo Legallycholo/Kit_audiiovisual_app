@@ -1,7 +1,19 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowUpRight, Mail, MapPin, Plus, Ruler, Users } from "lucide-react";
+import {
+  ArrowUpRight,
+  Download,
+  FileUp,
+  Mail,
+  MapPin,
+  Plus,
+  Ruler,
+  Users,
+} from "lucide-react";
 import { useWorkspace, activity } from "../shared/store";
+import { canEditCollection } from "../shared/access";
+import { clientsToCsv, planClientImport } from "../shared/csv";
+import { CsvImportDialog } from "./CsvImport";
 import {
   Avatar,
   Badge,
@@ -14,10 +26,11 @@ import {
   SearchField,
   Tabs,
 } from "../shared/ui";
-import { id, initials, shortDate } from "../shared/domain";
+import { downloadFile, id, initials, shortDate } from "../shared/domain";
 import type { Client, Venue } from "../shared/types";
 export function Clients() {
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, user } = useWorkspace();
+  const [importing, setImporting] = useState(false);
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("Companies");
@@ -47,10 +60,33 @@ export function Clients() {
         title="Clients"
         description="Your people, their projects, and a shared history of great events."
         actions={
-          <Button onClick={newClient}>
-            <Plus size={17} />
-            Add client
-          </Button>
+          <>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                downloadFile(
+                  `kit-clientes-${new Date().toISOString().slice(0, 10)}.csv`,
+                  clientsToCsv(data.clients),
+                  "text/csv;charset=utf-8",
+                )
+              }
+            >
+              <Download size={17} />
+              Export CSV
+            </Button>
+            <Button
+              disabled={!canEditCollection(user, "clients")}
+              variant="secondary"
+              onClick={() => setImporting(true)}
+            >
+              <FileUp size={17} />
+              Import CSV
+            </Button>
+            <Button onClick={newClient}>
+              <Plus size={17} />
+              Add client
+            </Button>
+          </>
         }
       />
       <Panel>
@@ -301,6 +337,38 @@ export function Clients() {
             </div>
           </form>
         </Modal>
+      )}
+      {importing && (
+        <CsvImportDialog
+          title="Import clients from CSV"
+          description="Rows are matched by email, or by name when there is no email. Nothing changes until you confirm."
+          plan={(text) => planClientImport(text, data.clients, id)}
+          label={(client: Client) => client.name}
+          onCommit={async (plan) => {
+            const updates = new Map(
+              plan.updated.map((client) => [client.id, client]),
+            );
+            const saved = await update((workspace) => ({
+              ...workspace,
+              clients: [
+                ...workspace.clients.map(
+                  (client) => updates.get(client.id) ?? client,
+                ),
+                ...plan.created,
+              ],
+              activity: [
+                activity(
+                  "Client directory imported",
+                  `${plan.created.length} nuevos · ${plan.updated.length} actualizados`,
+                ),
+                ...workspace.activity,
+              ],
+            }));
+            if (saved) toast("Directorio de clientes importado.");
+            return saved;
+          }}
+          onClose={() => setImporting(false)}
+        />
       )}
     </>
   );
