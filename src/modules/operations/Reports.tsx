@@ -39,6 +39,8 @@ import {
   workloadReport,
 } from "../../shared/reporting";
 import type { AutomationRecord } from "../../shared/types";
+import { demoOwner } from "../../shared/seed";
+import { uiLabel } from "../../shared/i18n";
 
 export function Reports() {
   const { data, update, toast, user, mode } = useWorkspace();
@@ -147,7 +149,7 @@ export function Reports() {
                 id: taskId,
                 eventId: event.id,
                 title: record.title,
-                assignee: user?.name || event.manager || "Alex Morgan",
+                assignee: user?.name || event.manager || demoOwner.name,
                 ...(user ? { assigneeId: user.id } : {}),
                 role: user?.role || "Production manager",
                 date: record.dueAt.slice(0, 10),
@@ -283,7 +285,7 @@ export function Reports() {
                     return (
                       <div key={row.status}>
                         <div>
-                          <span>{row.status}</span>
+                          <span>{uiLabel(row.status)}</span>
                           <strong>
                             {row.count} · {money(row.value)}
                           </strong>

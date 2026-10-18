@@ -6,6 +6,7 @@ import type { ProposalGenerator } from "../proposal-ai";
 import type { MessageTransport } from "../messaging";
 import type { FloorPlanExtractor } from "../design";
 import type { Logger } from "../logger";
+import type { IntegrationsConfig } from "../integrations";
 import type { WorkspaceResponse } from "../../src/shared/access";
 
 export type AppConfig = {
@@ -18,6 +19,8 @@ export type AppConfig = {
   kitGenerator?: KitGenerator;
   floorPlanExtractor?: FloorPlanExtractor;
   logger?: Logger;
+  /** Connection settings shown in Settings › Integraciones. */
+  integrations?: IntegrationsConfig;
 };
 
 export type RouteContext = {

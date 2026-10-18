@@ -269,3 +269,10 @@
 :root[data-motion="reduced"] *::after {
   scroll-behavior: auto !important;
 }
+
+/* Theme and accent changes apply instantly; nothing animates between them. */
+.appearance-switching *,
+.appearance-switching *::before,
+.appearance-switching *::after {
+  transition: none !important;
+}

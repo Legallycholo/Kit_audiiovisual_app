@@ -16,6 +16,8 @@ const tables: LayoutObject[] = Array.from({ length: 12 }, (_, n) => ({
   label: `T${n + 1}`,
   layer: "Furniture",
 }));
+/** The demo workspace owner. Shown only in the opt-in demonstration space. */
+export const demoOwner = { name: "Honasis Dotel", initials: "HD" } as const;
 export const createSeed = (): Workspace => ({
   schema: 1,
   settings: {
@@ -138,7 +140,7 @@ export const createSeed = (): Workspace => ({
       endDate: day(4),
       status: "Confirmed",
       type: "Conference",
-      manager: "Alex Morgan",
+      manager: demoOwner.name,
       budget: 18000,
       attendees: 240,
       notes:
@@ -184,7 +186,7 @@ export const createSeed = (): Workspace => ({
       endDate: day(18),
       status: "Planning",
       type: "Private event",
-      manager: "Alex Morgan",
+      manager: demoOwner.name,
       budget: 6500,
       attendees: 100,
       notes: "An intimate evening with ambient lighting and background music.",
@@ -427,7 +429,7 @@ export const createSeed = (): Workspace => ({
       id: "t1",
       eventId: "e1",
       title: "Review final stage layout",
-      assignee: "Alex Morgan",
+      assignee: demoOwner.name,
       role: "Production manager",
       date: day(0),
       done: false,
@@ -457,7 +459,7 @@ export const createSeed = (): Workspace => ({
       id: "t4",
       eventId: "e2",
       title: "Finalize conference equipment list",
-      assignee: "Alex Morgan",
+      assignee: demoOwner.name,
       role: "Production manager",
       date: day(2),
       done: false,

@@ -12,6 +12,7 @@ import {
 import { id, money, shortDate } from "../../shared/domain";
 import type { Equipment } from "../../shared/types";
 import type { InventoryView } from "./inventory-view";
+import { uiLabel } from "../../shared/i18n";
 
 export function InventoryCatalog({ ctx }: { ctx: InventoryView }) {
   const {
@@ -63,14 +64,18 @@ export function InventoryCatalog({ ctx }: { ctx: InventoryView }) {
         {tab !== "Reservations" && tab !== "Packages" && (
           <div className="filter-row">
             <select
-              aria-label="Equipment category"
+              aria-label={uiLabel("Equipment category")}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              <option>All categories</option>
+              <option value="All categories">
+                {uiLabel("All categories")}
+              </option>
               {Array.from(new Set(data.equipment.map((q) => q.category))).map(
                 (c) => (
-                  <option key={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {uiLabel(c)}
+                  </option>
                 ),
               )}
             </select>
@@ -338,15 +343,15 @@ export function InventoryCatalog({ ctx }: { ctx: InventoryView }) {
             <table>
               <thead>
                 <tr>
-                  <th>Equipment</th>
-                  <th>Category</th>
-                  <th>Owned</th>
+                  <th>{uiLabel("Equipment")}</th>
+                  <th>{uiLabel("Category")}</th>
+                  <th>{uiLabel("Owned")}</th>
                   <th>
                     {tab === "Availability"
                       ? "Available in window"
                       : "Maintenance"}
                   </th>
-                  {canPrice && <th>Rate / day</th>}
+                  {canPrice && <th>{uiLabel("Rate / day")}</th>}
                   <th />
                 </tr>
               </thead>
@@ -364,7 +369,7 @@ export function InventoryCatalog({ ctx }: { ctx: InventoryView }) {
                         </span>
                       </div>
                     </td>
-                    <td>{q.category}</td>
+                    <td>{uiLabel(q.category)}</td>
                     <td>{q.quantity}</td>
                     <td>
                       {tab === "Availability" ? (
@@ -403,7 +408,8 @@ export function InventoryCatalog({ ctx }: { ctx: InventoryView }) {
           </div>
         )}
         <div className="table-footer">
-          Company-owned rental stock<span>Sample rates · USD / day</span>
+          {uiLabel("Company-owned rental stock")}
+          <span>{uiLabel("Rates · USD / day")}</span>
         </div>
       </Panel>
     </>

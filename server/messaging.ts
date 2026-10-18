@@ -42,12 +42,15 @@ export function ingestInboundMessage(
     (item) => item.id === inbound.conversationId,
   );
   if (!conversation)
-    throw new HttpError(422, "El mensaje entrante no coincide con una conversación.");
+    throw new HttpError(
+      422,
+      "El mensaje entrante no coincide con una conversación.",
+    );
   const exactOffer = Boolean(
     inbound.proposalId &&
-      inbound.proposalVersion &&
-      inbound.proposalId === conversation.proposalId &&
-      inbound.proposalVersion === conversation.proposalVersion,
+    inbound.proposalVersion &&
+    inbound.proposalId === conversation.proposalId &&
+    inbound.proposalVersion === conversation.proposalVersion,
   );
   const message = {
     id: randomUUID(),

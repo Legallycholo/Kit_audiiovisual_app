@@ -2,17 +2,24 @@ import type { ReactNode } from "react";
 import { FolderOpen } from "lucide-react";
 import { uiLabel } from "../i18n";
 import { localize } from "./localize";
+import { Menu, type MenuItem } from "./overlays";
 
+/**
+ * Title on the left; at most one primary action on the right, with secondary
+ * actions in the "⋯" menu next to it.
+ */
 export function PageHeader({
   eyebrow,
   title,
   description,
   actions,
+  menu,
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
   actions?: ReactNode;
+  menu?: MenuItem[];
 }) {
   return (
     <header className="page-header">
@@ -21,7 +28,18 @@ export function PageHeader({
         <h1>{uiLabel(title)}</h1>
         {description && <p>{uiLabel(description)}</p>}
       </div>
-      {actions && <div className="header-actions">{actions}</div>}
+      {(actions || menu?.length) && (
+        <div className="header-actions">
+          {menu && menu.length > 0 && (
+            <Menu
+              label="Más acciones"
+              items={menu}
+              className="icon-button header-menu"
+            />
+          )}
+          {actions}
+        </div>
+      )}
     </header>
   );
 }

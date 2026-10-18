@@ -24,6 +24,7 @@ import { canEditCollection } from "../../shared/access";
 import type { EventStatus, Task } from "../../shared/types";
 import { changeOperations, dateTimeLabel } from "./helpers";
 import type { ProductionView } from "./production-view";
+import { uiLabel } from "../../shared/i18n";
 
 export function ProductionTabs({ ctx }: { ctx: ProductionView }) {
   const {
@@ -59,7 +60,7 @@ export function ProductionTabs({ ctx }: { ctx: ProductionView }) {
                   <span
                     className={`mini-dot ${column === "Completed" ? "green" : column === "Planning" ? "blue" : "amber"}`}
                   />
-                  <h2>{column}</h2>
+                  <h2>{uiLabel(column)}</h2>
                   <span>{entries.length}</span>
                 </header>
                 {entries.map((t) => (

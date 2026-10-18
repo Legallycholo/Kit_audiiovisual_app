@@ -345,7 +345,7 @@ export function useLayoutEditorView({
     }
     if (mode !== "company" || !extractor.configured) {
       toast(
-        "La extracción automática espera el proveedor que selecciones. El trazado manual sigue disponible.",
+        "La lectura automática de planos no está conectada. Puedes trazar el plano a mano.",
       );
       return;
     }

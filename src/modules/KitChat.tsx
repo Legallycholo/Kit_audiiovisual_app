@@ -14,6 +14,8 @@ import {
   Square,
   X,
 } from "lucide-react";
+import { ConnectNotice } from "./ConnectNotice";
+import { LightMix } from "../shared/ui";
 import { useKit } from "../shared/kit-store";
 import { useWorkspace } from "../shared/store";
 import type { KitMessage, KitMode, KitReference } from "../shared/kit";
@@ -108,7 +110,10 @@ export function KitChat({
       ? { kind: "proposal", id: proposal.id }
       : undefined;
   const empty = !kit.thread?.messages.length;
+  // Company mode without an AI key: conversations stay readable, sending waits.
+  const disconnected = company && kit.statusLoaded && !kit.status.configured;
   const canSend =
+    !disconnected &&
     !kit.busy &&
     !kit.thread?.busy &&
     !!kit.draft.trim() &&
@@ -357,11 +362,14 @@ export function KitChat({
             <small>{m.model || new Date(m.at).toLocaleString()}</small>
           </header>
           {m.text && <p className="kit-message-text">{m.text}</p>}
-          {m.status !== "completed" && (
+          {m.status === "pending" && (
+            <div className="kit-message-status">
+              <LightMix showLabel />
+            </div>
+          )}
+          {m.status !== "completed" && m.status !== "pending" && (
             <p role="status" className="kit-message-status">
-              {m.status === "pending"
-                ? "Generando respuesta…"
-                : m.error || m.status}
+              {m.error || m.status}
             </p>
           )}
           {m.sources.length > 0 && (
@@ -552,6 +560,7 @@ export function KitChat({
       </span>
       <p className="kit-home-greeting">{greeting(user?.name)}</p>
       <h2>¿En qué trabajamos?</h2>
+      {disconnected && <ConnectNotice service="kit" compact={sidebar} />}
     </div>
   );
   const confirmDialog = confirm?.action && (
@@ -603,7 +612,9 @@ export function KitChat({
   }
   const status = kit.status.configured
     ? `${kit.status.provider} · ${kit.status.model}`
-    : "IA no configurada";
+    : company
+      ? "IA no conectada"
+      : "Espacio de demostración · sin IA";
   if (sidebar)
     return (
       <aside className="assistant kit-chat-sidebar">
@@ -713,6 +724,7 @@ export function KitChat({
           <>
             {messages}
             <div className="kit-dock">
+              {disconnected && <ConnectNotice service="kit" compact />}
               {composer}
               {disclosure}
             </div>

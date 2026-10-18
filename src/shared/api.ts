@@ -1,3 +1,5 @@
+import { uiLabel } from "./i18n";
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -27,7 +29,9 @@ export async function api<T>(
   } catch {
     throw new ApiError(
       0,
-      "The company server is unavailable. Your draft has not been saved.",
+      uiLabel(
+        "The company server is unavailable. Your draft has not been saved.",
+      ),
     );
   }
   let result: any;
@@ -36,10 +40,16 @@ export async function api<T>(
   } catch {
     throw new ApiError(
       response.status,
-      "The company server is unavailable. Start the server and try again.",
+      uiLabel(
+        "The company server is unavailable. Start the server and try again.",
+      ),
     );
   }
   if (!response.ok)
-    throw new ApiError(response.status, result.error || "The request failed.");
+    // Server messages are shown in Spanish when the dictionary knows them.
+    throw new ApiError(
+      response.status,
+      uiLabel(result.error || "The request failed."),
+    );
   return result as T;
 }

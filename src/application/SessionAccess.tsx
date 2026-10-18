@@ -1,7 +1,7 @@
 import { uiLabel } from "../shared/i18n";
 import { useState } from "react";
-import { ArrowLeft, LockKeyhole, LogIn } from "lucide-react";
-import { Button, Field, ErrorNote } from "../shared/ui";
+import { FlaskConical, LockKeyhole, LogIn, MonitorUp } from "lucide-react";
+import { Button, Field, ErrorNote, Wordmark } from "../shared/ui";
 import { api } from "../shared/api";
 import type { WorkspaceUser } from "../shared/access";
 export function SessionAccess({
@@ -18,29 +18,57 @@ export function SessionAccess({
   authenticated: (user: WorkspaceUser, csrf: string) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
+  // The local desktop window reaches the company server in its own window.
+  const desktopLocal =
+    "__TAURI_INTERNALS__" in window && window.location.port !== "3001";
+  const openCompanyWindow = async () => {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("open_company_window");
+    } catch {
+      setMessage(
+        "Inicia el servidor de empresa con npm start en el puerto 3001 y vuelve a intentarlo.",
+      );
+    }
+  };
   const [busy, setBusy] = useState(false);
   const setup = initialized === false;
   return (
     <main className="session-screen">
       <section className="session-card">
-        <div className="brand-small">kit.</div>
+        <Wordmark size={40} slogan />
         <span className="eyebrow">{uiLabel("YOUR COMPANY WORKSPACE")}</span>
         <h1>
           {initialized === null
-            ? "Conecta con tu empresa"
+            ? desktopLocal
+              ? "Abre el espacio de tu empresa"
+              : "No se pudo conectar con el servidor"
             : setup
               ? "Crea tu espacio de trabajo"
               : "Te damos la bienvenida"}
         </h1>
         <p>
-          {setup
-            ? "Crea la cuenta del propietario y un espacio vacío para la empresa. Los datos de ejemplo permanecen separados."
-            : "Inicia sesión para acceder a los registros y eventos de tu cuenta."}
+          {initialized === null
+            ? desktopLocal
+              ? "Los registros de la empresa viven en su servidor y se abren en su propia ventana."
+              : "Revisa que el servidor de empresa esté en marcha y vuelve a intentarlo."
+            : setup
+              ? "Crea la cuenta del propietario y un espacio vacío para la empresa. Los datos de ejemplo permanecen separados."
+              : "Inicia sesión para acceder a los registros y eventos de tu cuenta."}
         </p>
-        {error && <ErrorNote>{error}</ErrorNote>}
+        {error && !desktopLocal && <ErrorNote>{error}</ErrorNote>}
         {message && <ErrorNote>{message}</ErrorNote>}
         {initialized === null ? (
-          <Button onClick={retry}>{uiLabel("Retry connection")}</Button>
+          <div className="session-actions">
+            {desktopLocal ? (
+              <Button onClick={() => void openCompanyWindow()}>
+                <MonitorUp size={16} />
+                {uiLabel("Open the company workspace")}
+              </Button>
+            ) : (
+              <Button onClick={retry}>{uiLabel("Retry connection")}</Button>
+            )}
+          </div>
         ) : (
           <form
             onSubmit={async (event) => {
@@ -132,10 +160,17 @@ export function SessionAccess({
             )}
           </span>
         </div>
-        <Button variant="ghost" onClick={cancel}>
-          <ArrowLeft size={15} />
-          {uiLabel("Back to sample workspace")}
-        </Button>
+        <div className="session-demo">
+          <p>
+            {uiLabel(
+              "Want to look around first? The demo uses sample data saved only on this device.",
+            )}
+          </p>
+          <Button variant="secondary" onClick={cancel}>
+            <FlaskConical size={15} />
+            {uiLabel("Open the demo workspace")}
+          </Button>
+        </div>
       </section>
     </main>
   );

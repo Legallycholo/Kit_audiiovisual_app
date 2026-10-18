@@ -45,34 +45,32 @@ export function Editor({ original }: { original: Proposal }) {
         eyebrow={`${draft.number} · VERSIÓN ${draft.version}`}
         title={draft.title}
         description={`${client?.name} · ${event ? shortDate(event.date) : ""}`}
+        menu={[
+          {
+            label: "Preview",
+            icon: <Printer size={16} />,
+            disabled: dirty,
+            description: dirty
+              ? "Guarda los cambios para previsualizar la versión exacta."
+              : undefined,
+            onSelect: () => setPreview(true),
+          },
+          ...(priorVersions.length > 0
+            ? [
+                {
+                  label: "Comparar versiones",
+                  icon: <GitCompare size={16} />,
+                  onSelect: () => {
+                    setCompareId(priorVersions.at(-1)?.id || "");
+                    setCompareOpen(true);
+                  },
+                },
+              ]
+            : []),
+        ]}
         actions={
           <>
             <Badge>{original.status}</Badge>
-            <Button
-              variant="secondary"
-              disabled={dirty}
-              title={
-                dirty
-                  ? "Guarda los cambios para previsualizar la versión exacta."
-                  : undefined
-              }
-              onClick={() => setPreview(true)}
-            >
-              <Printer size={16} />
-              {uiLabel("Preview")}
-            </Button>
-            {priorVersions.length > 0 && (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setCompareId(priorVersions.at(-1)?.id || "");
-                  setCompareOpen(true);
-                }}
-              >
-                <GitCompare size={16} />
-                Comparar versiones
-              </Button>
-            )}
             {editable &&
               (locked ? (
                 <Button disabled={saving} onClick={revision}>

@@ -314,7 +314,7 @@ const Scene = forwardRef<
       );
       mesh.rotation.y = (-object.rotation * Math.PI) / 180;
       mesh.userData.layoutObjectId = object.id;
-      mesh.userData.assetStatus = "geometric-placeholder";
+      mesh.userData.assetStatus = "approximate-geometric";
       scene.add(mesh);
       meshes.current.set(object.id, mesh);
       const edges = new THREE.LineSegments(
@@ -328,7 +328,7 @@ const Scene = forwardRef<
       mesh.add(edges);
       // Detail goes after the edges, which the selection effect reads as children[0].
       if (addEquipmentDetail(object, mesh, shapes))
-        mesh.userData.assetStatus = "procedural-placeholder";
+        mesh.userData.assetStatus = "approximate-procedural";
       if (object.id === selection) {
         const material = mesh.material as THREE.MeshStandardMaterial;
         material.emissive.set("#9fbd72");
@@ -453,7 +453,7 @@ const Scene = forwardRef<
         <span>
           {visibleObjects.length > MAX_SCENE_OBJECTS
             ? `Vista limitada a ${MAX_SCENE_OBJECTS} de ${visibleObjects.length} objetos`
-            : "Modelos detallados no asignados"}
+            : "Formas aproximadas con las medidas del plano"}
         </span>
         {selectedObject && <span>Seleccionado: {selectedObject.label}</span>}
       </div>

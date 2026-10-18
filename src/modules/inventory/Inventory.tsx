@@ -23,37 +23,32 @@ export function Inventory() {
       <PageHeader
         title="Equipment & inventory"
         description="Your owned equipment, availability, and event allocations."
+        menu={[
+          {
+            label: "Export CSV",
+            icon: <Download size={16} />,
+            onSelect: () =>
+              downloadFile(
+                `kit-equipos-${new Date().toISOString().slice(0, 10)}.csv`,
+                equipmentToCsv(data.equipment),
+                "text/csv;charset=utf-8",
+              ),
+          },
+          {
+            label: "Import CSV",
+            icon: <FileUp size={16} />,
+            disabled: !canEditCollection(user, "equipment"),
+            onSelect: () => setImporting(true),
+          },
+          {
+            label: "Reserve equipment",
+            icon: <CalendarDays size={16} />,
+            disabled: !canEditCollection(user, "reservations"),
+            onSelect: addReservation,
+          },
+        ]}
         actions={
           <>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                downloadFile(
-                  `kit-equipos-${new Date().toISOString().slice(0, 10)}.csv`,
-                  equipmentToCsv(data.equipment),
-                  "text/csv;charset=utf-8",
-                )
-              }
-            >
-              <Download size={17} />
-              Export CSV
-            </Button>
-            <Button
-              disabled={!canEditCollection(user, "equipment")}
-              variant="secondary"
-              onClick={() => setImporting(true)}
-            >
-              <FileUp size={17} />
-              Import CSV
-            </Button>
-            <Button
-              disabled={!canEditCollection(user, "reservations")}
-              variant="secondary"
-              onClick={addReservation}
-            >
-              <CalendarDays size={17} />
-              Reserve equipment
-            </Button>
             <Button
               disabled={!canEditCollection(user, "equipment")}
               onClick={() =>

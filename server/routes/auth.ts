@@ -64,10 +64,11 @@ export function mountAuthRoutes(
     const input = loginSchema.parse(req.body);
     rateLimit(repo, `login:${req.ip}`);
     const row = repo.userByEmail(input.email);
-    const dummy = "f".repeat(48) + ":" + "0".repeat(128);
+    // Unknown emails still run one full hash check so timing reveals nothing.
+    const decoyHash = "f".repeat(48) + ":" + "0".repeat(128);
     const matches = await passwordMatches(
       input.password,
-      row?.password_hash || dummy,
+      row?.password_hash || decoyHash,
     );
     if (!row?.active || !matches)
       throw new HttpError(401, "Email or password is incorrect.");

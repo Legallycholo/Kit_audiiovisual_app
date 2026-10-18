@@ -4,7 +4,8 @@ import type { LayoutObject } from "../shared/types";
 // Generic procedural shapes for common rented equipment. They stay inside the
 // object's measured box (the parent mesh is a unit box scaled to width × height ×
 // depth), so 2D and 3D share the same footprint. They are recognizable
-// placeholders, not manufacturer models, and make no photometric or acoustic claim.
+// approximate shapes, not manufacturer models, and make no photometric or
+// acoustic claim.
 
 export type ShapeAssets = ReturnType<typeof createShapeAssets>;
 

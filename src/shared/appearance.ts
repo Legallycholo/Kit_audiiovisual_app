@@ -92,15 +92,41 @@ export function resolveMotion(
     : "full";
 }
 
-/** Writes the resolved attributes on <html>. */
+/**
+ * Writes the resolved attributes on <html>. Color changes never animate:
+ * transitions are paused for two frames while the theme or accent switches.
+ */
 export function applyAppearance(
   appearance: Appearance,
   root: HTMLElement = document.documentElement,
 ) {
-  root.dataset.theme = resolveTheme(appearance.theme);
+  const theme = resolveTheme(appearance.theme);
+  const changing =
+    root.dataset.theme !== theme || root.dataset.accent !== appearance.accent;
+  if (changing && typeof requestAnimationFrame === "function") {
+    root.classList.add("appearance-switching");
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        root.classList.remove("appearance-switching"),
+      ),
+    );
+  }
+  root.dataset.theme = theme;
   root.dataset.accent = appearance.accent;
   root.dataset.motion = resolveMotion(appearance.motion);
   root.dataset.density = appearance.density;
+}
+
+/** The preferences to paint before React starts. */
+export function initialAppearance(): Appearance {
+  try {
+    // The demo has a single, known profile; company users use the last one.
+    if (localStorage.getItem("kit.mode") === "sample")
+      return readAppearance(appearanceKey("sample", null));
+  } catch {
+    /* Fall back to the last applied preferences. */
+  }
+  return readAppearance(LAST_APPEARANCE_KEY);
 }
 
 export interface AppearanceState {

@@ -3,7 +3,9 @@ import { Button, ErrorNote, Field, Modal } from "../../shared/ui";
 import { validateReservation } from "../../shared/domain";
 import type { Equipment, Reservation } from "../../shared/types";
 import { moveDate } from "./helpers";
+import { WebLookup } from "../WebLookup";
 import type { InventoryView } from "./inventory-view";
+import { uiLabel } from "../../shared/i18n";
 
 export function InventoryRecordDialogs({ ctx }: { ctx: InventoryView }) {
   const {
@@ -50,6 +52,23 @@ export function InventoryRecordDialogs({ ctx }: { ctx: InventoryView }) {
             }}
           >
             {error && <ErrorNote>{error}</ErrorNote>}
+            {!data.equipment.some((q) => q.id === draft.id) && (
+              <WebLookup
+                kind="equipment"
+                onUse={(found) =>
+                  setDraft({
+                    ...draft,
+                    name: found.title,
+                    description: [
+                      draft.description,
+                      found.subtitle ? `Referencia web: ${found.subtitle}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join("\n"),
+                  })
+                }
+              />
+            )}
             <Field label="Equipment name">
               <input
                 required
@@ -85,7 +104,9 @@ export function InventoryRecordDialogs({ ctx }: { ctx: InventoryView }) {
                     "Accessories",
                     "Other",
                   ].map((c) => (
-                    <option key={c}>{c}</option>
+                    <option key={c} value={c}>
+                      {uiLabel(c)}
+                    </option>
                   ))}
                 </select>
               </Field>

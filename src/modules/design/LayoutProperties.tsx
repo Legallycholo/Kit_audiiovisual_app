@@ -1,8 +1,12 @@
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Copy, FileImage, ScanLine, ShieldCheck, Trash2 } from "lucide-react";
 import { Badge, Button, Field } from "../../shared/ui";
 import { id } from "../../shared/domain";
 import { uiLabel } from "../../shared/i18n";
 import { palette } from "./helpers";
+import { useWorkspace } from "../../shared/store";
+import { ConnectNotice } from "../ConnectNotice";
 import type { LayoutEditorView } from "./layout-editor-view";
 
 export function LayoutProperties({ ctx }: { ctx: LayoutEditorView }) {
@@ -30,6 +34,21 @@ export function LayoutProperties({ ctx }: { ctx: LayoutEditorView }) {
     calibrateReference,
     extractGeometry,
   } = ctx;
+  const { mode } = useWorkspace();
+  // "Subir plano" in the command palette opens /design?upload=1.
+  const [params, setParams] = useSearchParams();
+  const referenceTools = useRef<HTMLDivElement>(null);
+  const uploadRequested = params.get("upload") === "1";
+  useEffect(() => {
+    if (!uploadRequested || object || !referenceTools.current) return;
+    referenceTools.current.scrollIntoView({ block: "center" });
+    referenceTools.current
+      .querySelector<HTMLInputElement>('input[type="checkbox"]')
+      ?.focus();
+    const next = new URLSearchParams(params);
+    next.delete("upload");
+    setParams(next, { replace: true });
+  }, [uploadRequested, object, params, setParams]);
   return (
     <>
       <aside className="object-properties">
@@ -39,15 +58,16 @@ export function LayoutProperties({ ctx }: { ctx: LayoutEditorView }) {
         {object ? (
           <>
             <h3>{uiLabel(object.kind)}</h3>
-            {view === "3D" && (
-              <div className="scene-model-state">
-                <Badge tone="neutral">Geometría provisional</Badge>
-                <small>
-                  {data.equipment.find((item) => item.id === object.equipmentId)
-                    ?.name || "Sin modelo de catálogo asignado"}
-                </small>
-              </div>
-            )}
+            <div className="scene-model-state">
+              <Badge tone="neutral">Forma aproximada</Badge>
+              <small>
+                En 3D se dibuja una forma genérica con estas medidas
+                {data.equipment.find((item) => item.id === object.equipmentId)
+                  ? ` para ${data.equipment.find((item) => item.id === object.equipmentId)!.name}`
+                  : ""}
+                ; no es el modelo del fabricante.
+              </small>
+            </div>
             {object.source === "Extracted" && (
               <div className="geometry-review-card">
                 <Badge
@@ -296,7 +316,7 @@ export function LayoutProperties({ ctx }: { ctx: LayoutEditorView }) {
                 }
               />
             </Field>
-            <div className="reference-tools">
+            <div className="reference-tools" ref={referenceTools}>
               <div className="reference-heading">
                 <strong>Plano de referencia</strong>
                 {layout.reference && (
@@ -403,13 +423,18 @@ export function LayoutProperties({ ctx }: { ctx: LayoutEditorView }) {
                       Quitar
                     </button>
                   </div>
+                  {mode === "company" && !extractor.configured && (
+                    <ConnectNotice service="plan" compact />
+                  )}
                   <div className="extraction-status">
                     <div>
-                      <strong>Extracción estructurada</strong>
+                      <strong>Lectura automática del plano</strong>
                       <small>
                         {extractor.configured
-                          ? `${extractor.provider} · ${extractor.model}`
-                          : "Proveedor pendiente de tu selección. No se envía el plano."}
+                          ? `${extractor.provider} · ${extractor.model} · revisarás cada sugerencia`
+                          : mode === "company"
+                            ? "Sin conexión de IA. El plano no sale de tu equipo."
+                            : "Disponible en el espacio de empresa. El plano no sale de este dispositivo."}
                       </small>
                     </div>
                     <Button

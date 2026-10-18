@@ -111,3 +111,39 @@ describe("request logging and error responses", () => {
     expect(Object.keys(failure!)).not.toContain("message");
   });
 });
+
+describe("secret redaction", () => {
+  it("never prints keys, tokens or authorization headers", () => {
+    const lines: string[] = [];
+    const logger = jsonLogger("debug", (line) => lines.push(line));
+    const keys = [
+      "sk-ant-api03-abcdefghijklmnopqrstuvwxyz012345",
+      "sk-proj-abcdefghijklmnopqrstuvwxyz",
+      "AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz012345",
+      "cal_live_0123456789abcdef",
+      "serpapi-plain-secret-value",
+    ];
+    logger.log("info", "provider_call", {
+      apiKey: keys[4],
+      headers: {
+        Authorization: `Bearer ${keys[1]}`,
+        "x-api-key": keys[0],
+        Cookie: "kit_session=abc",
+      },
+      url: `https://serpapi.com/account.json?api_key=${keys[4]}&q=mesa`,
+      note: `fallback ${keys[2]} and ${keys[3]} and ${keys[0]}`,
+      nested: [{ token: "t-123" }],
+      status: 401,
+    });
+    const line = lines[0];
+    for (const key of keys) expect(line).not.toContain(key);
+    expect(line).not.toContain("kit_session=abc");
+    expect(line).not.toContain("t-123");
+    const entry = JSON.parse(line);
+    expect(entry.status).toBe(401);
+    expect(entry.url).toBe(
+      "https://serpapi.com/account.json?api_key=[REDACTED]&q=mesa",
+    );
+    expect(entry.headers.Authorization).toBe("[REDACTED]");
+  });
+});

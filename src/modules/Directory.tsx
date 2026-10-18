@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -15,6 +15,7 @@ import { canEditCollection } from "../shared/access";
 import { uiLabel } from "../shared/i18n";
 import { clientsToCsv, planClientImport } from "../shared/csv";
 import { CsvImportDialog } from "./CsvImport";
+import { WebLookup } from "./WebLookup";
 import {
   Avatar,
   Badge,
@@ -54,38 +55,40 @@ export function Clients() {
       color: "sage",
       notes: "",
     });
+  useEffect(() => {
+    if (!params.has("new") || !canEditCollection(user, "clients")) return;
+    newClient();
+    const next = new URLSearchParams(params);
+    next.delete("new");
+    setParams(next, { replace: true });
+  }, [params]);
   return (
     <>
       <PageHeader
         title="Clients"
+        menu={[
+          {
+            label: "Export CSV",
+            icon: <Download size={16} />,
+            onSelect: () =>
+              downloadFile(
+                `kit-clientes-${new Date().toISOString().slice(0, 10)}.csv`,
+                clientsToCsv(data.clients),
+                "text/csv;charset=utf-8",
+              ),
+          },
+          {
+            label: "Import CSV",
+            icon: <FileUp size={16} />,
+            disabled: !canEditCollection(user, "clients"),
+            onSelect: () => setImporting(true),
+          },
+        ]}
         actions={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                downloadFile(
-                  `kit-clientes-${new Date().toISOString().slice(0, 10)}.csv`,
-                  clientsToCsv(data.clients),
-                  "text/csv;charset=utf-8",
-                )
-              }
-            >
-              <Download size={17} />
-              Export CSV
-            </Button>
-            <Button
-              disabled={!canEditCollection(user, "clients")}
-              variant="secondary"
-              onClick={() => setImporting(true)}
-            >
-              <FileUp size={17} />
-              Import CSV
-            </Button>
-            <Button onClick={newClient}>
-              <Plus size={17} />
-              Add client
-            </Button>
-          </>
+          <Button onClick={newClient}>
+            <Plus size={17} />
+            Add client
+          </Button>
         }
       />
       <Panel>
@@ -116,10 +119,14 @@ export function Clients() {
             <table>
               <thead>
                 <tr>
-                  <th>{tab === "Contacts" ? "Contact" : "Company"}</th>
-                  <th>{tab === "Contacts" ? "Company" : "Primary contact"}</th>
+                  <th>{uiLabel(tab === "Contacts" ? "Contact" : "Company")}</th>
+                  <th>
+                    {uiLabel(
+                      tab === "Contacts" ? "Company" : "Primary contact",
+                    )}
+                  </th>
                   <th>Email</th>
-                  <th>{tab === "Contacts" ? "Phone" : "Events"}</th>
+                  <th>{uiLabel(tab === "Contacts" ? "Phone" : "Events")}</th>
                   <th />
                 </tr>
               </thead>
@@ -150,7 +157,7 @@ export function Clients() {
                     <td>
                       <button
                         className="icon-button"
-                        aria-label={`Open ${c.name}`}
+                        aria-label={`${uiLabel("Open")} ${c.name}`}
                         onClick={() => setParams({ client: c.id })}
                       >
                         <ArrowUpRight size={17} />
@@ -379,6 +386,7 @@ export function Venues() {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
+  const [venueNotes, setVenueNotes] = useState("");
   return (
     <>
       <PageHeader
@@ -391,7 +399,9 @@ export function Venues() {
         }
       />
       <div className="directory-toolbar">
-        <span>{data.venues.length} venues in your library</span>
+        <span>
+          {data.venues.length} {uiLabel("venues in your library")}
+        </span>
         <SearchField
           value={search}
           onChange={setSearch}
@@ -523,7 +533,7 @@ export function Venues() {
                       name,
                       city,
                       rooms: [],
-                      notes: "",
+                      notes: venueNotes,
                       color: "sage",
                       category: "Event venue",
                     },
@@ -534,11 +544,22 @@ export function Venues() {
               setAdding(false);
               setName("");
               setCity("");
+              setVenueNotes("");
               toast(
                 "Venue added. Room measurements still need to be provided.",
               );
             }}
           >
+            <WebLookup
+              kind="venue"
+              onUse={(found) => {
+                setName(found.title);
+                if (found.address) setCity(found.address);
+                setVenueNotes(
+                  [found.phone, found.website].filter(Boolean).join(" · "),
+                );
+              }}
+            />
             <Field label="Venue name">
               <input
                 required
@@ -553,6 +574,14 @@ export function Venues() {
                 onChange={(e) => setCity(e.target.value)}
               />
             </Field>
+            {venueNotes && (
+              <Field label="Notes">
+                <input
+                  value={venueNotes}
+                  onChange={(e) => setVenueNotes(e.target.value)}
+                />
+              </Field>
+            )}
             <div className="modal-actions">
               <Button>Add venue</Button>
             </div>

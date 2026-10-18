@@ -24,7 +24,7 @@ export const spanish: Record<string, string> = {
   "Open navigation": "Abrir navegación",
   "Close navigation": "Cerrar navegación",
   "Skip to workspace": "Ir al contenido",
-  "Ask KIT": "Consultar a KIT",
+  "Ask KIT": "Preguntar a KIT",
   "Close assistant": "Cerrar asistente",
   "Help & workspace guide": "Ayuda y guía",
   "Needs your attention": "Requiere tu atención",
@@ -197,8 +197,6 @@ export const spanish: Record<string, string> = {
   "City / location": "Ciudad o ubicación",
   "Rooms & dimensions": "Salones y dimensiones",
   "Room details needed": "Faltan detalles del salón",
-  "Room and dimension editing will be connected with venue management.":
-    "La edición de salones y dimensiones se conectará con la gestión de lugares.",
   "Your next opportunity": "Tu próxima oportunidad",
   "The sales pipeline will connect inquiries to events. Existing clients can already be linked directly to new events.":
     "El proceso de ventas conectará las consultas con los eventos. Los clientes existentes ya pueden vincularse directamente.",
@@ -233,10 +231,6 @@ export const spanish: Record<string, string> = {
   Documents: "Documentos",
   Activity: "Actividad",
   "Event schedule": "Calendario del evento",
-  "Setup, rehearsal, and teardown windows":
-    "Periodos de montaje, ensayo y desmontaje",
-  "Detailed schedule blocks will be connected in the production phase.":
-    "Los horarios detallados se conectarán durante la fase de producción.",
   "Equipment allocations": "Asignaciones de equipos",
   "No equipment allocated": "No hay equipos asignados",
   "Add equipment reservations for this event in Inventory.":
@@ -252,8 +246,6 @@ export const spanish: Record<string, string> = {
   "Client conversations": "Conversaciones con el cliente",
   "A home for every production document":
     "Un lugar para cada documento de producción",
-  "File upload, revision tracking, and client sharing will be connected in the document-management phase.":
-    "La carga de archivos, el control de versiones y el intercambio con clientes se conectarán en la fase documental.",
   "Event history": "Historial del evento",
   "GIVE YOUR VISION SOME SPACE": "DALE ESPACIO A TU VISIÓN",
   "One layout. Two perspectives. Every object connected.":
@@ -413,8 +405,6 @@ export const spanish: Record<string, string> = {
   "Due date": "Fecha límite",
   Phase: "Fase",
   "Event timeline": "Cronología del evento",
-  "Tasks arranged by date. Detailed timed cues are a later production capability.":
-    "Tareas ordenadas por fecha. Las indicaciones con hora exacta se agregarán después.",
   "Equipment handoff": "Entrega de equipos",
   "Detailed custody and inspection": "Custodia e inspección detalladas",
   "Partial returns, damage reports, and transport assignments will extend this handoff.":
@@ -439,12 +429,10 @@ export const spanish: Record<string, string> = {
   "Lighting concept": "Concepto de iluminación",
   "Promotional visual": "Visual promocional",
   "Image edit": "Edición de imagen",
-  "Event video": "Video del evento",
   "Authorized references": "Referencias autorizadas",
   "Attach to draft proposal": "Adjuntar a propuesta borrador",
   Approved: "Aprobado",
   Rejected: "Rechazado",
-  "Local showcase · no API cost": "Demostración local · sin costo de API",
   "Authorized brand references": "Referencias de marca autorizadas",
   "MAKE THE WORKSPACE YOURS": "HAZ TUYO ESTE ESPACIO",
   "Your company, your preferences, and the way your team works.":
@@ -474,24 +462,9 @@ export const spanish: Record<string, string> = {
   "Minimum 12 characters.": "Mínimo 12 caracteres.",
   Role: "Rol",
   "Commercial defaults": "Valores comerciales predeterminados",
-  "Branded templates and commercial terms":
-    "Plantillas de marca y términos comerciales",
-  "Company-wide template editing will follow the core proposal workflow.":
-    "La edición de plantillas se agregará después del flujo principal de propuestas.",
   "Event defaults": "Valores predeterminados de eventos",
-  "Custom event types and transition rules":
-    "Tipos de evento y reglas de transición",
-  "Further configuration will follow validation of the production workflow.":
-    "La configuración adicional seguirá a la validación del flujo de producción.",
   "Notification preferences": "Preferencias de notificaciones",
-  "Owner acceptance review": "Revisión de aceptación por el propietario",
-  "The owner reviews each client acceptance notification before the offer is marked accepted.":
-    "El propietario revisa cada aceptación antes de marcar la propuesta como aceptada.",
   "AI controls": "Controles de IA",
-  "Model, usage limits, and permitted context":
-    "Modelo, límites de uso y contexto permitido",
-  "These settings will be available when an AI service is connected.":
-    "Estas opciones estarán disponibles cuando se conecte el servicio de IA.",
   Connections: "Conexiones",
   "Services connect here when credentials and business policies are ready.":
     "Los servicios se conectarán aquí cuando estén listas las credenciales y políticas.",
@@ -658,6 +631,292 @@ export const spanish: Record<string, string> = {
   "Model, provider and monthly usage are shown in Integrations.":
     "El modelo, el proveedor y el uso del mes se muestran en Integraciones.",
   "Open Integrations": "Abrir Integraciones",
+  "Accent color": "Color de acento",
+  Account: "Cuenta",
+  "All changes saved": "Todos los cambios guardados",
+  "Also toggles with ⌘\\ or Ctrl+\\.": "También se cambia con ⌘\\ o Ctrl+\\.",
+  Animations: "Animaciones",
+  Appearance: "Apariencia",
+  Breadcrumb: "Ruta de navegación",
+  "Buttons, links and the active page use this color.":
+    "Los botones, los enlaces y la página activa usan este color.",
+  "Collapse sidebar": "Contraer barra lateral",
+  "Expand sidebar": "Expandir barra lateral",
+  "Command palette": "Paleta de comandos",
+  "Compact fits more rows on screen.":
+    "La vista compacta muestra más filas en pantalla.",
+  Demo: "Demostración",
+  "Demo workspace": "Espacio de demostración",
+  "Demo account": "Cuenta de demostración",
+  Density: "Densidad",
+  "KIT home": "Inicio de KIT",
+  "No matches. Press ⌘↵ to search the whole workspace.":
+    "Sin coincidencias. Pulsa ⌘↵ para buscar en todo el espacio.",
+  "Not saved": "Sin guardar",
+  "Offline · save waiting": "Sin conexión · guardado pendiente",
+  Results: "Resultados",
+  "Review reminders": "Avisos de revisión",
+  "Sample clients and events for practice. They never mix with company records.":
+    "Clientes y eventos de ejemplo para practicar. Nunca se mezclan con los registros de la empresa.",
+  "Sample data saved on this device":
+    "Datos de ejemplo guardados en este dispositivo",
+  "Saved on this device": "Guardado en este dispositivo",
+  "Saved on this device for your account. Changes apply right away.":
+    "Se guarda en este dispositivo para tu cuenta. Los cambios se aplican al instante.",
+  "Search actions, pages and records": "Buscar acciones, páginas y registros",
+  "Busca acciones, páginas y registros…":
+    "Busca acciones, páginas y registros…",
+  "Settings sections": "Secciones de configuración",
+  "Shows a dot on the bell and a count on Messages when a client reply is waiting for review.":
+    "Muestra un punto en la campana y un número en Mensajes cuando una respuesta de cliente espera revisión.",
+  Sidebar: "Barra lateral",
+  "Navigation menu": "Menú de navegación",
+  "Sign out": "Cerrar sesión",
+  "Sync conflict · needs review":
+    "Conflicto de sincronización · requiere revisión",
+  "Syncing…": "Sincronizando…",
+  "System follows your device setting.":
+    "Sistema sigue la configuración de tu dispositivo.",
+  "System uses reduced animations when your device asks for less motion.":
+    "Sistema usa animaciones reducidas cuando tu dispositivo pide menos movimiento.",
+  Theme: "Tema",
+  "full search": "búsqueda completa",
+  move: "moverte",
+  open: "abrir",
+  pending: "pendientes",
+  Hide: "Ocultar",
+  Show: "Mostrar",
+  "My account": "Mi cuenta",
+  "Retry sync": "Reintentar sincronización",
+  "Refresh data": "Actualizar datos",
+  "Leave the demo workspace": "Salir del espacio de demostración",
+  "Open the demo workspace": "Abrir espacio de demostración",
+  "Company, people, connections, appearance and data in one place.":
+    "Empresa, personas, conexiones, apariencia y datos en un solo lugar.",
+  "You are viewing sample data saved only on this device.":
+    "Estás viendo datos de ejemplo guardados solo en este dispositivo.",
+  "Opens a separate space with sample data. Your company records do not change.":
+    "Abre un espacio aparte con datos de ejemplo. Los registros de tu empresa no cambian.",
+  "The permission model is defined; authentication is not connected in this local workspace.":
+    "En el espacio de demostración no hay cuentas: estas son las funciones de cada rol en el espacio de empresa.",
+  "Demo workspace roles": "Roles en el espacio de demostración",
+  "Access is enforced by the company server on every request. Create accounts in the company workspace.":
+    "El servidor de empresa aplica los permisos en cada solicitud. Las cuentas se crean en el espacio de empresa.",
+  "You are in the demo workspace. Open the company workspace to see and test the real connections.":
+    "Estás en el espacio de demostración. Abre el espacio de empresa para ver y probar las conexiones reales.",
+  "Owner confirms every outgoing message":
+    "El propietario confirma cada mensaje saliente",
+  "No autonomous replies, price negotiations, or acceptance decisions.":
+    "Sin respuestas automáticas, negociaciones de precio ni decisiones de aceptación.",
+  "Ask the owner to connect it.": "Pide al propietario que lo conecte.",
+  "No client conversations yet": "Aún no hay conversaciones con clientes",
+  "Client messages appear here with their event and proposal once WhatsApp is connected.":
+    "Los mensajes de clientes aparecen aquí con su evento y su propuesta cuando WhatsApp esté conectado.",
+  "Open the company workspace": "Abrir espacio de empresa",
+  "Want to look around first? The demo uses sample data saved only on this device.":
+    "¿Quieres explorar primero? La demostración usa datos de ejemplo guardados solo en este dispositivo.",
+  "A client account requires a valid client profile.":
+    "Una cuenta de cliente necesita un perfil de cliente válido.",
+  "A user with this email already exists.":
+    "Ya existe una persona con este correo.",
+  "API route not found.": "No se encontró esta ruta del servidor.",
+  "Administrator access is required.": "Se requiere acceso de administrador.",
+  "An assigned event does not exist.":
+    "Uno de los eventos asignados no existe.",
+  "Another session changed this workspace. Reload the latest data before saving.":
+    "Otra sesión cambió el espacio. Actualiza los datos antes de guardar.",
+  "Backup retention must keep at least one file.":
+    "La retención de copias debe conservar al menos un archivo.",
+  "Cloud file search is unavailable for this account.":
+    "La búsqueda de archivos en la nube no está disponible para esta cuenta.",
+  "Cloud search provider, privacy policy, encryption key and budget must be configured first.":
+    "Primero configura el proveedor de búsqueda, la política de privacidad, la clave de cifrado y el presupuesto.",
+  "Create the company workspace first.":
+    "Primero crea el espacio de la empresa.",
+  "Device authorization expired or revoked.":
+    "La autorización del dispositivo venció o fue revocada.",
+  "Device authorization required.": "Este dispositivo necesita autorización.",
+  "Email or password is incorrect.":
+    "El correo o la contraseña no son correctos.",
+  "Indexed file source is unavailable.":
+    "El archivo indexado no está disponible.",
+  "Initial setup must be completed on the server machine.":
+    "La configuración inicial debe hacerse en el equipo del servidor.",
+  "Inventory is not shared with clients.":
+    "El inventario no se comparte con clientes.",
+  "Monthly search budget exhausted. Deletions remain available.":
+    "Se agotó el presupuesto mensual de búsqueda. Las eliminaciones siguen disponibles.",
+  "Only issued revisions belonging to this client can be shared.":
+    "Solo se pueden compartir versiones emitidas de este cliente.",
+  "Only the owner can confirm client acceptance.":
+    "Solo el propietario puede confirmar la aceptación del cliente.",
+  "Provider policy changed. Review and consent again.":
+    "La política del proveedor cambió. Revísala y vuelve a dar tu consentimiento.",
+  "Recovery point not found.": "No se encontró el punto de recuperación.",
+  "Request origin is not allowed.":
+    "El origen de la solicitud no está permitido.",
+  "Sign in to access the workspace.": "Inicia sesión para entrar al espacio.",
+  "The backup checksum does not match. The file may be incomplete or modified.":
+    "La suma de verificación no coincide. El archivo puede estar incompleto o modificado.",
+  "The backup contains an unsupported value.":
+    "La copia contiene un valor no compatible.",
+  "The offer or conversation changed. Reload it before confirming.":
+    "La oferta o la conversación cambió. Actualízala antes de confirmar.",
+  "The owner and your own account cannot be deactivated here.":
+    "Aquí no se puede desactivar al propietario ni tu propia cuenta.",
+  "The recovery point failed its integrity check and cannot be used.":
+    "El punto de recuperación no pasó la verificación de integridad y no se puede usar.",
+  "The request is missing a valid session confirmation. Refresh and try again.":
+    "Falta una confirmación de sesión válida. Actualiza la página y vuelve a intentarlo.",
+  "The restore confirmation does not match.":
+    "La confirmación de restauración no coincide.",
+  "The workspace changed after the recovery preview. Preview the backup again before restoring.":
+    "El espacio cambió después de la vista previa. Revisa la copia de nuevo antes de restaurar.",
+  "The workspace changed in another session. Reload the latest records before saving.":
+    "El espacio cambió en otra sesión. Actualiza los registros antes de guardar.",
+  "The workspace changed while recovery was running. No records were replaced.":
+    "El espacio cambió durante la recuperación. No se reemplazó ningún registro.",
+  "This event is outside your assigned scope.":
+    "Este evento está fuera de tus asignaciones.",
+  "This workspace is already configured. Sign in instead.":
+    "Este espacio ya está configurado. Inicia sesión.",
+  "Too many attempts. Try again in 15 minutes.":
+    "Demasiados intentos. Vuelve a intentarlo en 15 minutos.",
+  "User not found.": "No se encontró la persona.",
+  "Workspace setup was already completed.": "El espacio ya estaba configurado.",
+  "Your role cannot extract layout geometry.":
+    "Tu rol no puede extraer la geometría del plano.",
+  "Records cannot be deleted. Use a supported archive or cancellation action.":
+    "Los registros no se eliminan. Usa archivar o cancelar.",
+  "The server could not complete this request.":
+    "El servidor no pudo completar la solicitud.",
+  "Malformed JSON request.": "La solicitud no es válida.",
+  "The request failed.": "La solicitud falló.",
+  "The company server is unavailable. Your draft has not been saved.":
+    "El servidor de empresa no responde. Tu borrador no se guardó.",
+  "The company server is unavailable. Start the server and try again.":
+    "El servidor de empresa no responde. Inícialo y vuelve a intentarlo.",
+  "The local creative showcase is limited to 20 concepts per event.":
+    "El boceto local admite hasta 20 conceptos por evento.",
+  "A save is already in progress. Wait for it to finish before changing another record.":
+    "Hay un guardado en curso. Espera a que termine antes de cambiar otro registro.",
+  "Acceptance confirmed by the owner. No message was sent.":
+    "El propietario confirmó la aceptación. No se envió ningún mensaje.",
+  "Account created. No invitation was sent.":
+    "Cuenta creada. No se envió ninguna invitación.",
+  "Actual cost recorded.": "Costo real registrado.",
+  "Add at least 20 characters of creative direction. Your brief has been preserved.":
+    "Escribe al menos 20 caracteres de dirección creativa. Tu descripción se conserva.",
+  "Add at least one equipment item.": "Agrega al menos un equipo.",
+  "Another session changed the company workspace. Review the pending records before choosing which version to keep.":
+    "Otra sesión cambió el espacio de empresa. Revisa los registros pendientes antes de elegir qué versión conservar.",
+  "Arrival must be after departure.":
+    "La llegada debe ser posterior a la salida.",
+  "Changes were not saved. Review the error before trying again.":
+    "Los cambios no se guardaron. Revisa el error antes de volver a intentarlo.",
+  "Client profile saved.": "Perfil del cliente guardado.",
+  "Company preferences saved.": "Preferencias de la empresa guardadas.",
+  "Creative brief exported.": "Descripción creativa exportada.",
+  "Crew shift scheduled.": "Turno del equipo programado.",
+  "Equipment allocation saved.": "Asignación de equipos guardada.",
+  "Equipment handoff reconciled.": "Entrega de equipos conciliada.",
+  "Equipment package saved.": "Paquete de equipos guardado.",
+  "Equipment saved.": "Equipo guardado.",
+  "Event status updated. Equipment and approvals are managed separately.":
+    "Estado del evento actualizado. Los equipos y las aprobaciones se gestionan aparte.",
+  "Maintenance issue recorded and stock quarantined.":
+    "Incidencia de mantenimiento registrada y existencias apartadas.",
+  "Maintenance quantity cannot exceed owned stock.":
+    "La cantidad en mantenimiento no puede superar las existencias.",
+  "Maintenance resolved and stock restored.":
+    "Mantenimiento resuelto y existencias restablecidas.",
+  "Notification preference saved.": "Preferencia de avisos guardada.",
+  "Onsite change preserved in the event log.":
+    "Cambio en sitio guardado en el registro del evento.",
+  "Package reserved on hold.": "Paquete reservado en espera.",
+  "Pending company changes synchronized.": "Cambios pendientes sincronizados.",
+  "Pending local changes discarded. Server records restored.":
+    "Se descartaron los cambios locales. Se restauraron los registros del servidor.",
+  "Previous geometry restored as an unsaved draft.":
+    "Geometría anterior restaurada como borrador sin guardar.",
+  "Reconcile every dispatched unit before marking the allocation returned.":
+    "Concilia cada unidad despachada antes de marcar la asignación como devuelta.",
+  "Resolve or discard the pending company save before signing out.":
+    "Resuelve o descarta el guardado pendiente antes de cerrar sesión.",
+  "Resolve the pending company save before making another shared change.":
+    "Resuelve el guardado pendiente antes de hacer otro cambio compartido.",
+  "Resolve the pending company save before opening the demo workspace.":
+    "Resuelve el guardado pendiente antes de abrir el espacio de demostración.",
+  "Returned and damaged units cannot exceed dispatched units.":
+    "Las unidades devueltas y dañadas no pueden superar las despachadas.",
+  "Reviewed local changes applied to the latest server revision.":
+    "Los cambios revisados se aplicaron sobre la revisión más reciente del servidor.",
+  "Run-of-show cue added.": "Cue del guion técnico agregado.",
+  "Sample reset is unavailable in the company workspace.":
+    "El restablecimiento de ejemplos no está disponible en el espacio de empresa.",
+  "Sample workspace restored.": "Espacio de demostración restablecido.",
+  "Select at least one authorized reference for an image edit. Your brief has been preserved.":
+    "Selecciona al menos una referencia autorizada para editar una imagen. Tu descripción se conserva.",
+  "Signed out of the company workspace.":
+    "Cerraste sesión en el espacio de empresa.",
+  "Task assigned.": "Tarea asignada.",
+  "The server is unavailable and the encrypted local queue could not be written. Your draft remains open.":
+    "El servidor no responde y no se pudo escribir la cola cifrada local. Tu borrador sigue abierto.",
+  "Transport assignment added.": "Transporte asignado.",
+  "Unavailable quantity cannot exceed owned stock.":
+    "La cantidad no disponible no puede superar las existencias.",
+  "Venue added. Room measurements still need to be provided.":
+    "Lugar agregado. Agrega las medidas de las salas en Diseño.",
+  "Your company access changed. Sign in again.":
+    "Tu acceso a la empresa cambió. Inicia sesión de nuevo.",
+  "Your save is preserved for conflict review.":
+    "Tu guardado se conserva para revisar el conflicto.",
+  "Server unavailable. Your encrypted save is queued on this device.":
+    "El servidor no responde. Tu guardado cifrado queda en cola en este dispositivo.",
+  "products across your inventory": "productos en tu inventario",
+  "NEXT ON THE CALENDAR": "PRÓXIMO EN EL CALENDARIO",
+  "OWNER'S DESK": "MESA DEL PROPIETARIO",
+  "A client is ready.": "Un cliente está listo.",
+  "Your move.": "Te toca.",
+  "A proposal response is waiting for your review. You have the final say.":
+    "Una respuesta a una propuesta espera tu revisión. La decisión final es tuya.",
+  "Event / client": "Evento / cliente",
+  Date: "Fecha",
+  "View event for": "Ver evento de",
+  Open: "Abrir",
+  Dates: "Fechas",
+  Manager: "Responsable",
+  "Open event layout": "Abrir el plano del evento",
+  "Design your space in 2D and 3D": "Diseña tu espacio en 2D y 3D",
+  "Event status": "Estado del evento",
+  Contact: "Contacto",
+  Company: "Empresa",
+  Companies: "Empresas",
+  Contacts: "Contactos",
+  Opportunities: "Oportunidades",
+  "venues in your library": "lugares registrados",
+  "Owner confirmation required": "Requiere confirmación del propietario",
+  "CONNECTED TO THIS CONVERSATION": "VINCULADO A ESTA CONVERSACIÓN",
+  "Proposal · revision": "Propuesta · versión",
+  "View the exact offer": "Ver la oferta exacta",
+  "It starts with an idea.": "Todo empieza con una idea.",
+  "The mood, the palette, the audience. Tell us what you have in mind…":
+    "El ambiente, la paleta, el público. Cuéntanos qué tienes en mente…",
+  "Company-owned rental stock": "Equipos propios para alquiler",
+  "Rates · USD / day": "Tarifas · USD / día",
+  "Equipment category": "Categoría de equipo",
+  Audio: "Audio",
+  Lighting: "Iluminación",
+  Video: "Video",
+  "LED walls": "Pantallas LED",
+  Projectors: "Proyectores",
+  Screens: "Pantallas",
+  Staging: "Escenarios",
+  "Trusses and rigging": "Truss y rigging",
+  Cables: "Cables",
+  Accessories: "Accesorios",
+  Other: "Otros",
+  "Design units": "Unidades de diseño",
 };
 export function uiLabel(value: string): string {
   return spanish[value] ?? value;

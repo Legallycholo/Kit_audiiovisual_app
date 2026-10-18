@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Download, Image, Sparkles, Video, WandSparkles } from "lucide-react";
+import { Download, Image, Sparkles, WandSparkles } from "lucide-react";
 import { useWorkspace, activity } from "../../shared/store";
 import {
   Badge,
@@ -14,6 +14,7 @@ import {
 import { downloadFile, id, shortDate } from "../../shared/domain";
 import { canEditCollection } from "../../shared/access";
 import { createShowcaseCreativeAsset } from "../../shared/creative";
+import { uiLabel } from "../../shared/i18n";
 import type { CreativeKind } from "../../shared/types";
 
 export function Creative() {
@@ -24,9 +25,7 @@ export function Creative() {
     params.get("event") || data.events[0]?.id || "",
   );
   const [brief, setBrief] = useState("");
-  const [kind, setKind] = useState<CreativeKind | "Event video">(
-    "Event concept",
-  );
+  const [kind, setKind] = useState<CreativeKind>("Event concept");
   const [referenceIds, setReferenceIds] = useState<string[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState(
     params.get("asset") || "",
@@ -56,12 +55,6 @@ export function Creative() {
 
   const generate = async () => {
     const cleanBrief = brief.trim();
-    if (kind === "Event video") {
-      setGenerationError(
-        "Video remains gated until its provider, usage policy, and cost limit are approved.",
-      );
-      return;
-    }
     if (cleanBrief.length < 20) {
       setGenerationError(
         "Add at least 20 characters of creative direction. Your brief has been preserved.",
@@ -70,7 +63,7 @@ export function Creative() {
     }
     if (assets.length >= generationLimit) {
       setGenerationError(
-        "This event has reached the local showcase limit. Your brief has been preserved.",
+        "Este evento llegó al límite de bocetos locales. Tu descripción se conserva.",
       );
       return;
     }
@@ -229,7 +222,7 @@ export function Creative() {
     <>
       <PageHeader
         title="AI Creative Studio"
-        actions={<Badge tone="neutral">Local showcase · no API cost</Badge>}
+        actions={<Badge tone="neutral">Boceto local · sin IA ni costo</Badge>}
       />
       <Tabs
         items={["Concepts & media", "Brand assets", "Selected for proposals"]}
@@ -260,9 +253,7 @@ export function Creative() {
               <Field label="What are we creating?">
                 <select
                   value={kind}
-                  onChange={(e) =>
-                    setKind(e.target.value as CreativeKind | "Event video")
-                  }
+                  onChange={(e) => setKind(e.target.value as CreativeKind)}
                 >
                   {[
                     ["Event concept", "Concepto del evento"],
@@ -270,7 +261,6 @@ export function Creative() {
                     ["Lighting concept", "Concepto de iluminación"],
                     ["Promotional visual", "Visual promocional"],
                     ["Image edit", "Edición de imagen"],
-                    ["Event video", "Video del evento"],
                   ].map(([value, label]) => (
                     <option value={value} key={value}>
                       {label}
@@ -283,7 +273,9 @@ export function Creative() {
                   rows={7}
                   value={brief}
                   onChange={(e) => setBrief(e.target.value)}
-                  placeholder="The mood, the palette, the audience. Tell us what you have in mind…"
+                  placeholder={uiLabel(
+                    "The mood, the palette, the audience. Tell us what you have in mind…",
+                  )}
                 />
               </Field>
               {references.length > 0 && (
@@ -310,11 +302,11 @@ export function Creative() {
               <div className="connection-note">
                 <Sparkles size={20} />
                 <div>
-                  <strong>Local concept generator</strong>
+                  <strong>Boceto local</strong>
                   <p>
-                    Creates a labeled SVG concept without contacting an external
-                    service. Replace this boundary after a provider and budget
-                    are approved.
+                    Crea un boceto SVG rotulado en este equipo, sin enviar nada
+                    a servicios externos. Úsalo para alinear la idea antes de
+                    producir la pieza final.
                   </p>
                 </div>
               </div>
@@ -324,29 +316,20 @@ export function Creative() {
                   seleccionado.
                 </div>
               )}
-              {kind === "Event video" && (
-                <div className="info-note">
-                  El video está aplazado y no consume unidades. La descripción
-                  permanece guardada en este formulario.
-                </div>
-              )}
               {generationError && (
                 <div className="error-note" role="alert">
-                  {generationError}
+                  {uiLabel(generationError)}
                 </div>
               )}
               <div className="creative-actions">
                 <Button
                   disabled={
-                    !canCreate ||
-                    saving ||
-                    kind === "Event video" ||
-                    assets.length >= generationLimit
+                    !canCreate || saving || assets.length >= generationLimit
                   }
                   onClick={() => void generate()}
                 >
                   <WandSparkles size={16} />
-                  Generar concepto local
+                  Generar boceto local
                 </Button>
                 <Button
                   variant="secondary"
@@ -378,29 +361,25 @@ export function Creative() {
                 <span className="creative-orbit orbit-three" />
                 <div>
                   <WandSparkles size={36} />
-                  <h2>It starts with an idea.</h2>
+                  <h2>{uiLabel("It starts with an idea.")}</h2>
                   <p>
-                    Your generated concepts will live here, ready for review,
-                    refinement, and your next proposal.
+                    Aquí aparecen tus bocetos, listos para revisar, ajustar y
+                    usar en la próxima propuesta.
                   </p>
                   <div className="creative-tags">
                     <span>
                       <Image size={14} />
-                      Images
+                      Imágenes
                     </span>
                     <span>
                       <Sparkles size={14} />
-                      Concepts
-                    </span>
-                    <span>
-                      <Video size={14} />
-                      Video deferred
+                      Conceptos
                     </span>
                   </div>
                 </div>
                 <small>
-                  Creative visuals are separate from dimensioned production
-                  designs.
+                  Los visuales creativos no reemplazan los planos con medidas de
+                  producción.
                 </small>
               </div>
             ) : (
@@ -426,7 +405,7 @@ export function Creative() {
                 {selectedAsset && (
                   <Panel
                     title={selectedAsset.title}
-                    subtitle={`Revisión ${selectedAsset.revision} · ${selectedAsset.provider} / ${selectedAsset.model}`}
+                    subtitle={`Revisión ${selectedAsset.revision} · ${providerName(selectedAsset.provider)} / ${selectedAsset.model}`}
                   >
                     <div className="creative-review panel-body">
                       <img
@@ -435,7 +414,11 @@ export function Creative() {
                       />
                       <div className="creative-provenance">
                         <Badge>{selectedAsset.status}</Badge>
-                        <strong>CONCEPTO GENERADO · DEMOSTRACIÓN LOCAL</strong>
+                        <strong>
+                          {selectedAsset.provider === "Local showcase"
+                            ? "BOCETO LOCAL · SIN IA"
+                            : "CONCEPTO GENERADO CON IA"}
+                        </strong>
                         <p>{selectedAsset.brief}</p>
                         <small>
                           {selectedAsset.referenceIds.length} referencia(s) · 1
@@ -623,4 +606,9 @@ export function Creative() {
       )}
     </>
   );
+}
+
+/** The local generator keeps its stored id; people see an honest name. */
+function providerName(provider: string) {
+  return provider === "Local showcase" ? "Boceto local" : provider;
 }

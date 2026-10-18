@@ -21,8 +21,10 @@ import {
   PageHeader,
   SearchField,
 } from "../shared/ui";
+import { ConnectNotice } from "./ConnectNotice";
 import { id, money, quoteTotals } from "../shared/domain";
 import type { Message } from "../shared/types";
+import { uiLabel } from "../shared/i18n";
 export function Inbox() {
   const {
     data,
@@ -150,13 +152,16 @@ export function Inbox() {
         title="Client Inbox"
         description="Every client exchange, with the right event and proposal alongside it."
         actions={
-          <Badge tone={channel.configured ? "green" : "neutral"}>
-            {channel.configured
-              ? channel.label || "Canal configurado"
-              : "Canal no conectado"}
-          </Badge>
+          channel.configured ? (
+            <Badge tone={mode === "sample" ? "amber" : "green"}>
+              {channel.label || "Canal configurado"}
+            </Badge>
+          ) : undefined
         }
       />
+      {mode === "company" && !channel.configured && !error && (
+        <ConnectNotice service="whatsapp" />
+      )}
       <div className="inbox-workspace">
         <aside className="conversation-list">
           <div className="conversation-list-header">
@@ -226,12 +231,16 @@ export function Inbox() {
                     {client?.name} · {client?.phone}
                   </small>
                 </div>
-                <Badge tone="neutral">Conversación de muestra</Badge>
+                {mode === "sample" && (
+                  <Badge tone="neutral">Conversación de muestra</Badge>
+                )}
               </header>
               <div className="messages">
-                <div className="message-date">
-                  Conversación ilustrativa · sin mensajes reales
-                </div>
+                {mode === "sample" && (
+                  <div className="message-date">
+                    Conversación de ejemplo · sin mensajes reales
+                  </div>
+                )}
                 {conversation.messages.map((m) => (
                   <div key={m.id} className={`message ${m.direction}`}>
                     <p>{m.text}</p>
@@ -242,8 +251,8 @@ export function Inbox() {
                       >
                         <FileText size={19} />
                         <span>
-                          Proposal · revision {m.proposalVersion}
-                          <small>View the exact offer</small>
+                          {uiLabel("Proposal · revision")} {m.proposalVersion}
+                          <small>{uiLabel("View the exact offer")}</small>
                         </span>
                         <ArrowUpRight size={14} />
                       </Link>
@@ -290,7 +299,7 @@ export function Inbox() {
                 <div>
                   <span>
                     <ShieldCheck size={14} />
-                    Owner confirmation required
+                    {uiLabel("Owner confirmation required")}
                   </span>
                   <Button
                     type="button"
@@ -312,7 +321,9 @@ export function Inbox() {
               </form>
             </section>
             <aside className="conversation-context">
-              <span className="eyebrow">CONNECTED TO THIS CONVERSATION</span>
+              <span className="eyebrow">
+                {uiLabel("CONNECTED TO THIS CONVERSATION")}
+              </span>
               <Link className="context-event" to={`/events/${event?.id}`}>
                 <strong>{event?.name}</strong>
                 <ArrowUpRight size={16} />
@@ -350,6 +361,7 @@ export function Inbox() {
                   </p>
                   <Badge>Awaiting owner review</Badge>
                   <Button
+                    variant="secondary"
                     disabled={!ownerReview}
                     onClick={() => setReview(true)}
                   >
@@ -421,8 +433,9 @@ export function Inbox() {
           </>
         ) : (
           <Empty
-            title="Your client conversations belong here"
-            description="Connect WhatsApp to receive client messages in this workspace."
+            icon={<MessageCircle size={26} />}
+            title="No client conversations yet"
+            description="Client messages appear here with their event and proposal once WhatsApp is connected."
           />
         )}
       </div>

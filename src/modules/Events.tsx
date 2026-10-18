@@ -1,5 +1,6 @@
 import { canEditCollection } from "../shared/access";
 import { uiLabel } from "../shared/i18n";
+import { WebLookup } from "./WebLookup";
 import { useState } from "react";
 import {
   Link,
@@ -36,6 +37,7 @@ import {
 } from "../shared/ui";
 import { id, money, shortDate } from "../shared/domain";
 import type { EventStatus, ProductionEvent } from "../shared/types";
+import { demoOwner } from "../shared/seed";
 export function Events() {
   const { data } = useWorkspace();
   const [params, setParams] = useSearchParams();
@@ -105,11 +107,11 @@ export function Events() {
             <table>
               <thead>
                 <tr>
-                  <th>Event / client</th>
-                  <th>Venue</th>
-                  <th>Dates</th>
-                  <th>Status</th>
-                  <th>Manager</th>
+                  <th>{uiLabel("Event / client")}</th>
+                  <th>{uiLabel("Venue")}</th>
+                  <th>{uiLabel("Dates")}</th>
+                  <th>{uiLabel("Status")}</th>
+                  <th>{uiLabel("Manager")}</th>
                   <th />
                 </tr>
               </thead>
@@ -150,7 +152,7 @@ export function Events() {
                         <Link
                           className="icon-button"
                           to={`/events/${event.id}`}
-                          aria-label={`Open ${event.name}`}
+                          aria-label={`${uiLabel("Open")} ${event.name}`}
                         >
                           <ArrowUpRight size={17} />
                         </Link>
@@ -216,7 +218,7 @@ export function EventForm({
       endDate: "",
       status: "Planning",
       type: "Conference",
-      manager: user?.name || "Alex Morgan",
+      manager: user?.name || demoOwner.name,
       budget: 0,
       attendees: 0,
       notes: "",
@@ -260,6 +262,25 @@ export function EventForm({
           navigate(`/events/${draft.id}`);
         }}
       >
+        {!event && (
+          <WebLookup
+            kind="event"
+            onUse={(found) =>
+              setDraft({
+                ...draft,
+                name: found.title,
+                notes: [
+                  draft.notes,
+                  `Referencia web: ${[found.date, found.address]
+                    .filter(Boolean)
+                    .join(" · ")}`,
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+              })
+            }
+          />
+        )}
         <Field label="Event name">
           <input
             required
@@ -405,7 +426,7 @@ export function EventDetail() {
     <>
       <Link className="back-link" to="/events">
         <ArrowLeft size={15} />
-        All events
+        {uiLabel("All events")}
       </Link>
       <PageHeader
         eyebrow={`${event.type} · ${client?.name || "Client not assigned"}`}
@@ -414,11 +435,7 @@ export function EventDetail() {
         actions={
           <>
             <Badge>{event.status}</Badge>
-            <Button
-              disabled={!commercial}
-              variant="secondary"
-              onClick={() => setEditing(true)}
-            >
+            <Button disabled={!commercial} onClick={() => setEditing(true)}>
               Edit event
             </Button>
           </>
@@ -452,13 +469,13 @@ export function EventDetail() {
               </p>
               <div className="detail-facts">
                 <div>
-                  <span>Client</span>
+                  <span>{uiLabel("Client")}</span>
                   <Link to={`/clients?client=${client?.id}`}>
                     {client?.name}
                   </Link>
                 </div>
                 <div>
-                  <span>Venue</span>
+                  <span>{uiLabel("Venue")}</span>
                   <strong>{venue?.name || "To be confirmed"}</strong>
                 </div>
                 <div>
@@ -476,10 +493,10 @@ export function EventDetail() {
                   </div>
                 )}
                 <div>
-                  <span>Status</span>
+                  <span>{uiLabel("Status")}</span>
                   <select
                     disabled={!canEditCollection(user, "events")}
-                    aria-label="Event status"
+                    aria-label={uiLabel("Event status")}
                     value={event.status}
                     onChange={async (e) => {
                       if (
@@ -537,7 +554,8 @@ export function EventDetail() {
               <Link to={`/design?event=${event.id}`}>
                 <Layers3 size={20} />
                 <span>
-                  Open event layout<small>Design your space in 2D and 3D</small>
+                  {uiLabel("Open event layout")}
+                  <small>{uiLabel("Design your space in 2D and 3D")}</small>
                 </span>
                 <ArrowUpRight size={17} />
               </Link>

@@ -20,6 +20,8 @@ import { mountAiRoutes } from "./routes/ai";
 import { mountUserRoutes } from "./routes/users";
 import { mountAccountRoutes } from "./routes/account";
 import { mountBackupRoutes } from "./routes/backup";
+import { mountIntegrationRoutes } from "./routes/integrations";
+import { mountLookupRoutes } from "./routes/lookup";
 
 export type { AppConfig } from "./routes/context";
 
@@ -89,6 +91,8 @@ export function createApp(repo: Repository, config: AppConfig) {
   mountUserRoutes(app, context);
   mountAccountRoutes(app, context);
   mountBackupRoutes(app, context);
+  mountIntegrationRoutes(app, context);
+  mountLookupRoutes(app, context);
   app.use("/api", (_req, _res, next) =>
     next(new HttpError(404, "API route not found.")),
   );

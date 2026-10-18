@@ -25,3 +25,5 @@ export type { MenuItem, Placement } from "./ui/overlays";
 export { Toast } from "./ui/Toast";
 export { Wordmark } from "./ui/Wordmark";
 export { LightMix } from "./ui/LightMix";
+export { CommandPalette } from "./ui/CommandPalette";
+export type { PaletteGroup, PaletteItem } from "./ui/CommandPalette";

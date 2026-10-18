@@ -1,7 +1,7 @@
 import { uiLabel } from "../../shared/i18n";
 import { ProposalAI } from "../ProposalAI";
 import { Send, Printer } from "lucide-react";
-import { Button, Field, Modal } from "../../shared/ui";
+import { Button, Field, Modal, Wordmark } from "../../shared/ui";
 import { money, shortDate } from "../../shared/domain";
 import type { Proposal } from "../../shared/types";
 import type { EditorView } from "./editor-view";
@@ -234,7 +234,7 @@ export function EditorDialogs({ ctx }: { ctx: EditorView }) {
             className={`print-proposal template-${(draft.presentationTemplate || "Editorial").toLowerCase()}`}
           >
             <header className="print-proposal-cover">
-              <span className="brand-small">kit.</span>
+              <Wordmark size={30} className="document-wordmark" />
               <p>{data.settings.company}</p>
               <h1>{draft.title}</h1>
               <p>

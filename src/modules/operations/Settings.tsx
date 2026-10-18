@@ -1,6 +1,18 @@
 import { UserManagement } from "../UserManagement";
 import { useEffect, useState } from "react";
-import { Box, Download, FileUp, Save, ShieldCheck, Users } from "lucide-react";
+import { Navigate, NavLink, useParams } from "react-router-dom";
+import { AppearanceSettings } from "../settings/Appearance";
+import { IntegrationsSettings } from "../settings/Integrations";
+import { visibleSettingsSections } from "../../application/navigation";
+import { openCompanyWorkspace } from "../../application/Sidebar";
+import {
+  Download,
+  FileUp,
+  FlaskConical,
+  Save,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { useWorkspace, activity } from "../../shared/store";
 import {
   Badge,
@@ -9,30 +21,31 @@ import {
   Modal,
   PageHeader,
   Panel,
+  Switch,
 } from "../../shared/ui";
 import { uiLabel } from "../../shared/i18n";
 import { downloadFile, id, initials } from "../../shared/domain";
 import type { Workspace } from "../../shared/types";
 
 export function SettingsPage() {
-  const { data, update, toast, reset, mode, user, request, refresh, sync } =
-    useWorkspace();
-  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
-  useEffect(() => {
-    let active = true;
-    if (mode === "company" && user?.role === "Administrator")
-      request<{ configured: boolean }>("/ai/status")
-        .then((result) => {
-          if (active) setAiConfigured(result.configured);
-        })
-        .catch(() => {
-          if (active) setAiConfigured(null);
-        });
-    return () => {
-      active = false;
-    };
-  }, [mode, user?.role, request]);
-  const [tab, setTab] = useState("Company profile");
+  const {
+    data,
+    update,
+    toast,
+    reset,
+    mode,
+    user,
+    request,
+    refresh,
+    sync,
+    openCompany,
+    openDemo,
+  } = useWorkspace();
+  const { section } = useParams();
+  const sections = visibleSettingsSections(user, mode);
+  const tab = sections.some((item) => item.id === section)
+    ? (section as string)
+    : "";
   const [settings, setSettings] = useState({ ...data.settings });
   const [resetting, setResetting] = useState(false);
   type BackupPreview = {
@@ -73,48 +86,34 @@ export function SettingsPage() {
     setRecoveryRevision(result.currentRevision);
   };
   useEffect(() => {
-    if (
-      mode !== "company" ||
-      user?.role !== "Administrator" ||
-      tab !== "Workspace data"
-    )
+    if (mode !== "company" || user?.role !== "Administrator" || tab !== "data")
       return;
     void loadRecoveryPoints().catch((error) => toast((error as Error).message));
   }, [mode, user?.role, tab]);
-  if (mode === "company" && user?.role !== "Administrator")
-    return (
-      <>
-        <PageHeader title="Mi cuenta" />
-        <UserManagement />
-      </>
-    );
+  if (!tab) return <Navigate to={sections[0].to} replace />;
+  const admin = !(mode === "company" && user?.role !== "Administrator");
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader
+        title={admin ? "Settings" : "Mi cuenta"}
+        description={
+          admin
+            ? "Company, people, connections, appearance and data in one place."
+            : undefined
+        }
+      />
       <div className="settings-workspace">
-        <aside className="settings-nav">
-          {[
-            "Company profile",
-            "Users & roles",
-            "Proposal preferences",
-            "Event preferences",
-            "Notifications",
-            "AI preferences",
-            "Integrations",
-            "Activity history",
-            "Workspace data",
-          ].map((item) => (
-            <button
-              key={item}
-              className={item === tab ? "active" : ""}
-              onClick={() => setTab(item)}
-            >
-              {item}
-            </button>
+        <nav className="settings-nav" aria-label={uiLabel("Settings sections")}>
+          {sections.map((item) => (
+            <NavLink key={item.id} to={item.to}>
+              {uiLabel(item.label)}
+            </NavLink>
           ))}
-        </aside>
-        <div>
-          {tab === "Company profile" && (
+        </nav>
+        <div className="settings-content">
+          {tab === "appearance" && <AppearanceSettings />}
+          {tab === "users" && !admin && <UserManagement />}
+          {tab === "general" && (
             <Panel
               title="Company profile"
               subtitle="The identity shown across your workspace."
@@ -180,41 +179,42 @@ export function SettingsPage() {
               </form>
             </Panel>
           )}
-          {tab === "Users & roles" && mode === "company" && <UserManagement />}
-          {tab === "Users & roles" && mode === "sample" && (
+          {tab === "users" && admin && mode === "company" && <UserManagement />}
+          {tab === "users" && mode === "sample" && (
             <Panel
               title="Users & roles"
               subtitle="The permission model is defined; authentication is not connected in this local workspace."
             >
               <div className="panel-body">
                 <div className="info-note">
-                  You are previewing the owner workspace with sample data. These
-                  role descriptions do not enforce access controls yet.
+                  {uiLabel(
+                    "Access is enforced by the company server on every request. Create accounts in the company workspace.",
+                  )}
                 </div>
                 {[
                   [
-                    "Administrator / owner",
-                    "Company administration, outgoing message confirmation, and final acceptance review.",
+                    "Propietario / administrador",
+                    "Administra la empresa, confirma mensajes salientes y revisa cada aceptación.",
                   ],
                   [
-                    "Sales Manager",
-                    "Clients, opportunities, editable proposals, and message drafts.",
+                    "Ventas",
+                    "Clientes, oportunidades, propuestas editables y borradores de mensajes.",
                   ],
                   [
-                    "Event Designer",
-                    "Venue layouts, design revisions, and creative assets.",
+                    "Diseño de eventos",
+                    "Planos del lugar, versiones de diseño y recursos creativos.",
                   ],
                   [
-                    "Production Manager",
-                    "Crew, equipment reservations, production tasks, and fulfillment.",
+                    "Producción",
+                    "Equipo humano, reservas de equipos, tareas de producción y entregas.",
                   ],
                   [
-                    "Technician",
-                    "Assigned tasks, published plans, and equipment custody updates.",
+                    "Técnico",
+                    "Tareas asignadas, planes publicados y custodia de equipos.",
                   ],
                   [
-                    "Client / Guest",
-                    "Only explicitly shared proposal revisions and event information.",
+                    "Cliente / invitado",
+                    "Solo las versiones de propuestas y la información de eventos que se le compartan.",
                   ],
                 ].map(([name, description]) => (
                   <div className="role-row" key={name}>
@@ -228,108 +228,28 @@ export function SettingsPage() {
               </div>
             </Panel>
           )}
-          {tab === "Integrations" && (
-            <Panel
-              title="Connections"
-              subtitle="Services connect here when credentials and business policies are ready."
-            >
-              <div className="panel-body">
-                {[
-                  [
-                    "WhatsApp / Meta",
-                    "Inbound and outbound client messages, with owner approval before every send.",
-                  ],
-                  [
-                    "Redacción de propuestas con IA",
-                    "Sugerencias editables con equipos y tarifas del catálogo. El asistente general se conecta por separado.",
-                  ],
-                  [
-                    "Creative generation",
-                    "Images, editing, and later video generation.",
-                  ],
-                  [
-                    "Cuentas y registros de empresa",
-                    "Acceso por rol y registros compartidos en el servidor. Los archivos adjuntos se incorporarán después.",
-                  ],
-                ].map(([name, description]) => (
-                  <div className="integration-row" key={name}>
-                    <span className="integration-icon">
-                      <Box size={22} />
-                    </span>
-                    <div>
-                      <strong>{name}</strong>
-                      <p>{description}</p>
-                    </div>
-                    <Badge tone="neutral">
-                      {name === "Cuentas y registros de empresa" &&
-                      mode === "company"
-                        ? "Conectado"
-                        : name === "Redacción de propuestas con IA" &&
-                            mode === "company"
-                          ? aiConfigured === null
-                            ? "Estado no disponible"
-                            : aiConfigured
-                              ? "Configurada · pendiente de prueba en vivo"
-                              : "Sin configurar"
-                          : "Sin conectar"}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-          )}
-          {tab === "Activity history" && (
-            <Panel
-              title="Workspace activity"
-              subtitle={
-                mode === "sample"
-                  ? "Historial de ejemplo en este dispositivo."
-                  : "Historial registrado por el servidor; los clientes no pueden modificarlo."
-              }
-            >
-              <div className="activity-list">
-                {data.activity.map((a) => (
-                  <div className="activity-row" key={a.id}>
-                    <span className="activity-dot" />
-                    <div>
-                      <strong>{a.title}</strong>
-                      <p>{a.detail}</p>
-                      <small>{new Date(a.at).toLocaleString()}</small>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-          )}
-          {tab === "Notifications" && (
+          {tab === "integrations" && <IntegrationsSettings />}
+          {tab === "general" && (
             <Panel title="Notification preferences">
               <div className="panel-body">
-                <label className="toggle-row">
-                  <div>
-                    <strong>Workspace reminders</strong>
-                    <p>
-                      Preference saved for the future notification service.
-                      Acceptance requests remain visible in the inbox.
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={data.settings.notifications}
-                    onChange={async (e) => {
-                      if (
-                        !(await update((s) => ({
-                          ...s,
-                          settings: {
-                            ...s.settings,
-                            notifications: e.target.checked,
-                          },
-                        })))
-                      )
-                        return;
-                      toast("Notification preference saved.");
-                    }}
-                  />
-                </label>
+                <Switch
+                  label="Review reminders"
+                  description="Shows a dot on the bell and a count on Messages when a client reply is waiting for review."
+                  checked={data.settings.notifications}
+                  onChange={async (checked) => {
+                    if (
+                      !(await update((s) => ({
+                        ...s,
+                        settings: {
+                          ...s.settings,
+                          notifications: checked,
+                        },
+                      })))
+                    )
+                      return;
+                    toast("Notification preference saved.");
+                  }}
+                />
                 <div className="role-row">
                   <ShieldCheck size={20} aria-hidden="true" />
                   <div>
@@ -347,52 +267,43 @@ export function SettingsPage() {
               </div>
             </Panel>
           )}
-          {tab === "AI preferences" && (
+          {tab === "integrations" && (
             <Panel title="AI controls">
               <div className="panel-body">
                 <div className="role-row">
                   <ShieldCheck size={23} />
                   <div>
-                    <strong>Owner confirms every outgoing message</strong>
+                    <strong>
+                      {uiLabel("Owner confirms every outgoing message")}
+                    </strong>
                     <p>
-                      No autonomous replies, price negotiations, or acceptance
-                      decisions.
+                      {uiLabel(
+                        "No autonomous replies, price negotiations, or acceptance decisions.",
+                      )}
                     </p>
                   </div>
-                  <Badge>Required</Badge>
-                </div>
-                <div className="info-note">
-                  {uiLabel(
-                    "Model, provider and monthly usage are shown in Integrations.",
-                  )}{" "}
-                  <button
-                    type="button"
-                    className="text-button"
-                    onClick={() => setTab("Integrations")}
-                  >
-                    {uiLabel("Open Integrations")}
-                  </button>
+                  <Badge tone="green">{uiLabel("Always on")}</Badge>
                 </div>
               </div>
             </Panel>
           )}
-          {tab === "Proposal preferences" && (
+          {tab === "general" && (
             <Panel title="Commercial defaults">
               <div className="panel-body">
                 <p>
-                  Daily rental rates come from the equipment catalog and are
-                  copied into each proposal revision. Discounts apply before
-                  tax. All amounts currently use USD.
+                  Las tarifas diarias salen del catálogo de equipos y se copian
+                  en cada versión de la propuesta. Los descuentos se aplican
+                  antes de impuestos. Todos los importes están en USD.
                 </p>
                 <div className="info-note">
-                  This calculation convention is provisional. Confirm rental
-                  periods, rounding, tax treatment, deposits, and validity with
-                  the business before live use.
+                  Confirma con la empresa los periodos de alquiler, el redondeo,
+                  los impuestos, los depósitos y la vigencia antes de enviar
+                  propuestas reales.
                 </div>
               </div>
             </Panel>
           )}
-          {tab === "Event preferences" && (
+          {tab === "general" && (
             <Panel title="Event defaults">
               <div className="panel-body">
                 <div className="detail-facts">
@@ -401,18 +312,18 @@ export function SettingsPage() {
                     <strong>{data.settings.timezone}</strong>
                   </div>
                   <div>
-                    <span>Design units</span>
+                    <span>{uiLabel("Design units")}</span>
                     <strong>Meters · initial workspace</strong>
                   </div>
                   <div>
                     <span>Starting status</span>
-                    <strong>Planning</strong>
+                    <strong>{uiLabel("Planning")}</strong>
                   </div>
                 </div>
               </div>
             </Panel>
           )}
-          {tab === "Workspace data" && mode === "company" && (
+          {tab === "data" && mode === "company" && (
             <Panel
               title="Copia y recuperación de la empresa"
               subtitle="Flujo exclusivo para administradores; no incluye contraseñas, sesiones ni el historial de auditoría."
@@ -534,13 +445,13 @@ export function SettingsPage() {
               </div>
             </Panel>
           )}
-          {tab === "Workspace data" && mode === "sample" && (
+          {tab === "data" && mode === "sample" && (
             <Panel title="Your local workspace">
               <div className="panel-body">
                 <p>
-                  This preview saves changes in this browser on this device. It
-                  does not provide shared cloud storage, authentication, or a
-                  production backup service.
+                  La demostración guarda los cambios solo en este navegador. No
+                  hay almacenamiento compartido, cuentas ni copias de seguridad
+                  de empresa.
                 </p>
                 <Button
                   variant="secondary"
@@ -552,16 +463,70 @@ export function SettingsPage() {
                   }
                 >
                   <Download size={16} />
-                  Export local backup
+                  Exportar copia local
                 </Button>
                 <hr />
-                <h3>Restore sample workspace</h3>
+                <h3>Restablecer la demostración</h3>
                 <p>
-                  Replace local edits with the original illustrative clients,
-                  events, and proposals.
+                  Reemplaza tus cambios con los clientes, eventos y propuestas
+                  de ejemplo originales.
                 </p>
                 <Button variant="danger" onClick={() => setResetting(true)}>
-                  Restore sample data
+                  Restablecer datos de ejemplo
+                </Button>
+              </div>
+            </Panel>
+          )}
+          {tab === "data" && (
+            <Panel
+              title="Workspace activity"
+              subtitle={
+                mode === "sample"
+                  ? "Historial de ejemplo en este dispositivo."
+                  : "Historial registrado por el servidor; los clientes no pueden modificarlo."
+              }
+            >
+              <div className="activity-list">
+                {data.activity.map((a) => (
+                  <div className="activity-row" key={a.id}>
+                    <span className="activity-dot" />
+                    <div>
+                      <strong>{a.title}</strong>
+                      <p>{a.detail}</p>
+                      <small>{new Date(a.at).toLocaleString()}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+          {tab === "data" && admin && (
+            <Panel
+              title="Demo workspace"
+              subtitle="Sample clients and events for practice. They never mix with company records."
+            >
+              <div className="panel-body">
+                <p>
+                  {uiLabel(
+                    mode === "sample"
+                      ? "You are viewing sample data saved only on this device."
+                      : "Opens a separate space with sample data. Your company records do not change.",
+                  )}
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    mode === "sample"
+                      ? void openCompanyWorkspace(openCompany, toast)
+                      : openDemo()
+                  }
+                >
+                  <FlaskConical size={16} />
+                  {uiLabel(
+                    mode === "sample"
+                      ? "Leave the demo workspace"
+                      : "Open the demo workspace",
+                  )}
                 </Button>
               </div>
             </Panel>

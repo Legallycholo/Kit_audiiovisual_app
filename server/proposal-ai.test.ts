@@ -18,20 +18,18 @@ const payload = {
   questions: [],
 };
 it("calls Responses with strict structured output and no tools or stored response", async () => {
-  const transport = vi
-    .fn<typeof fetch>()
-    .mockResolvedValue(
-      Response.json({
-        status: "completed",
-        output: [
-          { type: "reasoning" },
-          {
-            type: "message",
-            content: [{ type: "output_text", text: JSON.stringify(payload) }],
-          },
-        ],
-      }),
-    );
+  const transport = vi.fn<typeof fetch>().mockResolvedValue(
+    Response.json({
+      status: "completed",
+      output: [
+        { type: "reasoning" },
+        {
+          type: "message",
+          content: [{ type: "output_text", text: JSON.stringify(payload) }],
+        },
+      ],
+    }),
+  );
   const generator = openAIProposalGenerator(
     "test-secret",
     "configured-model",
@@ -121,7 +119,9 @@ it("flags missing requirements and catalog rates in the review notes", () => {
   const result = materializeSuggestion(
     {
       ...payload,
-      items: [{ equipmentId: incomplete.equipment[0].id, quantity: 1, days: 1 }],
+      items: [
+        { equipmentId: incomplete.equipment[0].id, quantity: 1, days: 1 },
+      ],
     },
     incomplete,
     "test-model",

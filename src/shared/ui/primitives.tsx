@@ -145,7 +145,7 @@ export function StatusDot({
   );
 }
 
-/** Loading placeholder shape. Hidden from assistive technology. */
+/** Shape shown while content loads. Hidden from assistive technology. */
 export function Skeleton({
   width = "100%",
   height = 14,

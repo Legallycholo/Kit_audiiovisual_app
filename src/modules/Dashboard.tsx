@@ -24,7 +24,7 @@ export function Dashboard() {
   ).length;
   const next = [...active].sort((a, b) => a.date.localeCompare(b.date))[0];
   const venue = data.venues.find((v) => v.id === next?.venueId);
-  const date = new Date().toLocaleDateString("en-US", {
+  const date = new Date().toLocaleDateString("es-PR", {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -38,7 +38,7 @@ export function Dashboard() {
         actions={
           <Link className="button primary" to="/events?new=1">
             <Plus size={17} />
-            Create event
+            {uiLabel("Create event")}
           </Link>
         }
       />
@@ -60,7 +60,7 @@ export function Dashboard() {
             .padStart(2, "0")}
           detail={
             <Link to="/proposals">
-              Review your pipeline <ArrowUpRight size={13} />
+              {uiLabel("Review your pipeline")} <ArrowUpRight size={13} />
             </Link>
           }
           icon={<FileText size={18} />}
@@ -68,7 +68,12 @@ export function Dashboard() {
         <Stat
           label="Equipment in catalog"
           value={data.equipment.reduce((s, e) => s + e.quantity, 0)}
-          detail={<>{data.equipment.length} products across your inventory</>}
+          detail={
+            <>
+              {data.equipment.length}{" "}
+              {uiLabel("products across your inventory")}
+            </>
+          }
           icon={<Box size={18} />}
         />
         <Stat
@@ -90,7 +95,7 @@ export function Dashboard() {
           <div className="next-event-content">
             <span className="eyebrow light">
               <span className="live-dot" />
-              NEXT ON THE CALENDAR
+              {uiLabel("NEXT ON THE CALENDAR")}
             </span>
             <h2>{next?.name || uiLabel("No upcoming events")}</h2>
             {next && (
@@ -103,7 +108,7 @@ export function Dashboard() {
             <div className="next-event-bottom">
               {next && (
                 <Link to={`/events/${next.id}`}>
-                  Open event
+                  {uiLabel("Open event")}
                   <ArrowUpRight size={17} />
                 </Link>
               )}
@@ -116,14 +121,14 @@ export function Dashboard() {
             <span className="attention-icon">
               <Clock3 size={18} />
             </span>
-            <span>OWNER'S DESK</span>
-            <Badge tone="amber">{pending} pending</Badge>
+            <span>{uiLabel("OWNER'S DESK")}</span>
+            <Badge tone="amber">{`${pending} ${uiLabel("pending")}`}</Badge>
           </div>
           <h2>
             {pending ? (
               <>
-                A client is ready. <br />
-                Your move.
+                {uiLabel("A client is ready.")} <br />
+                {uiLabel("Your move.")}
               </>
             ) : (
               <>
@@ -134,11 +139,13 @@ export function Dashboard() {
           </h2>
           <p>
             {pending
-              ? "A proposal response is waiting for your review. You have the final say."
+              ? uiLabel(
+                  "A proposal response is waiting for your review. You have the final say.",
+                )
               : "There are no client acceptance requests waiting for review."}
           </p>
           <Link className="attention-link" to="/inbox">
-            Review client responses
+            {uiLabel("Review client responses")}
             <ArrowRight size={17} />
           </Link>
         </div>
@@ -146,15 +153,15 @@ export function Dashboard() {
       <div className="dashboard-columns">
         <Panel
           title="Upcoming events"
-          action={<TextLink to="/events">All events</TextLink>}
+          action={<TextLink to="/events">{uiLabel("All events")}</TextLink>}
         >
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Event / client</th>
-                  <th>Date</th>
-                  <th>Status</th>
+                  <th>{uiLabel("Event / client")}</th>
+                  <th>{uiLabel("Date")}</th>
+                  <th>{uiLabel("Status")}</th>
                   <th />
                 </tr>
               </thead>
@@ -185,7 +192,7 @@ export function Dashboard() {
                       <td>
                         <Link
                           className="icon-button"
-                          aria-label={`Open ${event.name}`}
+                          aria-label={`${uiLabel("Open")} ${event.name}`}
                           to={`/events/${event.id}`}
                         >
                           <ArrowUpRight size={17} />
@@ -200,7 +207,7 @@ export function Dashboard() {
         </Panel>
         <Panel
           title="Your production checklist"
-          action={<TextLink to="/production">View all</TextLink>}
+          action={<TextLink to="/production">{uiLabel("View all")}</TextLink>}
         >
           <div className="task-list">
             {data.tasks.slice(0, 4).map((task) => (
@@ -246,7 +253,7 @@ export function Dashboard() {
               {item.eventId && (
                 <Link
                   to={`/events/${item.eventId}`}
-                  aria-label={`View event for ${item.title}`}
+                  aria-label={`${uiLabel("View event for")} ${item.title}`}
                 >
                   <ChevronRight size={16} />
                 </Link>

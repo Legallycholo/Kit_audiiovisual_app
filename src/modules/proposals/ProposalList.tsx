@@ -1,7 +1,7 @@
 import { uiLabel } from "../../shared/i18n";
 import { ProposalAI, type DraftSuggestion } from "../ProposalAI";
 import { canEditCollection } from "../../shared/access";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowUpRight, FileText, Plus, Sparkles } from "lucide-react";
 import { activity, useWorkspace } from "../../shared/store";
@@ -21,7 +21,7 @@ import type { Proposal } from "../../shared/types";
 
 export function Proposals() {
   const { data, update, toast, user, mode, saving } = useWorkspace();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("All proposals");
@@ -30,6 +30,16 @@ export function Proposals() {
   const [eventId, setEventId] = useState(
     params.get("event") || data.events[0]?.id || "",
   );
+  // Palette actions open the create dialog with ?new=manual or ?new=ai.
+  useEffect(() => {
+    const requested = params.get("new");
+    if (!requested || !canEditCollection(user, "proposals")) return;
+    setCreate(true);
+    setAI(requested === "ai");
+    const next = new URLSearchParams(params);
+    next.delete("new");
+    setParams(next, { replace: true });
+  }, [params, setParams, user]);
   async function createDraft(suggestion?: DraftSuggestion) {
     const event = data.events.find((e) => e.id === eventId);
     if (!event) return;
@@ -77,29 +87,31 @@ export function Proposals() {
         description={uiLabel(
           "Thoughtful proposals. Clear pricing. Every revision in one place.",
         )}
+        menu={
+          canEditCollection(user, "proposals")
+            ? [
+                {
+                  label: "Draft with AI",
+                  icon: <Sparkles size={16} />,
+                  onSelect: () => {
+                    setCreate(true);
+                    setAI(true);
+                  },
+                },
+              ]
+            : undefined
+        }
         actions={
           canEditCollection(user, "proposals") ? (
-            <>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setCreate(true);
-                  setAI(true);
-                }}
-              >
-                <Sparkles size={17} />
-                {uiLabel("Draft with AI")}
-              </Button>
-              <Button
-                onClick={() => {
-                  setCreate(true);
-                  setAI(false);
-                }}
-              >
-                <Plus size={17} />
-                {uiLabel("New proposal")}
-              </Button>
-            </>
+            <Button
+              onClick={() => {
+                setCreate(true);
+                setAI(false);
+              }}
+            >
+              <Plus size={17} />
+              {uiLabel("New proposal")}
+            </Button>
           ) : undefined
         }
       />
@@ -163,7 +175,7 @@ export function Proposals() {
                       <Link
                         className="icon-button"
                         to={`/proposals/${p.id}`}
-                        aria-label={`Edit ${p.title}`}
+                        aria-label={`${uiLabel("Edit")} ${p.title}`}
                       >
                         <ArrowUpRight size={17} />
                       </Link>

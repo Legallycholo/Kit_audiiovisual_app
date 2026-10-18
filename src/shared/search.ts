@@ -73,7 +73,7 @@ export function searchWorkspace(
       e.id,
       e.name,
       `/events/${e.id}`,
-      "Proyectos",
+      "Eventos",
       e.notes,
       clients.has(e.clientId),
     ),

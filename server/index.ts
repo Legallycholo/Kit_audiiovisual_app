@@ -1,9 +1,11 @@
-import { openAIProposalGenerator } from "./proposal-ai";
+import { aiProposalGenerator } from "./proposal-ai";
+import { integrationsFromEnv } from "./integrations";
+import { aiFloorPlanExtractor } from "./design";
 import { resolve } from "node:path";
 import { Repository } from "./database";
 import { createApp } from "./app";
 import { httpSearchProvider, type SearchGateway } from "./search";
-import { openAIKitGenerator, type KitService } from "./kit";
+import { aiKitGenerator, type KitService } from "./kit";
 import { jsonLogger, parseLogLevel } from "./logger";
 
 const port = Number(process.env.PORT || 3001);
@@ -14,15 +16,15 @@ const origins = (
 const repo = new Repository(
   resolve(process.env.KIT_DATABASE || "data/kit.sqlite"),
 );
+// One AI provider for drafting, KIT chat and plan reading (Settings › Integraciones).
+const integrations = integrationsFromEnv(process.env);
+const ai = integrations.ai;
 const app = createApp(repo, {
   logger: jsonLogger(parseLogLevel(process.env.KIT_LOG_LEVEL)),
-  kitGenerator:
-    process.env.OPENAI_API_KEY && process.env.KIT_CHAT_MODEL
-      ? openAIKitGenerator(
-          process.env.OPENAI_API_KEY,
-          process.env.KIT_CHAT_MODEL,
-        )
-      : undefined,
+  integrations,
+  kitGenerator: ai?.chatModel
+    ? aiKitGenerator(ai.provider, ai.key, ai.chatModel)
+    : undefined,
   search: {
     name: process.env.KIT_SEARCH_PROVIDER_NAME || "No configurado",
     providerIdentity: process.env.KIT_SEARCH_PROVIDER_URL || "",
@@ -46,13 +48,12 @@ const app = createApp(repo, {
           )
         : undefined,
   },
-  proposalGenerator:
-    process.env.OPENAI_API_KEY && process.env.KIT_AI_MODEL
-      ? openAIProposalGenerator(
-          process.env.OPENAI_API_KEY,
-          process.env.KIT_AI_MODEL,
-        )
-      : undefined,
+  proposalGenerator: ai?.proposalModel
+    ? aiProposalGenerator(ai.provider, ai.key, ai.proposalModel)
+    : undefined,
+  floorPlanExtractor: ai?.planModel
+    ? aiFloorPlanExtractor(ai.provider, ai.key, ai.planModel)
+    : undefined,
   origins,
   secureCookies: process.env.KIT_SECURE_COOKIES === "true",
   serveStatic: process.env.NODE_ENV === "production",

@@ -16,7 +16,9 @@ import {
   type WorkspaceUser,
 } from "./access";
 import { api, ApiError } from "./api";
+import { uiLabel } from "./i18n";
 import { SessionAccess } from "../application/SessionAccess";
+import { BootScreen } from "../application/BootScreen";
 import {
   applyPendingSync,
   clearPendingSync,
@@ -36,6 +38,8 @@ type Store = {
   user: WorkspaceUser | null;
   mode: "sample" | "company";
   saving: boolean;
+  /** Increments after every confirmed save or send; drives the saved glow. */
+  savedCount: number;
   sync: {
     state: "synced" | "queued" | "syncing" | "conflict";
     pending: PendingSync | null;
@@ -44,6 +48,8 @@ type Store = {
   retrySync: () => Promise<boolean>;
   resolveSync: (choice: "server" | "local") => Promise<boolean>;
   openCompany: () => void;
+  /** Switches to the local demonstration workspace. */
+  openDemo: () => void;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   request: <T>(
@@ -103,6 +109,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState("");
   const [storageError, setStorageError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const markSaved = () => setSavedCount((count) => count + 1);
   const savingRef = useRef(false);
   const [syncState, setSyncState] = useState<
     "synced" | "queued" | "syncing" | "conflict"
@@ -111,20 +119,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const pendingRef = useRef<PendingSync | null>(null);
   const userRef = useRef<WorkspaceUser | null>(null);
   const [gate, setGate] = useState(false);
+  // While a saved company session is restored, nothing else renders.
+  // Company first: only an explicit earlier choice opens the demo directly.
+  const [booting, setBooting] = useState(() => {
+    try {
+      return localStorage.getItem("kit.mode") !== "sample";
+    } catch {
+      return true;
+    }
+  });
   const [initialized, setInitialized] = useState<boolean | null>(null);
   const [connectionError, setConnectionError] = useState("");
-  const toast = useCallback(
-    (message: string) =>
-      setNotice(
-        modeRef.current === "company"
-          ? message
-              .replaceAll("on this device", "to the company workspace")
-              .replaceAll("locally", "in the workspace")
-              .replaceAll("en este dispositivo", "en el espacio de empresa")
-          : message,
-      ),
-    [],
-  );
+  const toast = useCallback((message: string) => {
+    // Messages are shown in Spanish when the dictionary knows them.
+    const text = uiLabel(message);
+    setNotice(
+      modeRef.current === "company"
+        ? text
+            .replaceAll("on this device", "to the company workspace")
+            .replaceAll("locally", "in the workspace")
+            .replaceAll("en este dispositivo", "en el espacio de empresa")
+        : text,
+    );
+  }, []);
   const request: Store["request"] = useCallback(
     (path, options = {}) => api(path, { ...options, csrf: csrf.current }),
     [],
@@ -207,10 +224,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       setInitialized(null);
       setConnectionError((error as Error).message);
+    } finally {
+      setBooting(false);
     }
   };
   useEffect(() => {
-    if (localStorage.getItem("kit.mode") === "company") void openCompany();
+    let demo = false;
+    try {
+      demo = localStorage.getItem("kit.mode") === "sample";
+    } catch {
+      demo = false;
+    }
+    if (!demo) void openCompany();
   }, []);
   const sampleMode = () => {
     modeRef.current = "sample";
@@ -226,6 +251,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setData(current.current);
     localStorage.setItem("kit.mode", "sample");
   };
+  const openDemo = () => {
+    if (pendingRef.current) {
+      toast(
+        "Resolve the pending company save before opening the demo workspace.",
+      );
+      return;
+    }
+    sampleMode();
+  };
   const signOut = async () => {
     if (pendingRef.current) {
       toast("Resolve or discard the pending company save before signing out.");
@@ -234,7 +268,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     try {
       await request("/logout", { method: "POST", body: {} });
       csrf.current = "";
-      sampleMode();
+      // Back to the company sign-in; the demo opens only when chosen.
+      userRef.current = null;
+      setUser(null);
+      current.current = readSample();
+      setData(current.current);
+      setStorageError("");
+      try {
+        localStorage.removeItem("kit.mode");
+      } catch {
+        /* The sign-in screen still shows for this session. */
+      }
+      setInitialized(true);
+      setGate(true);
       toast("Signed out of the company workspace.");
     } catch (error) {
       setStorageError((error as Error).message);
@@ -263,6 +309,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         current.current = next;
         setData(next);
         setStorageError("");
+        markSaved();
         return true;
       }
       changes = diffWorkspace(before, next);
@@ -276,6 +323,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }),
       );
       setStorageError("");
+      markSaved();
       return true;
     } catch (error) {
       if (
@@ -350,6 +398,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       await forgetPending();
       receive(saved);
       setStorageError("");
+      markSaved();
       toast("Pending company changes synchronized.");
       return true;
     } catch (error) {
@@ -431,6 +480,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         ),
       );
       setStorageError("");
+      markSaved();
       return true;
     } catch (error) {
       setStorageError((error as Error).message);
@@ -463,7 +513,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           channel: "Canal de demostración local",
           approvedAt: now,
           sentAt: now,
-          providerMessageId: `showcase-${message.id}`,
+          providerMessageId: `demo-${message.id}`,
         });
         const linkedProposal = message.proposalId
           ? next.proposals.find((item) => item.id === message.proposalId)
@@ -485,6 +535,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         ),
       );
       setStorageError("");
+      markSaved();
       toast("El canal confirmó el mensaje.");
       return true;
     } catch (error) {
@@ -517,6 +568,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         mode,
         user,
         saving,
+        savedCount,
         sync: {
           state: syncState,
           pending: pendingSync,
@@ -525,6 +577,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         retrySync,
         resolveSync,
         openCompany,
+        openDemo,
         signOut,
         refresh,
         request,
@@ -532,7 +585,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         confirmMessageSend,
       }}
     >
-      {gate ? (
+      {booting ? (
+        <BootScreen />
+      ) : gate ? (
         <SessionAccess
           initialized={initialized}
           error={connectionError}

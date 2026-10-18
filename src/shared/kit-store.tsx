@@ -13,6 +13,8 @@ interface KitStore {
   threads: Summary[];
   thread: KitThread | null;
   status: KitStatus;
+  /** True once the company server reported whether AI is configured. */
+  statusLoaded: boolean;
   draft: string;
   setDraft: (value: string) => void;
   refs: KitReference[];
@@ -72,6 +74,7 @@ function Session({ children }: { children: ReactNode }) {
     provider: company ? "Servidor de empresa" : "Modo de ejemplo",
     maxSources: 8,
   });
+  const [statusLoaded, setStatusLoaded] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -142,6 +145,7 @@ function Session({ children }: { children: ReactNode }) {
       .then(([status, result]) => {
         if (!alive) return;
         setStatus(status);
+        setStatusLoaded(true);
         setThreads(result.threads);
         const id = result.threads.some((t) => t.id === activeRef.current)
           ? activeRef.current
@@ -373,6 +377,7 @@ function Session({ children }: { children: ReactNode }) {
         threads,
         thread,
         status,
+        statusLoaded,
         draft,
         setDraft,
         refs,

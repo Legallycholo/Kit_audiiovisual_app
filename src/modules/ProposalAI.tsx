@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, History, Sparkles } from "lucide-react";
 import { useWorkspace } from "../shared/store";
-import { Button, ErrorNote, Field } from "../shared/ui";
+import { Button, ErrorNote, Field, LightMix } from "../shared/ui";
 import type { Proposal } from "../shared/types";
+import { ConnectNotice } from "./ConnectNotice";
 export type DraftSuggestion = Pick<
   Proposal,
   "title" | "introduction" | "lines" | "aiReview"
@@ -128,12 +129,7 @@ export function ProposalAI({
         </section>
       )}
       {error && <ErrorNote>{error}</ErrorNote>}
-      {configured === false && (
-        <div className="info-note">
-          La IA aún no está configurada. Puedes crear y editar un borrador
-          manual.
-        </div>
-      )}
+      {configured === false && <ConnectNotice service="ai" compact />}
       <Button
         disabled={busy || !configured || !eventId || brief.trim().length < 10}
         onClick={async () => {
@@ -160,14 +156,12 @@ export function ProposalAI({
             ? "Generar otra sugerencia"
             : "Generar sugerencia"}
       </Button>
-      <div role="status" aria-live="polite">
-        {busy && (
-          <p>
-            Estamos preparando el borrador. Tu propuesta actual permanece
-            intacta.
-          </p>
-        )}
-      </div>
+      {busy && (
+        <div className="ai-thinking">
+          <LightMix showLabel label="KIT está preparando el borrador…" />
+          <p className="muted">Tu propuesta actual permanece intacta.</p>
+        </div>
+      )}
       {suggestion && (
         <section className="ai-suggestion" aria-label="Sugerencia de propuesta">
           <h3>{suggestion.title}</h3>

@@ -12,17 +12,17 @@ import "./desktop.css";
 import "./desktop-modules.css";
 import "./file-search.css";
 import "./shared/ui/components.css";
+import "./application/shell.css";
 import {
   applyAppearance,
   defaultAppearance,
-  LAST_APPEARANCE_KEY,
-  readAppearance,
+  initialAppearance,
 } from "./shared/appearance";
 
 // Apply the last appearance before the first paint so restored dark sessions
 // never flash light surfaces. Signed-in preferences replace it once known.
 try {
-  applyAppearance(readAppearance(LAST_APPEARANCE_KEY));
+  applyAppearance(initialAppearance());
 } catch {
   applyAppearance(defaultAppearance);
 }

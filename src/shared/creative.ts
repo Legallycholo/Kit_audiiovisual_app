@@ -58,7 +58,7 @@ export function createShowcaseCreativeAsset(input: {
     <foreignObject x="72" y="660" width="780" height="95"><div xmlns="http://www.w3.org/1999/xhtml" style="font: 20px Inter,Arial,sans-serif;color:white;line-height:1.4">${escapeXml(summary)}</div></foreignObject>
     <text x="72" y="770" font-size="15" opacity=".68">${escapeXml(references)}</text>
   </g>
-  <text x="1128" y="748" text-anchor="end" fill="#fff" opacity=".7" font-family="Inter,Arial,sans-serif" font-size="15">Visualization only · not production geometry</text>
+  <text x="1128" y="748" text-anchor="end" fill="#fff" opacity=".7" font-family="Inter,Arial,sans-serif" font-size="15">Solo visualización · no es geometría de producción</text>
 </svg>`;
   return {
     id: input.id,

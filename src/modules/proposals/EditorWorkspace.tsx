@@ -12,7 +12,7 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-import { Avatar, Button, Empty, Field, Panel } from "../../shared/ui";
+import { Avatar, Button, Empty, Field, Panel, Wordmark } from "../../shared/ui";
 import { id, money, shortDate } from "../../shared/domain";
 import type { Proposal } from "../../shared/types";
 import { createVisualNarrative } from "../../shared/proposal-visuals";
@@ -77,7 +77,7 @@ export function EditorWorkspace({ ctx }: { ctx: EditorView }) {
         </aside>
         <Panel className="proposal-document">
           <div className="document-brand">
-            <span className="brand-small">kit.</span>
+            <Wordmark size={30} className="document-wordmark" />
             <span>{uiLabel("AUDIOVISUAL EXPERIENCES")}</span>
           </div>
           <div className="document-caption">
@@ -594,6 +594,7 @@ export function EditorWorkspace({ ctx }: { ctx: EditorView }) {
                 </Button>
               )}
               <Button
+                variant="secondary"
                 disabled={dirty || Boolean(user && !user.isOwner)}
                 onClick={() => {
                   setOutgoingMessage(
