@@ -24,7 +24,6 @@ export function SearchField({
       <Search size={16} aria-hidden="true" />
       <input
         aria-label={uiLabel(placeholder)}
-        placeholder={uiLabel(placeholder)}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -309,7 +308,7 @@ export function Select<T extends string>({
         }}
       >
         <span id={`${labelId}-value`} className={selected ? "" : "muted"}>
-          {selected ? uiLabel(selected.label) : uiLabel(placeholder)}
+          {selected ? uiLabel(selected.label) : ""}
         </span>
         <ChevronDown size={16} aria-hidden="true" />
       </button>

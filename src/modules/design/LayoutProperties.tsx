@@ -225,7 +225,6 @@ export function LayoutProperties({ ctx }: { ctx: LayoutEditorView }) {
                   <input
                     maxLength={200}
                     value={object.surfaceLabel || ""}
-                    placeholder="Nombre o mensaje visible"
                     onChange={(event) =>
                       edit({ surfaceLabel: event.target.value || undefined })
                     }
@@ -497,7 +496,6 @@ export function LayoutProperties({ ctx }: { ctx: LayoutEditorView }) {
             <Field label="Fuente de las medidas">
               <textarea
                 rows={3}
-                placeholder="Ej.: levantamiento del salón confirmado por el lugar el 15 oct 2026"
                 value={layout.verificationNote || ""}
                 onChange={(event) =>
                   setLayout({

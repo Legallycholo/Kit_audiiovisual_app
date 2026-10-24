@@ -16,12 +16,6 @@ export interface LookupSuggestion {
   link?: string;
 }
 
-const placeholders = {
-  equipment: "Modelo o marca, p. ej. Shure SM58",
-  venue: "Nombre del lugar y ciudad",
-  event: "Nombre del evento",
-} as const;
-
 /**
  * "Buscar en la web" inside the new equipment, venue and event forms. Owner
  * only. Results are suggestions: the person decides what to copy, and
@@ -87,7 +81,6 @@ export function WebLookup({
           <Search size={16} aria-hidden="true" />
           <input
             aria-label="Buscar en la web"
-            placeholder={placeholders[kind]}
             value={query}
             maxLength={200}
             disabled={capped}

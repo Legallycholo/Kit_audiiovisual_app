@@ -248,7 +248,6 @@ export function KitChat({
                 if (canSend) e.currentTarget.form?.requestSubmit();
               }
             }}
-            placeholder={empty ? "¿En qué trabajamos hoy?" : "Responde a KIT…"}
           />
         </label>
         <div className="kit-composer-bar">
@@ -681,7 +680,6 @@ export function KitChat({
           <input
             type="search"
             value={filter}
-            placeholder="Buscar"
             onChange={(e) => setFilter(e.target.value)}
           />
         </label>

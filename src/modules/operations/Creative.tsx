@@ -273,9 +273,6 @@ export function Creative() {
                   rows={7}
                   value={brief}
                   onChange={(e) => setBrief(e.target.value)}
-                  placeholder={uiLabel(
-                    "The mood, the palette, the audience. Tell us what you have in mind…",
-                  )}
                 />
               </Field>
               {references.length > 0 && (

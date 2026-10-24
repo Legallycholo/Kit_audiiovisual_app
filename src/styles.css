@@ -123,10 +123,6 @@ select:disabled {
   color: var(--color-text-muted);
   border-color: var(--color-border);
 }
-input::placeholder,
-textarea::placeholder {
-  color: var(--color-text-muted);
-}
 :focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;

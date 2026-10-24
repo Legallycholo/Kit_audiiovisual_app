@@ -294,7 +294,6 @@ export function EditorWorkspace({ ctx }: { ctx: EditorView }) {
                         visualNarrative: event.target.value,
                       })
                     }
-                    placeholder="Explica cómo la propuesta visual apoya la experiencia del evento…"
                   />
                 </Field>
                 {!locked && (

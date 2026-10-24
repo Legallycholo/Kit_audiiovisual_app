@@ -76,11 +76,7 @@ export function Events() {
             onChange={setFilter}
           />
           <div className="toolbar-right">
-            <SearchField
-              value={search}
-              onChange={setSearch}
-              placeholder="Search events…"
-            />
+            <SearchField value={search} onChange={setSearch} />
             <button
               className={`icon-button ${view === "List" ? "selected" : ""}`}
               aria-label="List view"
@@ -287,7 +283,6 @@ export function EventForm({
             autoFocus
             value={draft.name}
             onChange={(e) => field("name", e.target.value)}
-            placeholder="e.g. Annual leadership summit"
           />
         </Field>
         <div className="form-grid">
@@ -389,7 +384,6 @@ export function EventForm({
             rows={3}
             value={draft.notes}
             onChange={(e) => field("notes", e.target.value)}
-            placeholder="What does a successful event look like?"
           />
         </Field>
         <div className="modal-actions">

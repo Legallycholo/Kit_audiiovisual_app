@@ -128,11 +128,7 @@ export function Proposals() {
             value={tab}
             onChange={setTab}
           />
-          <SearchField
-            value={search}
-            onChange={setSearch}
-            placeholder={uiLabel("Search proposals\u2026")}
-          />
+          <SearchField value={search} onChange={setSearch} />
         </div>
         <div className="table-wrap">
           <table>

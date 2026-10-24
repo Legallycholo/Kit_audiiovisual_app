@@ -111,7 +111,6 @@ export function CommandPalette({
                 flat[active] ? `${listId}-${active}` : undefined
               }
               aria-label={uiLabel("Search actions, pages and records")}
-              placeholder={uiLabel(placeholder)}
               value={query}
               onChange={(event) => onQuery(event.target.value)}
               onKeyDown={(event) => {

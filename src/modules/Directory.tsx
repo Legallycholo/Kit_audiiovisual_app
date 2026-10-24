@@ -98,11 +98,7 @@ export function Clients() {
             value={tab}
             onChange={setTab}
           />
-          <SearchField
-            value={search}
-            onChange={setSearch}
-            placeholder="Search clients…"
-          />
+          <SearchField value={search} onChange={setSearch} />
         </div>
         {tab === "Opportunities" ? (
           <Empty
@@ -402,11 +398,7 @@ export function Venues() {
         <span>
           {data.venues.length} {uiLabel("venues in your library")}
         </span>
-        <SearchField
-          value={search}
-          onChange={setSearch}
-          placeholder="Search venues…"
-        />
+        <SearchField value={search} onChange={setSearch} />
       </div>
       <div className="venue-grid">
         {data.venues

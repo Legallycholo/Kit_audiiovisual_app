@@ -104,7 +104,6 @@ export function FileLibrary() {
                     rows={4}
                     value={exclusions}
                     onChange={(e) => setExclusions(e.target.value)}
-                    placeholder="Documents/Privado/**"
                   />
                 </label>
                 <details>

@@ -165,11 +165,7 @@ export function Inbox() {
       <div className="inbox-workspace">
         <aside className="conversation-list">
           <div className="conversation-list-header">
-            <SearchField
-              value={query}
-              onChange={setQuery}
-              placeholder="Search conversations…"
-            />
+            <SearchField value={query} onChange={setQuery} />
             <select
               aria-label="Filtrar conversaciones"
               value={filter}
@@ -292,7 +288,6 @@ export function Inbox() {
               >
                 <textarea
                   aria-label="Responder al cliente"
-                  placeholder="Escribe una respuesta para revisión…"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                 />

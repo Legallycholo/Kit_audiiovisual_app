@@ -55,11 +55,7 @@ export function InventoryCatalog({ ctx }: { ctx: InventoryView }) {
             value={tab}
             onChange={setTab}
           />
-          <SearchField
-            value={search}
-            onChange={setSearch}
-            placeholder="Search equipment…"
-          />
+          <SearchField value={search} onChange={setSearch} />
         </div>
         {tab !== "Reservations" && tab !== "Packages" && (
           <div className="filter-row">
