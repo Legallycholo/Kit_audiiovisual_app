@@ -6,6 +6,7 @@ import { Repository } from "./database";
 import { createApp } from "./app";
 import { httpSearchProvider, type SearchGateway } from "./search";
 import { aiKitGenerator, type KitService } from "./kit";
+import { firebaseVerifier } from "./firebase-auth";
 import { jsonLogger, parseLogLevel } from "./logger";
 
 const port = Number(process.env.PORT || 3001);
@@ -22,6 +23,9 @@ const ai = integrations.ai;
 const app = createApp(repo, {
   logger: jsonLogger(parseLogLevel(process.env.KIT_LOG_LEVEL)),
   integrations,
+  firebaseVerifier: process.env.FIREBASE_PROJECT_ID
+    ? firebaseVerifier(process.env.FIREBASE_PROJECT_ID)
+    : undefined,
   kitGenerator: ai?.chatModel
     ? aiKitGenerator(ai.provider, ai.key, ai.chatModel)
     : undefined,

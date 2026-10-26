@@ -725,3 +725,7 @@ export const loginSchema = z
     password: z.string().min(1).max(256),
   })
   .strict();
+
+export const firebaseLoginSchema = z
+  .object({ idToken: z.string().min(20).max(8192) })
+  .strict();

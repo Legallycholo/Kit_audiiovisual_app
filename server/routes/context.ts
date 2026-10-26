@@ -5,6 +5,7 @@ import type { KitGenerator } from "../kit";
 import type { ProposalGenerator } from "../proposal-ai";
 import type { MessageTransport } from "../messaging";
 import type { FloorPlanExtractor } from "../design";
+import type { FirebaseVerifier } from "../firebase-auth";
 import type { Logger } from "../logger";
 import type { IntegrationsConfig } from "../integrations";
 import type { WorkspaceResponse } from "../../src/shared/access";
@@ -19,6 +20,8 @@ export type AppConfig = {
   kitGenerator?: KitGenerator;
   floorPlanExtractor?: FloorPlanExtractor;
   logger?: Logger;
+  /** Enables sign-in with Firebase Authentication when set. */
+  firebaseVerifier?: FirebaseVerifier;
   /** Connection settings shown in Settings › Integraciones. */
   integrations?: IntegrationsConfig;
 };

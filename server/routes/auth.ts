@@ -8,7 +8,7 @@ import {
   passwordMatches,
   rateLimit,
 } from "../security";
-import { loginSchema, setupSchema } from "../schema";
+import { firebaseLoginSchema, loginSchema, setupSchema } from "../schema";
 import type { RouteContext } from "./context";
 
 export function mountAuthRoutes(
@@ -80,6 +80,38 @@ export function mountAuthRoutes(
       Boolean(config.secureCookies),
     );
     repo.audit(row.id, "User signed in", row.email);
+    res.json({ user: publicUser(row), csrf });
+  });
+  app.post("/api/login/firebase", async (req, res) => {
+    if (!config.firebaseVerifier)
+      throw new HttpError(404, "Firebase sign-in is not configured.");
+    rateLimit(repo, `login:${req.ip}`);
+    const { idToken } = firebaseLoginSchema.parse(req.body);
+    let identity;
+    try {
+      identity = await config.firebaseVerifier(idToken);
+    } catch {
+      throw new HttpError(401, "The sign-in could not be verified.");
+    }
+    // Firebase proves who signed in; KIT still decides who may enter.
+    // Accounts are never created here: the email must belong to an active user.
+    const row =
+      identity.email && identity.emailVerified
+        ? repo.userByEmail(identity.email)
+        : undefined;
+    if (!row?.active)
+      throw new HttpError(
+        401,
+        "This account does not have access to the workspace.",
+      );
+    destroySession(repo, req, res, Boolean(config.secureCookies));
+    const csrf = createSession(
+      repo,
+      row.id,
+      res,
+      Boolean(config.secureCookies),
+    );
+    repo.audit(row.id, "User signed in with Firebase", row.email);
     res.json({ user: publicUser(row), csrf });
   });
   app.post("/api/logout", (req, res) => {
