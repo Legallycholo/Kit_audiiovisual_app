@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { FlaskConical, LockKeyhole, LogIn, MonitorUp } from "lucide-react";
 import { Button, Field, ErrorNote, Wordmark } from "../shared/ui";
 import { api } from "../shared/api";
+import { recaptchaToken } from "../shared/recaptcha";
 import type { WorkspaceUser } from "../shared/access";
 import {
   firebaseEnabled,
@@ -50,7 +51,13 @@ export function SessionAccess({
     try {
       const result = await api<{ user: WorkspaceUser; csrf: string }>(
         "/login/firebase",
-        { method: "POST", body: { idToken: await getToken() } },
+        {
+          method: "POST",
+          body: {
+            idToken: await getToken(),
+            recaptchaToken: await recaptchaToken("LOGIN"),
+          },
+        },
       );
       await authenticated(result.user, result.csrf);
     } catch (err) {
@@ -124,6 +131,9 @@ export function SessionAccess({
                   body: {
                     email: fields.get("email"),
                     password: fields.get("password"),
+                    ...(setup
+                      ? {}
+                      : { recaptchaToken: await recaptchaToken("LOGIN") }),
                     ...(setup
                       ? {
                           name: fields.get("name"),

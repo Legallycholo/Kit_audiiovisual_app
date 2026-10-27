@@ -7,6 +7,7 @@ import { createApp } from "./app";
 import { httpSearchProvider, type SearchGateway } from "./search";
 import { aiKitGenerator, type KitService } from "./kit";
 import { firebaseVerifier } from "./firebase-auth";
+import { recaptchaVerifier } from "./recaptcha";
 import { jsonLogger, parseLogLevel } from "./logger";
 
 const port = Number(process.env.PORT || 3001);
@@ -26,6 +27,16 @@ const app = createApp(repo, {
   firebaseVerifier: process.env.FIREBASE_PROJECT_ID
     ? firebaseVerifier(process.env.FIREBASE_PROJECT_ID)
     : undefined,
+  recaptchaVerifier:
+    process.env.RECAPTCHA_PROJECT_ID &&
+    process.env.RECAPTCHA_API_KEY &&
+    process.env.RECAPTCHA_SITE_KEY
+      ? recaptchaVerifier(
+          process.env.RECAPTCHA_PROJECT_ID,
+          process.env.RECAPTCHA_API_KEY,
+          process.env.RECAPTCHA_SITE_KEY,
+        )
+      : undefined,
   kitGenerator: ai?.chatModel
     ? aiKitGenerator(ai.provider, ai.key, ai.chatModel)
     : undefined,

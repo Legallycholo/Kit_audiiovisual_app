@@ -9,7 +9,18 @@ import {
   rateLimit,
 } from "../security";
 import { firebaseLoginSchema, loginSchema, setupSchema } from "../schema";
-import type { RouteContext } from "./context";
+import type { AppConfig, RouteContext } from "./context";
+
+async function requireHuman(config: AppConfig, token?: string) {
+  if (!config.recaptchaVerifier) return;
+  let human = false;
+  try {
+    human = Boolean(token) && (await config.recaptchaVerifier(token!, "LOGIN"));
+  } catch {
+    // An unreachable verifier fails closed.
+  }
+  if (!human) throw new HttpError(403, "The security check failed. Try again.");
+}
 
 export function mountAuthRoutes(
   app: express.Express,
@@ -63,6 +74,7 @@ export function mountAuthRoutes(
   app.post("/api/login", async (req, res) => {
     const input = loginSchema.parse(req.body);
     rateLimit(repo, `login:${req.ip}`);
+    await requireHuman(config, input.recaptchaToken);
     const row = repo.userByEmail(input.email);
     // Unknown emails still run one full hash check so timing reveals nothing.
     const decoyHash = "f".repeat(48) + ":" + "0".repeat(128);
@@ -86,7 +98,8 @@ export function mountAuthRoutes(
     if (!config.firebaseVerifier)
       throw new HttpError(404, "Firebase sign-in is not configured.");
     rateLimit(repo, `login:${req.ip}`);
-    const { idToken } = firebaseLoginSchema.parse(req.body);
+    const { idToken, recaptchaToken } = firebaseLoginSchema.parse(req.body);
+    await requireHuman(config, recaptchaToken);
     let identity;
     try {
       identity = await config.firebaseVerifier(idToken);
