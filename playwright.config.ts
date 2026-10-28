@@ -25,7 +25,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    // Tests run without Firebase/reCAPTCHA even when .env enables them.
+    command: "VITE_FIREBASE_API_KEY= VITE_RECAPTCHA_SITE_KEY= npm run dev",
     url: "http://127.0.0.1:5173",
     reuseExistingServer: true,
     timeout: 30_000,
