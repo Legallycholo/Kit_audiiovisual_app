@@ -73,6 +73,22 @@ body {
   justify-content: center;
   padding-inline: 0;
 }
+.brand-logo {
+  display: block;
+  width: 100%;
+  max-width: 190px;
+  height: auto;
+}
+.brand-logo.mark {
+  width: 34px;
+}
+/* The logo's dark lettering needs a light surface in the dark theme. */
+:root[data-theme="dark"] .brand-logo {
+  box-sizing: content-box;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
 .sidebar-nav {
   display: flex;
   flex-direction: column;

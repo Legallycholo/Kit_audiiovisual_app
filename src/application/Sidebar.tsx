@@ -35,7 +35,6 @@ import {
   SegmentedControl,
   StatusDot,
   Tooltip,
-  Wordmark,
   type StatusTone,
 } from "../shared/ui";
 import {
@@ -121,7 +120,11 @@ export function Sidebar({
       onKeyDown={trap}
     >
       <Link className="brand" to="/" aria-label={uiLabel("KIT home")}>
-        <Wordmark size={compact ? 22 : 26} slogan={!compact} label="KIT" />
+        <img
+          className={`brand-logo ${compact ? "mark" : ""}`}
+          src={compact ? "/kit-mark.png" : "/kit-logo.png"}
+          alt="KIT audiovisual"
+        />
       </Link>
       <nav className="sidebar-nav" aria-label={uiLabel("Main navigation")}>
         <ul className="sidebar-group">
