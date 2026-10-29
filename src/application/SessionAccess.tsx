@@ -1,7 +1,7 @@
 import { uiLabel } from "../shared/i18n";
 import { useRef, useState } from "react";
 import { LockKeyhole, LogIn, MonitorUp } from "lucide-react";
-import { Button, Field, ErrorNote, Wordmark } from "../shared/ui";
+import { Button, Field, ErrorNote } from "../shared/ui";
 import { api } from "../shared/api";
 import { recaptchaToken } from "../shared/recaptcha";
 import type { WorkspaceUser } from "../shared/access";
@@ -71,7 +71,11 @@ export function SessionAccess({
   return (
     <main className="session-screen">
       <section className="session-card">
-        <Wordmark size={40} slogan />
+        <img
+          className="brand-logo login"
+          src="/kit-logo.png"
+          alt="KIT audiovisual"
+        />
         <span className="eyebrow">{uiLabel("YOUR COMPANY WORKSPACE")}</span>
         <h1>
           {initialized === null
@@ -88,7 +92,7 @@ export function SessionAccess({
               ? "Los registros de la empresa viven en su servidor y se abren en su propia ventana."
               : "Revisa que el servidor de empresa esté en marcha y vuelve a intentarlo."
             : setup
-              ? "Crea la cuenta del propietario y un espacio vacío para la empresa. Los datos de ejemplo permanecen separados."
+              ? "Crea la cuenta del propietario y un espacio vacío para la empresa."
               : "Inicia sesión para acceder a los registros y eventos de tu cuenta."}
         </p>
         {error && !desktopLocal && <ErrorNote>{error}</ErrorNote>}

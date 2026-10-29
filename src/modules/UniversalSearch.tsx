@@ -99,8 +99,7 @@ export function SearchPage() {
           setRemote((previous) => [...previous, ...company.results]);
           if (company.connected)
             setCoverage(
-              (previous) =>
-                `${previous} Registros de empresa conectados; los datos de ejemplo no se incluyen.`,
+              (previous) => `${previous} Registros de empresa conectados.`,
             );
         }
         if (status.policy.cloudConsent) {
