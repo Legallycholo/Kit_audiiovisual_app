@@ -1,6 +1,6 @@
 import { uiLabel } from "../shared/i18n";
 import { useRef, useState } from "react";
-import { FlaskConical, LockKeyhole, LogIn, MonitorUp } from "lucide-react";
+import { LockKeyhole, LogIn, MonitorUp } from "lucide-react";
 import { Button, Field, ErrorNote, Wordmark } from "../shared/ui";
 import { api } from "../shared/api";
 import { recaptchaToken } from "../shared/recaptcha";
@@ -17,13 +17,11 @@ export function SessionAccess({
   initialized,
   error,
   retry,
-  cancel,
   authenticated,
 }: {
   initialized: boolean | null;
   error: string;
   retry: () => void;
-  cancel: () => void;
   authenticated: (user: WorkspaceUser, csrf: string) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
@@ -281,17 +279,6 @@ export function SessionAccess({
               "Company records stay on the configured server. AI and messaging connections are managed separately.",
             )}
           </span>
-        </div>
-        <div className="session-demo">
-          <p>
-            {uiLabel(
-              "Want to look around first? The demo uses sample data saved only on this device.",
-            )}
-          </p>
-          <Button variant="secondary" onClick={cancel}>
-            <FlaskConical size={15} />
-            {uiLabel("Open the demo workspace")}
-          </Button>
         </div>
       </section>
     </main>

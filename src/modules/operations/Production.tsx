@@ -5,7 +5,6 @@ import type { Task } from "../../shared/types";
 import { useProductionView } from "./production-view";
 import { ProductionTabs } from "./ProductionTabs";
 import { ProductionDialogs } from "./ProductionDialogs";
-import { demoOwner } from "../../shared/seed";
 
 export function Production() {
   const ctx = useProductionView();
@@ -29,7 +28,7 @@ export function Production() {
                     ? data.events[0]?.id || ""
                     : eventFilter,
                 title: "",
-                assignee: user?.name || demoOwner.name,
+                assignee: user?.name ?? "",
                 role: "Production manager",
                 date: "",
                 done: false,

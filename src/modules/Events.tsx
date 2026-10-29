@@ -37,7 +37,6 @@ import {
 } from "../shared/ui";
 import { id, money, shortDate } from "../shared/domain";
 import type { EventStatus, ProductionEvent } from "../shared/types";
-import { demoOwner } from "../shared/seed";
 export function Events() {
   const { data } = useWorkspace();
   const [params, setParams] = useSearchParams();
@@ -214,7 +213,7 @@ export function EventForm({
       endDate: "",
       status: "Planning",
       type: "Conference",
-      manager: user?.name || demoOwner.name,
+      manager: user?.name ?? "",
       budget: 0,
       attendees: 0,
       notes: "",

@@ -8,8 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import type { Workspace } from "./types";
-import { createSeed } from "./seed";
-import { acceptConversation, id } from "./domain";
+import { emptyWorkspace } from "./empty";
+import { id } from "./domain";
 import {
   diffWorkspace,
   type WorkspaceResponse,
@@ -27,16 +27,14 @@ import {
   writePendingSync,
   type PendingSync,
 } from "./sync-queue";
-const STORAGE_KEY = "kit.workspace.v1";
 type Store = {
   data: Workspace;
   update: (fn: (current: Workspace) => Workspace) => Promise<boolean>;
   toast: (message: string) => void;
   notice: string;
   storageError: string;
-  reset: () => void;
   user: WorkspaceUser | null;
-  mode: "sample" | "company";
+  mode: "company";
   saving: boolean;
   /** Increments after every confirmed save or send; drives the saved glow. */
   savedCount: number;
@@ -48,8 +46,6 @@ type Store = {
   retrySync: () => Promise<boolean>;
   resolveSync: (choice: "server" | "local") => Promise<boolean>;
   openCompany: () => void;
-  /** Switches to the local demonstration workspace. */
-  openDemo: () => void;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   request: <T>(
@@ -63,47 +59,12 @@ type Store = {
   ) => Promise<boolean>;
 };
 const Context = createContext<Store | null>(null);
-function readSample(): Workspace {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const saved = JSON.parse(raw);
-      if (
-        saved.schema === 1 &&
-        [
-          "events",
-          "clients",
-          "venues",
-          "equipment",
-          "proposals",
-          "conversations",
-          "tasks",
-          "reservations",
-          "layouts",
-          "activity",
-        ].every((k) => Array.isArray(saved[k])) &&
-        saved.settings
-      ) {
-        saved.brandAssets ||= [];
-        saved.creativeAssets ||= [];
-        saved.packages ||= [];
-        saved.maintenanceRecords ||= [];
-        saved.operations ||= [];
-        saved.automations ||= [];
-        return saved;
-      }
-    }
-  } catch {
-    /* Sample data can be restored without touching company records. */
-  }
-  return createSeed();
-}
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<Workspace>(readSample);
+  const [data, setData] = useState<Workspace>(() => emptyWorkspace(""));
   const current = useRef(data);
   const version = useRef(0);
   const csrf = useRef("");
-  const [mode, setMode] = useState<"sample" | "company">("sample");
+  const [mode, setMode] = useState<"company">("company");
   const modeRef = useRef(mode);
   const [user, setUser] = useState<WorkspaceUser | null>(null);
   const [notice, setNotice] = useState("");
@@ -120,14 +81,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const userRef = useRef<WorkspaceUser | null>(null);
   const [gate, setGate] = useState(false);
   // While a saved company session is restored, nothing else renders.
-  // Company first: only an explicit earlier choice opens the demo directly.
-  const [booting, setBooting] = useState(() => {
-    try {
-      return localStorage.getItem("kit.mode") !== "sample";
-    } catch {
-      return true;
-    }
-  });
+  // While a saved company session is restored, nothing else renders.
+  const [booting, setBooting] = useState(true);
   const [initialized, setInitialized] = useState<boolean | null>(null);
   const [connectionError, setConnectionError] = useState("");
   const toast = useCallback((message: string) => {
@@ -174,7 +129,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setSyncState("synced");
   };
   const refresh = async () => {
-    if (modeRef.current === "sample") return;
     if (pendingRef.current) {
       await retrySync();
       return;
@@ -204,7 +158,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     else receive(response);
     modeRef.current = "company";
     setMode("company");
-    localStorage.setItem("kit.mode", "company");
     setGate(false);
     setStorageError("");
   };
@@ -229,37 +182,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   };
   useEffect(() => {
-    let demo = false;
+    // Earlier builds kept a demo workspace in this browser; remove it.
     try {
-      demo = localStorage.getItem("kit.mode") === "sample";
+      localStorage.removeItem("kit.workspace.v1");
+      localStorage.removeItem("kit.mode");
     } catch {
-      demo = false;
+      /* Nothing to clean up when storage is unavailable. */
     }
-    if (!demo) void openCompany();
+    void openCompany();
   }, []);
-  const sampleMode = () => {
-    modeRef.current = "sample";
-    setMode("sample");
-    setUser(null);
-    userRef.current = null;
-    pendingRef.current = null;
-    setPendingSync(null);
-    setSyncState("synced");
-    setGate(false);
-    setStorageError("");
-    current.current = readSample();
-    setData(current.current);
-    localStorage.setItem("kit.mode", "sample");
-  };
-  const openDemo = () => {
-    if (pendingRef.current) {
-      toast(
-        "Resolve the pending company save before opening the demo workspace.",
-      );
-      return;
-    }
-    sampleMode();
-  };
   const signOut = async () => {
     if (pendingRef.current) {
       toast("Resolve or discard the pending company save before signing out.");
@@ -268,17 +199,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     try {
       await request("/logout", { method: "POST", body: {} });
       csrf.current = "";
-      // Back to the company sign-in; the demo opens only when chosen.
       userRef.current = null;
       setUser(null);
-      current.current = readSample();
+      current.current = emptyWorkspace("");
       setData(current.current);
       setStorageError("");
-      try {
-        localStorage.removeItem("kit.mode");
-      } catch {
-        /* The sign-in screen still shows for this session. */
-      }
       setInitialized(true);
       setGate(true);
       toast("Signed out of the company workspace.");
@@ -304,14 +229,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     try {
       const before = current.current;
       next = fn(structuredClone(before));
-      if (modeRef.current === "sample") {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        current.current = next;
-        setData(next);
-        setStorageError("");
-        markSaved();
-        return true;
-      }
       changes = diffWorkspace(before, next);
       if (!changes.length) return true;
       savingRef.current = true;
@@ -467,8 +384,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }
   const confirmAcceptance = async (conversationId: string) => {
-    if (modeRef.current === "sample")
-      return update((s) => acceptConversation(s, conversationId));
     if (savingRef.current) return false;
     savingRef.current = true;
     setSaving(true);
@@ -498,36 +413,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     savingRef.current = true;
     setSaving(true);
     try {
-      if (modeRef.current === "sample") {
-        const next = structuredClone(current.current);
-        const conversation = next.conversations.find(
-          (item) => item.id === conversationId,
-        );
-        const message = conversation?.messages.find(
-          (item) => item.id === messageId,
-        );
-        if (!message || message.status !== "Draft") return false;
-        const now = new Date().toISOString();
-        Object.assign(message, {
-          status: "Delivered" as const,
-          channel: "Canal de demostración local",
-          approvedAt: now,
-          sentAt: now,
-          providerMessageId: `demo-${message.id}`,
-        });
-        const linkedProposal = message.proposalId
-          ? next.proposals.find((item) => item.id === message.proposalId)
-          : undefined;
-        if (linkedProposal?.status === "Ready to send")
-          linkedProposal.status = "Issued";
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        current.current = next;
-        setData(next);
-        toast(
-          "Envío de demostración registrado. No se contactó a ningún cliente.",
-        );
-        return true;
-      }
       receive(
         await request<WorkspaceResponse>(
           `/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/send`,
@@ -547,15 +432,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setSaving(false);
     }
   };
-  const reset = () => {
-    if (modeRef.current !== "sample") {
-      toast("Sample reset is unavailable in the company workspace.");
-      return;
-    }
-    void update(() => createSeed()).then((ok) => {
-      if (ok) toast("Sample workspace restored.");
-    });
-  };
   return (
     <Context.Provider
       value={{
@@ -564,7 +440,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         toast,
         notice,
         storageError,
-        reset,
         mode,
         user,
         saving,
@@ -577,7 +452,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         retrySync,
         resolveSync,
         openCompany,
-        openDemo,
         signOut,
         refresh,
         request,
@@ -592,7 +466,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           initialized={initialized}
           error={connectionError}
           retry={openCompany}
-          cancel={sampleMode}
           authenticated={authenticated}
         />
       ) : (

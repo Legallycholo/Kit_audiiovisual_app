@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Workspace } from "../src/shared/types";
 import type { WorkspaceUser } from "../src/shared/access";
+import { emptyWorkspace } from "../src/shared/empty";
 
 export class HttpError extends Error {
   constructor(
@@ -38,34 +39,7 @@ export function publicUser(row: UserRow): WorkspaceUser {
     sharedProposalIds: JSON.parse(row.shared_proposals),
   };
 }
-export function emptyWorkspace(company: string): Workspace {
-  return {
-    schema: 1,
-    clients: [],
-    venues: [],
-    events: [],
-    equipment: [],
-    proposals: [],
-    conversations: [],
-    tasks: [],
-    reservations: [],
-    packages: [],
-    maintenanceRecords: [],
-    operations: [],
-    automations: [],
-    layouts: [],
-    brandAssets: [],
-    creativeAssets: [],
-    activity: [],
-    settings: {
-      company,
-      currency: "USD",
-      timezone: "America/Puerto_Rico",
-      email: "",
-      notifications: true,
-    },
-  };
-}
+export { emptyWorkspace };
 export class Repository {
   db: DatabaseSync;
   constructor(path: string) {

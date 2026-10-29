@@ -39,7 +39,6 @@ import {
   workloadReport,
 } from "../../shared/reporting";
 import type { AutomationRecord } from "../../shared/types";
-import { demoOwner } from "../../shared/seed";
 import { uiLabel } from "../../shared/i18n";
 
 export function Reports() {
@@ -149,7 +148,7 @@ export function Reports() {
                 id: taskId,
                 eventId: event.id,
                 title: record.title,
-                assignee: user?.name || event.manager || demoOwner.name,
+                assignee: user?.name || event.manager || "",
                 ...(user ? { assigneeId: user.id } : {}),
                 role: user?.role || "Production manager",
                 date: record.dueAt.slice(0, 10),

@@ -119,13 +119,6 @@ export function applyAppearance(
 
 /** The preferences to paint before React starts. */
 export function initialAppearance(): Appearance {
-  try {
-    // The demo has a single, known profile; company users use the last one.
-    if (localStorage.getItem("kit.mode") === "sample")
-      return readAppearance(appearanceKey("sample", null));
-  } catch {
-    /* Fall back to the last applied preferences. */
-  }
   return readAppearance(LAST_APPEARANCE_KEY);
 }
 

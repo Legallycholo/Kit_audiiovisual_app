@@ -14,7 +14,6 @@ import {
   ChevronsUpDown,
   CircleHelp,
   ExternalLink,
-  FlaskConical,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -27,7 +26,6 @@ import { useWorkspace } from "../shared/store";
 import { useAppearance } from "../shared/appearance";
 import { initials } from "../shared/domain";
 import { uiLabel } from "../shared/i18n";
-import { demoOwner } from "../shared/seed";
 import {
   Kbd,
   MenuList,
@@ -429,9 +427,7 @@ function SidebarChild({
 
 /** Sync state shown on the avatar: saved, syncing, or needs attention. */
 export function useSyncStatus(): { tone: StatusTone; label: string } {
-  const { mode, saving, sync, storageError } = useWorkspace();
-  if (mode === "sample")
-    return { tone: "success", label: uiLabel("Saved on this device") };
+  const { saving, sync, storageError } = useWorkspace();
   if (sync.state === "conflict")
     return { tone: "danger", label: uiLabel("Sync conflict · needs review") };
   if (sync.state === "queued")
@@ -442,52 +438,20 @@ export function useSyncStatus(): { tone: StatusTone; label: string } {
   return { tone: "success", label: uiLabel("All changes saved") };
 }
 
-export async function openCompanyWorkspace(
-  openCompany: () => void,
-  toast: (message: string) => void,
-) {
-  if (!("__TAURI_INTERNALS__" in window) || window.location.port === "3001") {
-    openCompany();
-    return;
-  }
-  try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("open_company_window");
-  } catch {
-    toast(
-      "Inicia el servidor de empresa con npm start en el puerto 3001 y vuelve a intentarlo.",
-    );
-  }
-}
-
 /** The person at the bottom of the sidebar, with the account menu. */
 export function UserChip({ compact }: { compact: boolean }) {
-  const {
-    user,
-    mode,
-    savedCount,
-    sync,
-    saving,
-    signOut,
-    refresh,
-    retrySync,
-    openCompany,
-    openDemo,
-    toast,
-  } = useWorkspace();
+  const { user, savedCount, sync, saving, signOut, refresh, retrySync } =
+    useWorkspace();
   const { appearance, setAppearance } = useAppearance();
   const status = useSyncStatus();
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
-  const demo = mode === "sample";
-  const name = demo ? demoOwner.name : user?.name || "";
-  const role = demo
+  const name = user?.name || "";
+  const role = user?.isOwner
     ? uiLabel("Propietario")
-    : user?.isOwner
-      ? uiLabel("Propietario")
-      : uiLabel(user?.role || "");
-  const avatar = demo ? demoOwner.initials : initials(name);
+    : uiLabel(user?.role || "");
+  const avatar = initials(name);
   const done = (action?: () => void) => {
     setOpen(false);
     action?.();
@@ -500,7 +464,7 @@ export function UserChip({ compact }: { compact: boolean }) {
         className="user-chip"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`${uiLabel("Account")}: ${name} · ${role}${demo ? ` · ${uiLabel("Demo")}` : ""} · ${status.label}`}
+        aria-label={`${uiLabel("Account")}: ${name} · ${role} · ${status.label}`}
         onClick={() => setOpen((value) => !value)}
       >
         <span className="user-avatar">
@@ -516,10 +480,7 @@ export function UserChip({ compact }: { compact: boolean }) {
           <>
             <span className="user-text">
               <strong>{name}</strong>
-              <small>
-                {role}
-                {demo && <span className="demo-tag">{uiLabel("Demo")}</span>}
-              </small>
+              <small>{role}</small>
             </span>
             <ChevronsUpDown size={16} aria-hidden="true" />
           </>
@@ -538,7 +499,7 @@ export function UserChip({ compact }: { compact: boolean }) {
           <span className="avatar">{avatar}</span>
           <span>
             <strong>{name}</strong>
-            <small>{demo ? uiLabel("Demo workspace") : user?.email}</small>
+            <small>{user?.email}</small>
           </span>
         </div>
         <div className="account-status">
@@ -565,52 +526,32 @@ export function UserChip({ compact }: { compact: boolean }) {
         <div className="account-actions">
           <Link className="menu-item" to="/settings/users" onClick={close}>
             <UserRound size={16} aria-hidden="true" />
-            {uiLabel(demo ? "Demo account" : "My account")}
+            {uiLabel("My account")}
           </Link>
           <Link className="menu-item" to="/settings" onClick={close}>
             <Settings size={16} aria-hidden="true" />
             {uiLabel("Settings")}
           </Link>
-          {!demo && (
-            <button
-              type="button"
-              className="menu-item"
-              disabled={saving}
-              onClick={() =>
-                done(() => void (sync.pending ? retrySync() : refresh()))
-              }
-            >
-              <RefreshCw size={16} aria-hidden="true" />
-              {uiLabel(sync.pending ? "Retry sync" : "Refresh data")}
-            </button>
-          )}
           <button
             type="button"
             className="menu-item"
+            disabled={saving}
             onClick={() =>
-              done(() =>
-                demo
-                  ? void openCompanyWorkspace(openCompany, toast)
-                  : openDemo(),
-              )
+              done(() => void (sync.pending ? retrySync() : refresh()))
             }
           >
-            <FlaskConical size={16} aria-hidden="true" />
-            {uiLabel(
-              demo ? "Leave the demo workspace" : "Open the demo workspace",
-            )}
+            <RefreshCw size={16} aria-hidden="true" />
+            {uiLabel(sync.pending ? "Retry sync" : "Refresh data")}
           </button>
-          {!demo && (
-            <button
-              type="button"
-              className="menu-item danger"
-              disabled={saving || Boolean(sync.pending)}
-              onClick={() => done(() => void signOut())}
-            >
-              <LogOut size={16} aria-hidden="true" />
-              {uiLabel("Sign out")}
-            </button>
-          )}
+          <button
+            type="button"
+            className="menu-item danger"
+            disabled={saving || Boolean(sync.pending)}
+            onClick={() => done(() => void signOut())}
+          >
+            <LogOut size={16} aria-hidden="true" />
+            {uiLabel("Sign out")}
+          </button>
         </div>
       </Popover>
     </div>

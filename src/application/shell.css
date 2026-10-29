@@ -356,17 +356,6 @@ body {
 .user-chip > svg {
   color: var(--color-text-muted);
 }
-.demo-tag,
-.demo-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--color-warning-subtle);
-  color: var(--color-warning);
-  font-size: var(--text-caption);
-  font-weight: 700;
-}
 .popover.account-menu {
   width: 280px;
   padding: var(--space-2);
@@ -935,9 +924,6 @@ body {
   .assistant-toggle > span {
     display: none;
   }
-  .demo-chip {
-    display: none;
-  }
   .assistant.kit-chat-sidebar {
     inset: 0;
     width: 100%;
@@ -988,20 +974,6 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-.session-demo {
-  display: grid;
-  gap: var(--space-2);
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-.session-demo p {
-  font-size: var(--text-small);
-  color: var(--color-text-muted);
-}
-.session-demo .button {
-  justify-self: start;
 }
 .page-loading {
   display: grid;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useWorkspace } from "../../shared/store";
-import { availableStock, id, inventoryConflicts } from "../../shared/domain";
+import { id, inventoryConflicts } from "../../shared/domain";
 import type {
   Equipment,
   EquipmentPackage,
@@ -64,10 +64,7 @@ export function useInventoryView() {
       active = false;
     };
   }, [mode, tab, start, end, data.reservations, data.equipment, request]);
-  const available = (q: Equipment) =>
-    mode === "sample"
-      ? availableStock(q, data.reservations, start, end)
-      : availability?.[q.id];
+  const available = (q: Equipment) => availability?.[q.id];
   const conflicts = inventoryConflicts(data);
   const items = data.equipment.filter(
     (q) =>

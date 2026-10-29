@@ -300,11 +300,7 @@ export function EditorDialogs({ ctx }: { ctx: EditorView }) {
             <p>
               {uiLabel("Valid until")}: {shortDate(draft.validUntil)}
             </p>
-            <p className="tiny">
-              {mode === "sample"
-                ? "Datos de ejemplo · copia de revisión"
-                : "Copia de revisión"}
-            </p>
+            <p className="tiny">Copia de revisión</p>
           </div>
           <div className="modal-actions no-print">
             <Button onClick={() => window.print()}>

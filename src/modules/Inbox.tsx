@@ -8,7 +8,6 @@ import {
   MessageCircle,
   Send,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import { useWorkspace, activity } from "../shared/store";
 import {
@@ -47,8 +46,8 @@ export function Inbox() {
     configured: boolean;
     label: string | null;
   }>({
-    configured: mode === "sample",
-    label: mode === "sample" ? "Canal de demostración local" : null,
+    configured: false,
+    label: null,
   });
   const [error, setError] = useState("");
   const conversation =
@@ -76,10 +75,6 @@ export function Inbox() {
   );
   useEffect(() => {
     let active = true;
-    if (mode === "sample") {
-      setChannel({ configured: true, label: "Canal de demostración local" });
-      return;
-    }
     request<{ configured: boolean; label: string | null }>("/messaging/status")
       .then((result) => {
         if (active) setChannel(result);
@@ -153,9 +148,7 @@ export function Inbox() {
         description="Every client exchange, with the right event and proposal alongside it."
         actions={
           channel.configured ? (
-            <Badge tone={mode === "sample" ? "amber" : "green"}>
-              {channel.label || "Canal configurado"}
-            </Badge>
+            <Badge tone="green">{channel.label || "Canal configurado"}</Badge>
           ) : undefined
         }
       />
@@ -227,16 +220,8 @@ export function Inbox() {
                     {client?.name} · {client?.phone}
                   </small>
                 </div>
-                {mode === "sample" && (
-                  <Badge tone="neutral">Conversación de muestra</Badge>
-                )}
               </header>
               <div className="messages">
-                {mode === "sample" && (
-                  <div className="message-date">
-                    Conversación de ejemplo · sin mensajes reales
-                  </div>
-                )}
                 {conversation.messages.map((m) => (
                   <div key={m.id} className={`message ${m.direction}`}>
                     <p>{m.text}</p>
@@ -529,11 +514,9 @@ export function Inbox() {
                     : "Se requiere conectar un canal"}
                 </strong>
                 <p>
-                  {mode === "sample"
-                    ? "La demostración registra el flujo sin contactar al cliente."
-                    : channel.configured
-                      ? "Al confirmar, el mensaje pasa al canal configurado con este contenido exacto."
-                      : "El borrador permanecerá en la aplicación hasta conectar el canal aprobado."}
+                  {channel.configured
+                    ? "Al confirmar, el mensaje pasa al canal configurado con este contenido exacto."
+                    : "El borrador permanecerá en la aplicación hasta conectar el canal aprobado."}
                 </p>
               </div>
             </div>
@@ -545,11 +528,9 @@ export function Inbox() {
                   setSendPreview(null);
               }}
             >
-              {mode === "sample"
-                ? "Confirmar envío de demostración"
-                : channel.configured
-                  ? "Confirmar y enviar"
-                  : "Confirmar y enviar · sin conexión"}
+              {channel.configured
+                ? "Confirmar y enviar"
+                : "Confirmar y enviar · sin conexión"}
             </Button>
           </div>
         </Modal>

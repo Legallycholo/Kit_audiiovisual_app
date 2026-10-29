@@ -4,15 +4,7 @@ import { Navigate, NavLink, useParams } from "react-router-dom";
 import { AppearanceSettings } from "../settings/Appearance";
 import { IntegrationsSettings } from "../settings/Integrations";
 import { visibleSettingsSections } from "../../application/navigation";
-import { openCompanyWorkspace } from "../../application/Sidebar";
-import {
-  Download,
-  FileUp,
-  FlaskConical,
-  Save,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
+import { Download, FileUp, Save, ShieldCheck } from "lucide-react";
 import { useWorkspace, activity } from "../../shared/store";
 import {
   Badge,
@@ -25,29 +17,16 @@ import {
 } from "../../shared/ui";
 import { uiLabel } from "../../shared/i18n";
 import { downloadFile, id, initials } from "../../shared/domain";
-import type { Workspace } from "../../shared/types";
 
 export function SettingsPage() {
-  const {
-    data,
-    update,
-    toast,
-    reset,
-    mode,
-    user,
-    request,
-    refresh,
-    sync,
-    openCompany,
-    openDemo,
-  } = useWorkspace();
+  const { data, update, toast, mode, user, request, refresh, sync } =
+    useWorkspace();
   const { section } = useParams();
   const sections = visibleSettingsSections(user, mode);
   const tab = sections.some((item) => item.id === section)
     ? (section as string)
     : "";
   const [settings, setSettings] = useState({ ...data.settings });
-  const [resetting, setResetting] = useState(false);
   type BackupPreview = {
     backup: {
       exportedAt: string;
@@ -179,55 +158,7 @@ export function SettingsPage() {
               </form>
             </Panel>
           )}
-          {tab === "users" && admin && mode === "company" && <UserManagement />}
-          {tab === "users" && mode === "sample" && (
-            <Panel
-              title="Users & roles"
-              subtitle="The permission model is defined; authentication is not connected in this local workspace."
-            >
-              <div className="panel-body">
-                <div className="info-note">
-                  {uiLabel(
-                    "Access is enforced by the company server on every request. Create accounts in the company workspace.",
-                  )}
-                </div>
-                {[
-                  [
-                    "Propietario / administrador",
-                    "Administra la empresa, confirma mensajes salientes y revisa cada aceptación.",
-                  ],
-                  [
-                    "Ventas",
-                    "Clientes, oportunidades, propuestas editables y borradores de mensajes.",
-                  ],
-                  [
-                    "Diseño de eventos",
-                    "Planos del lugar, versiones de diseño y recursos creativos.",
-                  ],
-                  [
-                    "Producción",
-                    "Equipo humano, reservas de equipos, tareas de producción y entregas.",
-                  ],
-                  [
-                    "Técnico",
-                    "Tareas asignadas, planes publicados y custodia de equipos.",
-                  ],
-                  [
-                    "Cliente / invitado",
-                    "Solo las versiones de propuestas y la información de eventos que se le compartan.",
-                  ],
-                ].map(([name, description]) => (
-                  <div className="role-row" key={name}>
-                    <ShieldCheck size={20} />
-                    <div>
-                      <strong>{name}</strong>
-                      <p>{description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-          )}
+          {tab === "users" && admin && <UserManagement />}
           {tab === "integrations" && <IntegrationsSettings />}
           {tab === "general" && (
             <Panel title="Notification preferences">
@@ -445,46 +376,10 @@ export function SettingsPage() {
               </div>
             </Panel>
           )}
-          {tab === "data" && mode === "sample" && (
-            <Panel title="Your local workspace">
-              <div className="panel-body">
-                <p>
-                  La demostración guarda los cambios solo en este navegador. No
-                  hay almacenamiento compartido, cuentas ni copias de seguridad
-                  de empresa.
-                </p>
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    downloadFile(
-                      "kit-workspace-backup.json",
-                      JSON.stringify(data, null, 2),
-                    )
-                  }
-                >
-                  <Download size={16} />
-                  Exportar copia local
-                </Button>
-                <hr />
-                <h3>Restablecer la demostración</h3>
-                <p>
-                  Reemplaza tus cambios con los clientes, eventos y propuestas
-                  de ejemplo originales.
-                </p>
-                <Button variant="danger" onClick={() => setResetting(true)}>
-                  Restablecer datos de ejemplo
-                </Button>
-              </div>
-            </Panel>
-          )}
           {tab === "data" && (
             <Panel
               title="Workspace activity"
-              subtitle={
-                mode === "sample"
-                  ? "Historial de ejemplo en este dispositivo."
-                  : "Historial registrado por el servidor; los clientes no pueden modificarlo."
-              }
+              subtitle="Historial registrado por el servidor; los clientes no pueden modificarlo."
             >
               <div className="activity-list">
                 {data.activity.map((a) => (
@@ -500,62 +395,8 @@ export function SettingsPage() {
               </div>
             </Panel>
           )}
-          {tab === "data" && admin && (
-            <Panel
-              title="Demo workspace"
-              subtitle="Sample clients and events for practice. They never mix with company records."
-            >
-              <div className="panel-body">
-                <p>
-                  {uiLabel(
-                    mode === "sample"
-                      ? "You are viewing sample data saved only on this device."
-                      : "Opens a separate space with sample data. Your company records do not change.",
-                  )}
-                </p>
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    mode === "sample"
-                      ? void openCompanyWorkspace(openCompany, toast)
-                      : openDemo()
-                  }
-                >
-                  <FlaskConical size={16} />
-                  {uiLabel(
-                    mode === "sample"
-                      ? "Leave the demo workspace"
-                      : "Open the demo workspace",
-                  )}
-                </Button>
-              </div>
-            </Panel>
-          )}
         </div>
       </div>
-      {resetting && (
-        <Modal
-          title="Restore sample data?"
-          description="This replaces changes saved in this browser. Export a backup first if you want to keep them."
-          onClose={() => setResetting(false)}
-        >
-          <div className="modal-actions">
-            <Button variant="secondary" onClick={() => setResetting(false)}>
-              Keep my changes
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                reset();
-                setSettings({ ...data.settings });
-                setResetting(false);
-              }}
-            >
-              Replace with sample data
-            </Button>
-          </div>
-        </Modal>
-      )}
       {backupPreview && selectedBackup !== null && (
         <Modal
           title="Confirmar restauración de empresa"

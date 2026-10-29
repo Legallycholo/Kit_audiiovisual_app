@@ -17,7 +17,7 @@ export function ProposalAI({
   existing?: Proposal;
   onApply: (suggestion: DraftSuggestion) => void | Promise<void>;
 }) {
-  const { data, mode, request, openCompany, refresh } = useWorkspace();
+  const { data, mode, request, refresh } = useWorkspace();
   const [brief, setBrief] = useState(existing?.aiReview?.brief || "");
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,22 +73,6 @@ export function ProposalAI({
   useEffect(() => {
     setSuggestion(null);
   }, [eventId]);
-  if (mode === "sample")
-    return (
-      <div className="connection-note">
-        <Sparkles size={21} />
-        <div>
-          <strong>La IA requiere el espacio de tu empresa</strong>
-          <p>
-            Los ejemplos permanecen separados de tus datos. Puedes comenzar con
-            un borrador manual.
-          </p>
-          <Button variant="secondary" onClick={openCompany}>
-            Abrir espacio de empresa
-          </Button>
-        </div>
-      </div>
-    );
   return (
     <div className="ai-draft-panel">
       <Field

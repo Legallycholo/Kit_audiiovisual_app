@@ -279,7 +279,7 @@ export function App() {
     const query = palette.trim();
     const q = normalize(query);
     const matches = (text: string) => !q || normalize(text).includes(q);
-    const admin = mode === "sample" || user?.role === "Administrator";
+    const admin = user?.role === "Administrator";
     const actions: (PaletteItem & { allowed: boolean; to: string })[] = [
       {
         id: "action:new-event",
@@ -409,7 +409,6 @@ export function App() {
   ]);
 
   const showTabs = isDesktopShell();
-  const demo = mode === "sample";
   return (
     <AppearanceContext.Provider value={appearanceState}>
       <div
@@ -486,14 +485,6 @@ export function App() {
                   <strong aria-current="page">{uiLabel(currentLabel)}</strong>
                 )}
               </nav>
-              {demo && (
-                <span
-                  className="demo-chip"
-                  title={uiLabel("Sample data saved on this device")}
-                >
-                  {uiLabel("Demo")}
-                </span>
-              )}
             </div>
             <div className="topbar-actions">
               <button
@@ -744,13 +735,13 @@ export function App() {
             )
           }
         />
-        {help && <HelpGuide demo={demo} onClose={() => setHelp(false)} />}
+        {help && <HelpGuide onClose={() => setHelp(false)} />}
       </div>
     </AppearanceContext.Provider>
   );
 }
 
-function HelpGuide({ demo, onClose }: { demo: boolean; onClose: () => void }) {
+function HelpGuide({ onClose }: { onClose: () => void }) {
   const places: [string, string][] = [
     ["Inicio", "Resumen del día e informes."],
     ["Eventos", "Cada evento con su calendario, lugar, equipos y producción."],
@@ -796,12 +787,6 @@ function HelpGuide({ demo, onClose }: { demo: boolean; onClose: () => void }) {
             </li>
           ))}
         </ul>
-        {demo && (
-          <p className="info-note">
-            Estás en el espacio de demostración: los datos son de ejemplo y se
-            guardan solo en este dispositivo.
-          </p>
-        )}
         <div className="modal-actions">
           <Button onClick={onClose}>Entendido</Button>
         </div>

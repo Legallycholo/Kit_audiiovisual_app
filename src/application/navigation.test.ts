@@ -57,12 +57,12 @@ describe("navigation config", () => {
         d.to,
         ...(d.children ?? []).map((c) => c.to),
       ]),
-      ...visibleSettingsSections(null, "sample").map((s) => s.to),
+      ...visibleSettingsSections(null, "company").map((s) => s.to),
     ];
     for (const to of targets) expect(routes).toContain(to);
   });
 
-  it("shows everything to administrators and in the demo", () => {
+  it("shows everything to administrators", () => {
     expect(visibleDestinations(null)).toHaveLength(6);
     expect(visibleDestinations(person("Administrator"))).toHaveLength(6);
   });

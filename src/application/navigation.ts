@@ -111,7 +111,7 @@ export const settingsDestination: NavDestination = {
  */
 export function visibleSettingsSections(
   user: WorkspaceUser | null,
-  mode: "sample" | "company",
+  mode: "company",
 ): NavItem[] {
   if (mode === "company" && user?.role !== "Administrator")
     return [
@@ -193,7 +193,7 @@ export function pageLabel(pathname: string): string {
 /** Every page the palette can jump to, filtered by access. */
 export function paletteDestinations(
   user: WorkspaceUser | null,
-  mode: "sample" | "company",
+  mode: "company",
 ) {
   const pages: { id: string; label: string; to: string; group: string }[] = [];
   for (const destination of visibleDestinations(user)) {
