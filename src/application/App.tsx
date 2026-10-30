@@ -28,10 +28,12 @@ import {
   FileText,
   Menu as MenuIcon,
   MessageCircle,
+  Moon,
   Plug,
   RefreshCw,
   Search,
   Sparkles,
+  Sun,
   TriangleAlert,
   Upload,
   UserPlus,
@@ -510,6 +512,31 @@ export function App() {
               >
                 <Bell size={19} aria-hidden="true" />
                 {remind && pending > 0 && <i aria-hidden="true" />}
+              </button>
+              <button
+                type="button"
+                className="icon-button theme-toggle-btn"
+                title={
+                  appearance.theme === "dark"
+                    ? "Cambiar a modo claro (Liquid Glass)"
+                    : "Cambiar a modo oscuro (Obsidian Glass)"
+                }
+                aria-label={
+                  appearance.theme === "dark"
+                    ? "Cambiar a modo claro (Liquid Glass)"
+                    : "Cambiar a modo oscuro (Obsidian Glass)"
+                }
+                onClick={() =>
+                  setAppearance({
+                    theme: appearance.theme === "dark" ? "light" : "dark",
+                  })
+                }
+              >
+                {appearance.theme === "dark" ? (
+                  <Sun size={18} aria-hidden="true" />
+                ) : (
+                  <Moon size={18} aria-hidden="true" />
+                )}
               </button>
               {canSeeModule(user, "/kit") && (
                 <button

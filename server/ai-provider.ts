@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { HttpError } from "./database";
+import { GoogleGenAI } from "@google/genai";
 
 /**
  * Provider-neutral structured output. Every provider gets the same inputs and
@@ -76,7 +77,8 @@ async function readJson(response: Response): Promise<any> {
 
 function parseOutput(text: string) {
   try {
-    return JSON.parse(text);
+    const cleaned = text.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
+    return JSON.parse(cleaned);
   } catch {
     throw new HttpError(502, "La IA no devolvió una respuesta válida.");
   }
@@ -248,62 +250,59 @@ async function anthropic(options: StructuredOptions) {
 }
 
 async function gemini(options: StructuredOptions) {
-  let response: Response;
   try {
-    response = await (options.transport || fetch)(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(options.model)}:generateContent`,
-      {
-        method: "POST",
-        redirect: "error",
+    const ai = new GoogleGenAI({
+      apiKey: options.key,
+      httpOptions: {
         headers: {
-          "x-goog-api-key": options.key,
-          "Content-Type": "application/json",
+          "User-Agent": "aistudio-build",
         },
-        signal: signalFor(options),
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: options.instructions }] },
-          contents: [
-            {
-              role: "user",
-              parts: [
-                ...(options.images ?? []).map((image) => ({
-                  inline_data: { mime_type: image.mimeType, data: image.data },
-                })),
-                { text: JSON.stringify(options.input) },
-              ],
-            },
-          ],
-          generationConfig: {
-            maxOutputTokens: options.maxOutputTokens ?? 8000,
-            responseMimeType: "application/json",
-            responseJsonSchema: portableSchema(
-              z.toJSONSchema(options.schema, { target: "draft-7" }),
-            ),
-          },
-        }),
       },
-    );
-  } catch {
+    });
+
+    const promptText =
+      typeof options.input === "string"
+        ? options.input
+        : JSON.stringify(options.input);
+
+    const parts: any[] = [
+      ...(options.images ?? []).map((image) => ({
+        inlineData: { mimeType: image.mimeType, data: image.data },
+      })),
+      { text: promptText },
+    ];
+
+    const modelName = options.model || DEFAULT_GEMINI_MODEL;
+
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: { parts },
+      config: {
+        systemInstruction: options.instructions,
+        responseMimeType: "application/json",
+      },
+    });
+
+    const text = response.text;
+    if (!text) throw new HttpError(502, "La IA no devolvió contenido.");
+    return parseOutput(text);
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error;
+    if (error?.status === 429) {
+      throw new HttpError(429, "La IA alcanzó su límite de uso. Intenta más tarde.");
+    }
+    if (error?.status === 403 || error?.status === 400) {
+      throw new HttpError(403, "La clave o permisos de Gemini no son válidos.");
+    }
     throw unreachable();
   }
-  const value = await readJson(response);
-  const candidate = value.candidates?.[0];
-  if (value.promptFeedback?.blockReason || candidate?.finishReason === "SAFETY")
-    throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
-  if (!candidate || candidate.finishReason === "MAX_TOKENS")
-    throw new HttpError(502, "La respuesta de IA quedó incompleta.");
-  return parseOutput(
-    (candidate.content?.parts ?? [])
-      .map((part: any) => part.text || "")
-      .join(""),
-  );
 }
 
 /** Shared stateless transport for every provider. */
 export async function structuredResponse(
   options: StructuredOptions,
 ): Promise<unknown> {
-  const provider = options.provider ?? "openai";
+  const provider = options.provider ?? "gemini";
   if (provider === "anthropic") return anthropic(options);
   if (provider === "gemini") return gemini(options);
   return openAI(options);
@@ -319,6 +318,25 @@ export async function probeModel(options: {
   model: string;
   transport?: typeof fetch;
 }): Promise<void> {
+  if (options.provider === "gemini") {
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: options.key,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      });
+      await ai.models.generateContent({
+        model: options.model || DEFAULT_GEMINI_MODEL,
+        contents: "hola",
+      });
+      return;
+    } catch {
+      throw new HttpError(502, "El proveedor no reconoció la clave o modelo de Gemini.");
+    }
+  }
   const request: { url: string; headers: Record<string, string> } =
     options.provider === "anthropic"
       ? {
@@ -328,15 +346,10 @@ export async function probeModel(options: {
             "anthropic-version": "2023-06-01",
           },
         }
-      : options.provider === "gemini"
-        ? {
-            url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(options.model)}`,
-            headers: { "x-goog-api-key": options.key },
-          }
-        : {
-            url: `https://api.openai.com/v1/models/${encodeURIComponent(options.model)}`,
-            headers: { Authorization: `Bearer ${options.key}` },
-          };
+      : {
+          url: `https://api.openai.com/v1/models/${encodeURIComponent(options.model)}`,
+          headers: { Authorization: `Bearer ${options.key}` },
+        };
   let response: Response;
   try {
     response = await (options.transport || fetch)(request.url, {
@@ -365,6 +378,8 @@ export interface AIConfig {
   planModel?: string;
 }
 
+/** Recommended default when Gemini is selected */
+export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 /** Recommended default when Claude is selected (decision Q4). */
 export const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
 
@@ -376,36 +391,38 @@ const keyNames: Record<AIProvider, string> = {
 export const aiKeyName = (provider: AIProvider) => keyNames[provider];
 
 /**
- * Reads the AI provider from the server environment. Without
- * KIT_AI_PROVIDER an existing OpenAI setup keeps working unchanged. OpenAI
- * and Gemini need explicit model names; Claude defaults to Claude Opus 5.5.
+ * Reads the AI provider from the server environment. Prioritizes Gemini when GEMINI_API_KEY is available.
  */
 export function resolveAIConfig(
   env: Record<string, string | undefined>,
 ): AIConfig | null {
+  const geminiKey = env.GEMINI_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim();
   const requested = env.KIT_AI_PROVIDER?.trim().toLowerCase();
   const provider: AIProvider | undefined =
     requested && (aiProviders as string[]).includes(requested)
       ? (requested as AIProvider)
-      : requested
-        ? undefined
+      : geminiKey
+        ? "gemini"
         : env.OPENAI_API_KEY
           ? "openai"
           : env.ANTHROPIC_API_KEY
             ? "anthropic"
-            : env.GEMINI_API_KEY
-              ? "gemini"
-              : undefined;
+            : undefined;
   if (!provider) return null;
-  const key = env[keyNames[provider]]?.trim();
+  const key = provider === "gemini" ? (geminiKey || "") : (env[keyNames[provider]]?.trim() || "");
   if (!key) return null;
-  const fallback = provider === "anthropic" ? DEFAULT_CLAUDE_MODEL : undefined;
-  const proposalModel = env.KIT_AI_MODEL?.trim() || fallback;
+  const fallback =
+    provider === "gemini"
+      ? DEFAULT_GEMINI_MODEL
+      : provider === "anthropic"
+        ? DEFAULT_CLAUDE_MODEL
+        : undefined;
+  const proposalModel = env.KIT_AI_MODEL?.trim() || fallback || DEFAULT_GEMINI_MODEL;
   return {
     provider,
     key,
     proposalModel,
-    chatModel: env.KIT_CHAT_MODEL?.trim() || fallback,
+    chatModel: env.KIT_CHAT_MODEL?.trim() || fallback || DEFAULT_GEMINI_MODEL,
     planModel: env.KIT_PLAN_MODEL?.trim() || proposalModel,
   };
 }

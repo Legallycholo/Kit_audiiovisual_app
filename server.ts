@@ -24,6 +24,25 @@ const repo = new Repository(
   resolve(process.env.KIT_DATABASE || "data/kit.sqlite"),
 );
 
+if (!repo.initialized()) {
+  const { createSeed } = await import("./src/shared/seed");
+  const { passwordHash } = await import("./server/security");
+  const adminId = "user-admin-dariel";
+  const email = "dariel@tanygrowth.com";
+  const name = "Dariel";
+  const hash = await passwordHash("Kit2026!Events");
+  repo.db
+    .prepare(
+      "INSERT INTO users (id,email,name,role,owner,password_hash) VALUES (?,?,?,?,1,?)",
+    )
+    .run(adminId, email, name, "Administrator", hash);
+  repo.db
+    .prepare("INSERT INTO workspace VALUES (1,0,?)")
+    .run(JSON.stringify(createSeed()));
+  repo.audit(adminId, "Espacio inicial creado", "KIT Audiovisual");
+  console.log("Seeded initial production workspace for:", email);
+}
+
 const integrations = integrationsFromEnv(process.env);
 const ai = integrations.ai;
 

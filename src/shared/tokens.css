@@ -15,6 +15,17 @@
   --brand-green: #1fa971;
   --brand-blue: #2f6bff;
 
+  /* Liquid Glass System (Light: Crystal Pearl) */
+  --glass-surface: rgba(255, 255, 255, 0.75);
+  --glass-elevated: rgba(255, 255, 255, 0.9);
+  --glass-panel: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-border-subtle: rgba(0, 0, 0, 0.08);
+  --glass-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
+  --glass-glow: 0 0 24px -4px rgba(31, 91, 216, 0.12);
+  --backdrop-blur: blur(16px) saturate(160%);
+
   /* Option A "Señal", light. */
   --color-primary: #1f5bd8;
   --color-primary-hover: #1a4cb5;
@@ -23,13 +34,13 @@
   --color-danger: #c62828;
   --color-warning: #9a5b00;
   --color-info: #1f5bd8;
-  --color-bg: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-elevated: #f0f2f5;
-  --color-text: #141a26;
-  --color-text-muted: #586375;
-  --color-border: #dee2e8;
-  --color-border-strong: #8a94a6;
+  --color-bg: #f3f6fa;
+  --color-surface: rgba(255, 255, 255, 0.78);
+  --color-elevated: rgba(255, 255, 255, 0.92);
+  --color-text: #0f172a;
+  --color-text-muted: #526075;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-strong: rgba(0, 0, 0, 0.18);
   --color-focus: var(--color-primary);
   /* Fixed-ink surfaces (hero cards, tooltips) stay dark in both themes. */
   --color-ink-surface: #141a26;
@@ -152,27 +163,38 @@
 }
 
 :root[data-theme="dark"] {
+  /* Liquid Glass System (Dark: Obsidian Frost) */
+  --glass-surface: rgba(18, 25, 42, 0.65);
+  --glass-elevated: rgba(26, 36, 60, 0.75);
+  --glass-panel: rgba(14, 20, 34, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-subtle: rgba(255, 255, 255, 0.05);
+  --glass-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  --glass-glow: 0 0 28px -4px rgba(122, 162, 255, 0.16);
+  --backdrop-blur: blur(20px) saturate(180%);
+
   --color-primary: #7aa2ff;
   --color-primary-hover: #9bb9ff;
-  --color-on-primary: #0d1016;
+  --color-on-primary: #090d16;
   --color-success: #3fd08e;
   --color-danger: #ff7a73;
   --color-warning: #f2b544;
   --color-info: #7aa2ff;
-  --color-bg: #0d1016;
-  --color-surface: #151a22;
-  --color-elevated: #1c222c;
-  --color-text: #f2f4f8;
-  --color-text-muted: #a3adbd;
-  --color-border: #2a313c;
-  --color-border-strong: #687385;
-  --color-ink-surface: #1c222c;
+  --color-bg: #090d16;
+  --color-surface: rgba(18, 25, 42, 0.72);
+  --color-elevated: rgba(26, 36, 60, 0.82);
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-border-strong: rgba(255, 255, 255, 0.2);
+  --color-ink-surface: rgba(26, 36, 60, 0.9);
   --color-on-ink: #f2f4f8;
-  --color-on-ink-muted: #a3adbd;
-  --color-overlay: rgb(0 0 0 / 0.6);
-  --shadow-1: 0 0 0 1px var(--color-border), 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-2: 0 0 0 1px var(--color-border), 0 6px 16px rgb(0 0 0 / 0.4);
-  --shadow-3: 0 0 0 1px var(--color-border), 0 20px 48px rgb(0 0 0 / 0.4);
+  --color-on-ink-muted: #94a3b8;
+  --color-overlay: rgb(0 0 0 / 0.65);
+  --shadow-1: 0 0 0 1px var(--color-border), 0 2px 4px rgb(0 0 0 / 0.3);
+  --shadow-2: 0 0 0 1px var(--color-border), 0 8px 24px rgb(0 0 0 / 0.4);
+  --shadow-3: 0 0 0 1px var(--color-border), 0 24px 56px rgb(0 0 0 / 0.5);
   color-scheme: dark;
 }
 

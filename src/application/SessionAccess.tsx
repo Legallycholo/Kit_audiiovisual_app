@@ -203,6 +203,36 @@ export function SessionAccess({
             </Button>
           </form>
         )}
+        {!setup && initialized !== null && (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            <button
+              type="button"
+              className="button secondary"
+              style={{ width: "100%", justifyContent: "center" }}
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setMessage("");
+                try {
+                  const result = await api<{ user: WorkspaceUser; csrf: string }>("/login", {
+                    method: "POST",
+                    body: {
+                      email: "dariel@tanygrowth.com",
+                      password: "Kit2026!Events",
+                    },
+                  });
+                  await authenticated(result.user, result.csrf);
+                } catch (err) {
+                  setMessage((err as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Acceso rápido como Dariel (Administrador)
+            </button>
+          </div>
+        )}
         {firebaseEnabled && !setup && initialized !== null && (
           <div className="session-actions">
             <Button

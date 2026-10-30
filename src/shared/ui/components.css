@@ -356,10 +356,12 @@ kbd {
 
 /* ---------- Panels, stats, empty states, notes ---------- */
 .panel {
-  background: var(--color-surface);
+  background: var(--glass-surface, var(--color-surface));
+  backdrop-filter: var(--backdrop-blur, blur(16px));
+  -webkit-backdrop-filter: var(--backdrop-blur, blur(16px));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--glass-shadow, var(--shadow-1));
   min-width: 0;
   overflow: hidden;
 }
@@ -382,10 +384,12 @@ kbd {
   padding: var(--panel-padding);
 }
 .stat {
-  background: var(--color-surface);
+  background: var(--glass-surface, var(--color-surface));
+  backdrop-filter: var(--backdrop-blur, blur(16px));
+  -webkit-backdrop-filter: var(--backdrop-blur, blur(16px));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--glass-shadow, var(--shadow-1));
   padding: var(--panel-padding);
 }
 .stat-label {
@@ -901,9 +905,11 @@ tbody tr:hover {
   max-width: min(560px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
   overflow: auto;
-  background: var(--color-surface);
+  background: var(--glass-elevated, var(--color-surface));
+  backdrop-filter: var(--backdrop-blur, blur(20px));
+  -webkit-backdrop-filter: var(--backdrop-blur, blur(20px));
   color: var(--color-text);
-  box-shadow: var(--shadow-3);
+  box-shadow: var(--glass-shadow, var(--shadow-3));
 }
 .modal.wide {
   width: 820px;
@@ -915,6 +921,8 @@ tbody tr:hover {
 .modal::backdrop,
 .drawer::backdrop {
   background: var(--color-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .modal[open]::backdrop,
 .drawer[open]::backdrop {

@@ -403,7 +403,46 @@ export class KitService {
         422,
         "Confirma el envío del mensaje, historial y contexto al proveedor.",
       );
-    const sources = this.sources(userId, input.refs);
+    let sources = this.sources(userId, input.refs);
+    if (sources.length === 0) {
+      const { workspace } = this.repo.read();
+      const scoped = scopeWorkspace(workspace, user);
+      const eventsSummary = scoped.events.slice(0, 10).map((e) => ({
+        id: e.id,
+        name: e.name,
+        date: e.date,
+        status: e.status,
+        venue: scoped.venues.find((v) => v.id === e.venueId)?.name || e.venueId,
+        client: scoped.clients.find((c) => c.id === e.clientId)?.name || e.clientId,
+      }));
+      const proposalsSummary = scoped.proposals.slice(0, 8).map((p) => ({
+        id: p.id,
+        number: p.number,
+        title: p.title,
+        status: p.status,
+        eventId: p.eventId,
+      }));
+      const summaryText = JSON.stringify({
+        company: scoped.settings.company,
+        events: eventsSummary,
+        proposals: proposalsSummary,
+      });
+      sources = [
+        {
+          key: "workspace:summary",
+          ref: {
+            kind: "attachment",
+            id: "workspace-summary",
+            title: "Resumen del espacio",
+            text: summaryText,
+          },
+          label: "Resumen del espacio",
+          route: "/",
+          revision: hash(summaryText),
+          text: summaryText,
+        },
+      ];
+    }
     const revision = this.repo.read().revision;
     const prompt = redactSecrets(input.text).text;
     const reply: KitMessage = {

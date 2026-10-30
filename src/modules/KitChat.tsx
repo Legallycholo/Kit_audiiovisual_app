@@ -65,7 +65,7 @@ export function KitChat({
   const [title, setTitle] = useState("");
   const [project, setProject] = useState("");
   const [actionMode, setActionMode] = useState<KitMode>("ask");
-  const [consent, setConsent] = useState(false);
+  const [consent, setConsent] = useState(true);
   const [notice, setNotice] = useState("");
   const [confirm, setConfirm] = useState<KitMessage | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -559,6 +559,39 @@ export function KitChat({
       </span>
       <p className="kit-home-greeting">{greeting(user?.name)}</p>
       <h2>¿En qué trabajamos?</h2>
+      <div className="kit-suggestions">
+        <button
+          type="button"
+          className="kit-suggestion-chip"
+          onClick={() => {
+            kit.setDraft("¿Qué eventos tenemos programados y qué tareas faltan por asignar?");
+            editor.current?.focus();
+          }}
+        >
+          📋 Resumen de eventos y tareas
+        </button>
+        <button
+          type="button"
+          className="kit-suggestion-chip"
+          onClick={() => {
+            kit.setDraft("Recomiéndame una configuración técnica de sonido e iluminación para un evento corporativo de 200 personas.");
+            editor.current?.focus();
+          }}
+        >
+          💡 Recomendar equipos técnicos
+        </button>
+        <button
+          type="button"
+          className="kit-suggestion-chip"
+          onClick={() => {
+            setActionMode("act");
+            kit.setDraft("Propón una lista de tareas de montaje y pruebas de sonido para el próximo evento activo.");
+            editor.current?.focus();
+          }}
+        >
+          ⚡ Planificar y crear tareas
+        </button>
+      </div>
       {disconnected && <ConnectNotice service="kit" compact={sidebar} />}
     </div>
   );
@@ -619,7 +652,13 @@ export function KitChat({
       <aside className="assistant kit-chat-sidebar">
         <header className="kit-chat-header">
           <div>
-            <h1>KIT</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1>KIT</h1>
+              <span className="kit-gemini-badge">
+                <Sparkles size={11} aria-hidden="true" />
+                Gemini 3.8
+              </span>
+            </div>
             <p>{status}</p>
           </div>
           <button

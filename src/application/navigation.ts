@@ -26,66 +26,32 @@ export interface NavDestination extends NavItem {
   children?: NavItem[];
 }
 
-/** The six top-level destinations, in sidebar order. */
+/** The primary streamlined destinations: Inicio, Eventos, Propuestas, and KIT AI. */
 export const destinations: NavDestination[] = [
   {
     id: "home",
     label: "Inicio",
     to: "/",
     icon: LayoutDashboard,
-    children: [
-      { id: "summary", label: "Resumen", to: "/" },
-      { id: "reports", label: "Informes", to: "/reports" },
-    ],
   },
   {
     id: "events",
     label: "Eventos",
     to: "/events",
     icon: CalendarDays,
-    children: [
-      { id: "event-list", label: "Eventos", to: "/events" },
-      { id: "production", label: "Producción", to: "/production" },
-    ],
   },
   {
-    id: "sales",
-    label: "Ventas",
+    id: "proposals",
+    label: "Propuestas",
     to: "/proposals",
     icon: FileText,
-    children: [
-      { id: "proposals", label: "Propuestas", to: "/proposals" },
-      { id: "inbox", label: "Mensajes", to: "/inbox", badge: "unread" },
-      { id: "clients", label: "Clientes", to: "/clients" },
-    ],
   },
   {
-    id: "design",
-    label: "Diseño",
-    to: "/design",
-    icon: Layers3,
-    children: [
-      { id: "plans", label: "Planos y 3D", to: "/design" },
-      { id: "creative", label: "Estudio creativo", to: "/creative" },
-    ],
+    id: "kit",
+    label: "KIT AI",
+    to: "/kit",
+    icon: Sparkles,
   },
-  {
-    id: "resources",
-    label: "Recursos",
-    to: "/inventory",
-    icon: Box,
-    children: [
-      { id: "equipment", label: "Equipos", to: "/inventory" },
-      { id: "venues", label: "Lugares", to: "/venues" },
-      {
-        id: "files",
-        label: "Archivos",
-        to: "/library/files",
-        match: ["/files/"],
-      },
-    ],
-  },
-  { id: "kit", label: "KIT", to: "/kit", icon: Sparkles },
 ];
 
 /** Settings sections, reachable from the sidebar submenu and the palette. */
