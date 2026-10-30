@@ -15,6 +15,7 @@ export type AppConfig = {
   origins: string[];
   secureCookies?: boolean;
   serveStatic?: boolean;
+  viteMiddleware?: express.RequestHandler;
   proposalGenerator?: ProposalGenerator;
   messageTransport?: MessageTransport;
   search?: SearchConfig;

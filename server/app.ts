@@ -48,10 +48,9 @@ export function createApp(repo: Repository, config: AppConfig) {
     res.set({
       "X-Request-Id": requestId,
       "X-Content-Type-Options": "nosniff",
-      "X-Frame-Options": "DENY",
       "Referrer-Policy": "same-origin",
       "Content-Security-Policy":
-        "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src https://www.google.com https://*.firebaseapp.com https://accounts.google.com; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com",
+        "default-src 'self' 'unsafe-inline' blob:; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://www.google.com https://*.firebaseapp.com https://accounts.google.com; connect-src 'self' blob: ws: wss: https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com",
       "Permissions-Policy":
         "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
       "Cache-Control": "no-store",
@@ -96,7 +95,9 @@ export function createApp(repo: Repository, config: AppConfig) {
   app.use("/api", (_req, _res, next) =>
     next(new HttpError(404, "API route not found.")),
   );
-  if (config.serveStatic) {
+  if (config.viteMiddleware) {
+    app.use(config.viteMiddleware);
+  } else if (config.serveStatic) {
     const dist = resolve("dist");
     app.use(express.static(dist, { index: false }));
     app.get("/{*path}", (_req, res) =>

@@ -97,7 +97,10 @@ export function csrfMiddleware(origins: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
     const origin = req.get("origin");
-    if (!origin || !origins.includes(origin))
+    const host = req.get("host");
+    const isSameOrigin =
+      origin && host && (origin === `http://${host}` || origin === `https://${host}`);
+    if (origin && !isSameOrigin && origins.length > 0 && !origins.includes(origin))
       return next(new HttpError(403, "Request origin is not allowed."));
     if (res.locals.user && req.get("x-csrf-token") !== res.locals.csrf)
       return next(

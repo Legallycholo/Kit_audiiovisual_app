@@ -1,0 +1,7 @@
+{
+  "name": "KIT · la gente de los eventos",
+  "description": "KIT · la gente de los eventos. Planifica eventos, diseña espacios, prepara propuestas y coordina la producción.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
