@@ -18,11 +18,14 @@ export function SessionAccess({
   error,
   retry,
   authenticated,
+  enterWithoutBackend,
 }: {
   initialized: boolean | null;
   error: string;
   retry: () => void;
   authenticated: (user: WorkspaceUser, csrf: string) => Promise<void>;
+  /** Temporary dev-only bypass while there is no backend. */
+  enterWithoutBackend?: () => void;
 }) {
   const [message, setMessage] = useState("");
   // The local desktop window reaches the company server in its own window.
@@ -304,6 +307,13 @@ export function SessionAccess({
                 <div ref={recaptcha} />
               </form>
             )}
+          </div>
+        )}
+        {enterWithoutBackend && (
+          <div className="session-actions">
+            <Button variant="secondary" onClick={enterWithoutBackend}>
+              Entrar sin servidor (temporal)
+            </Button>
           </div>
         )}
         <div className="session-footnote">

@@ -161,6 +161,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setGate(false);
     setStorageError("");
   };
+  // TEMPORARY: lets a dev build open an empty workspace while there is no
+  // backend. Nothing is saved; remove together with the sign-in button.
+  const enterWithoutBackend = () => {
+    const temporary: WorkspaceUser = {
+      id: "temporary-user",
+      name: "Acceso temporal",
+      email: "",
+      role: "Administrator",
+      isOwner: true,
+      active: true,
+      eventIds: [],
+      sharedProposalIds: [],
+    };
+    current.current = emptyWorkspace("");
+    userRef.current = temporary;
+    setData(current.current);
+    setUser(temporary);
+    setGate(false);
+  };
   const openCompany = async () => {
     setGate(true);
     setConnectionError("");
@@ -467,6 +486,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           error={connectionError}
           retry={openCompany}
           authenticated={authenticated}
+          enterWithoutBackend={
+            import.meta.env.DEV ? enterWithoutBackend : undefined
+          }
         />
       ) : (
         children
