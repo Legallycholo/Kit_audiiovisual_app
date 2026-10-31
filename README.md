@@ -1,81 +1,104 @@
-# KIT — Production workspace
+# KIT — Audiovisual Production Workspace
 
-An audiovisual event-production app connecting clients, events, venues, proposals, equipment, layouts, and production. Implementation is in progress; the full requirements remain in [the implementation plan](docs/IMPLEMENTATION_PLAN.md) and remaining work is tracked in [implementation progress](docs/IMPLEMENTATION_PROGRESS.md).
+KIT is a Spanish-first workspace for an audiovisual event-production company. It connects **clients, events, venues, proposals, equipment inventory, 2D/3D layouts and day-of operations** in one app, with AI that _suggests_ and people that _decide_.
 
-Spanish is the primary interface language. Development documentation and internal record identifiers remain in English.
+> Status: in active development, nothing deployed. Current state in one page: [docs/STATUS.md](docs/STATUS.md).
 
-- **Current state in one page:** [docs/STATUS.md](docs/STATUS.md)
-- **Feature showcases, AI drafting, access and workflow boundaries:** [docs/FEATURES.md](docs/FEATURES.md)
-- **Desktop app phases:** [docs/DESKTOP.md](docs/DESKTOP.md)
+## What it does
 
-## Run locally
+- **Sales** — clients, events, proposals with catalog-priced line items, AI-assisted drafting, owner-confirmed messaging and acceptance.
+- **Design** — 2D venue layouts with a lazy-loaded 3D preview built from the same geometry.
+- **Operations** — inventory, reservations, crew tasks, fulfilment, returns and reporting.
+- **Search and files** — universal search, CSV import, and an encrypted local file index (desktop).
+- **KIT chat / Act mode** — a contextual assistant; any mutation it proposes needs user confirmation and a server-side authorization check.
 
-Use Node.js 22.12 or newer and npm. The current server uses Node's built-in SQLite module, which emits an experimental-feature warning under Node 22.
+Feature details: [docs/FEATURES.md](docs/FEATURES.md). Product plan: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
+
+## Tech stack
+
+| Layer             | Technology                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| Frontend          | React 19, TypeScript 5.9, Vite 7, React Router 7, Three.js, lucide-react                         |
+| Company server    | Node ≥ 22.12, Express 5, built-in `node:sqlite`, Zod 4 for validation, `tsx` runner              |
+| Auth              | Server-side sessions (HTTP-only cookies, CSRF, role/event scoping); Firebase Auth + reCAPTCHA hooks |
+| AI                | Server-only provider adapter: Gemini (`@google/genai`), OpenAI, Anthropic; structured output validated against the catalog |
+| Desktop           | Tauri 2 (Rust): shell, native file commands, OS keyring                                          |
+| Local file index  | Rust crate `native/file-index`: SQLCipher (rusqlite), file watching, PDF/Office text extraction  |
+| Testing           | Vitest (unit/API), Playwright (browser journeys), axe-core (accessibility)                       |
+| Tooling           | npm (only), Prettier, `tsc -b`                                                                   |
+
+## Two data modes
+
+- **Sample mode** — runs in the browser only; data lives in local storage. Good for UI work.
+- **Company mode** — data is persisted by the Express server in SQLite (`data/kit.sqlite`, git-ignored). The workspace is currently one JSON row guarded by a single global revision, so concurrent saves conflict. A per-record model is proposed in [docs/DATA_MODEL_PROPOSAL.md](docs/DATA_MODEL_PROPOSAL.md).
+
+Both modes must keep working.
+
+## Getting started
+
+Requires Node ≥ 22.12 and npm (no pnpm/yarn). Node 22 prints an experimental warning for `node:sqlite`; this is expected.
 
 ```sh
 npm ci
-npm run dev
+npm run dev          # sample workspace  → http://127.0.0.1:5173
+npm run dev:server   # company server    → http://127.0.0.1:3001
 ```
 
-Open **http://127.0.0.1:5173** for the isolated sample workspace. In a second terminal, start the company server:
+In the app choose **Abrir espacio de empresa**. First run creates the owner account and an empty workspace (no sample import, no default credentials). Account setup is limited to connections from the server machine; both services bind to loopback.
+
+Copy `.env.example` to `.env` for optional settings (AI keys and models, Firebase, reCAPTCHA, backup dir, search provider). Provider secrets are read by the server only. Never put credentials in a `VITE_` variable.
+
+### Commands
 
 ```sh
-npm run dev:server
-```
-
-Choose **Abrir espacio de empresa** in the app. First setup creates the owner account and an empty company workspace; it does not import sample records. No default credentials are supplied. Subsequent visits use sign-in. Account setup is restricted to connections originating on the server machine. Both development services bind to loopback.
-
-The server reads an optional local `.env`; `.env.example` documents its settings. The default database is `data/kit.sqlite`, excluded from Git. Company data is stored on this server; sample data stays in browser local storage. A browser refresh or sign-out does not erase company records. The settings page offers an administrator JSON export, not a complete backup/restore service.
-
-To serve a built local app from the API process:
-
-```sh
-npm run build
-NODE_ENV=production npm start
-```
-
-Open **http://127.0.0.1:3001**. Public deployment still requires HTTPS, operational backups, account recovery, deployment hardening, and business acceptance; none has been deployed here.
-
-### Scheduled backups
-
-```sh
-npm run backup
-```
-
-Writes a checksummed backup of the company workspace (the same format as the administrator export) to `KIT_BACKUP_DIR` (default `data/backups/`) and keeps the newest `KIT_BACKUP_KEEP` files (default 14). Schedule it with cron, launchd or Task Scheduler. Backups stay on this machine. Copying them off-site is a deployment decision.
-
-### Desktop app
-
-With the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
-
-```sh
-npm run desktop:dev
+npm run typecheck      # tsc -b
+npm run build          # typecheck + vite build
+npm test               # vitest (src + server)
+npm run test:browser   # Playwright, isolated headless Chrome (~2.5 min)
+npm run format         # prettier
+npm run backup         # checksummed backup to KIT_BACKUP_DIR (keeps KIT_BACKUP_KEEP newest)
+npm run desktop:dev    # Tauri (needs Rust + Tauri prerequisites)
 npm run desktop:build
 ```
 
-The bundled window runs the local sample workspace. To use the company service from the desktop shell, see [docs/DESKTOP.md](docs/DESKTOP.md).
+Serve a production build from the API process: `npm run build && NODE_ENV=production npm start` → http://127.0.0.1:3001.
 
-### AI configuration
+Before committing, run typecheck, `npm test` and `npm run test:browser`, and compare with the baseline in [docs/CLEANUP_LOG.md](docs/CLEANUP_LOG.md).
 
-AI features stay disabled until a provider is approved. `OPENAI_API_KEY` with `KIT_AI_MODEL` (proposal drafting) or `KIT_CHAT_MODEL` (KIT chat) are read by the server only — never put credentials in a `VITE_` variable. Details and data boundaries: [docs/FEATURES.md](docs/FEATURES.md#ai-proposal-drafting).
+## Repository layout
 
-## Verification
-
-```sh
-npm run build
-npm test
-npm run test:browser
+```
+src/application/   app frame, navigation, session entry, contextual assistant
+src/modules/       business workspaces, proposal editor, AI suggestion review
+src/shared/        domain records and calculations, access policy, API/store boundary,
+                   i18n labels (i18n.ts), sample data, common UI
+server/            authenticated API, validation, SQLite persistence, authorization,
+                   AI adapters, backups, tests
+src-tauri/         Tauri 2 desktop shell and native file commands
+native/file-index/ encrypted local file index (Rust, SQLCipher)
+tests/browser/     Playwright journeys, responsive/print and accessibility checks
+docs/              plan, technical decisions, status, desktop phases, cleanup plan
 ```
 
-Browser tests use isolated headless Google Chrome through Playwright, without an existing browser profile. They start/reuse the local Vite server and write ignored screenshots/traces to `artifacts/`. Company workflow tests start isolated API instances with in-memory databases; no actual company account is created by the test suite.
+## Ground rules for contributors
 
-## Source organization
+- **No external calls.** No live AI, WhatsApp, cloud or provider requests in dev or tests; tests use fixtures at the model and messaging boundaries. Never add credentials.
+- **AI only suggests.** Outgoing client messages, proposal acceptance and Act-mode mutations always need confirmation plus a server-side authorization check. Do not weaken this.
+- **Refactors don't change behavior.** Keep exported names, API routes and response shapes identical; if a test must change, stop and explain.
+- **Ask first** before deleting files, changing an API route/response shape, or changing the on-disk database format.
+- **Don't touch** `data/` (real company SQLite), `.env*` or `node_modules/`.
+- **Language:** UI text is Spanish (labels in `src/shared/i18n.ts`). Code, identifiers and docs are English. Never translate stored business content.
+- Match surrounding style; Prettier is configured.
+- No push or deploy without explicit approval.
 
-- `src/application/` — app frame, navigation, session entry, contextual assistant.
-- `src/modules/` — business workspaces, proposal editor and AI suggestion review.
-- `src/shared/` — domain records/calculations, access policy, API/store boundary, interface labels, sample data and common UI.
-- `server/` — authenticated API, validation, SQLite persistence, authorization, proposal generation adapter and tests.
-- `src-tauri/` — desktop shell (Tauri 2) and native file access.
-- `native/file-index/` — encrypted local file index (Rust).
-- `tests/browser/` — sample/company journeys, responsive/print and accessibility checks.
-- `docs/` — product plan, technical decisions and implementation evidence.
+## Known gaps
+
+Nothing is deployed. Not yet verified: live AI quality, WhatsApp/webhooks, business formulas (pricing, tax, deposits), Windows desktop launch and signing, production hosting/HTTPS, off-site backups and email account recovery. The sign-in screen currently has a temporary dev-only bypass for use without a backend (`src/application/SessionAccess.tsx`).
+
+## Further reading
+
+- [docs/STATUS.md](docs/STATUS.md) — current state and next priorities
+- [docs/TECHNICAL_DECISIONS.md](docs/TECHNICAL_DECISIONS.md) — why the stack looks like this
+- [docs/DESKTOP.md](docs/DESKTOP.md) — desktop phases and release gates
+- [docs/IMPLEMENTATION_PROGRESS.md](docs/IMPLEMENTATION_PROGRESS.md) — per-requirement evidence
+- [docs/claude-cleanup.md](docs/claude-cleanup.md) — engineering cleanup plan
