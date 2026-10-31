@@ -13,14 +13,13 @@ import type { AppConfig, RouteContext } from "./context";
 
 async function requireHuman(config: AppConfig, token?: string) {
   if (!config.recaptchaVerifier) return;
-  if (process.env.NODE_ENV !== "production" && !token) return;
   let human = false;
   try {
     human = Boolean(token) && (await config.recaptchaVerifier(token!, "LOGIN"));
   } catch {
-    // An unreachable verifier fails closed in production.
+    // An unreachable verifier fails closed.
   }
-  if (!human && process.env.NODE_ENV === "production")
+  if (!human)
     throw new HttpError(403, "The security check failed. Try again.");
 }
 

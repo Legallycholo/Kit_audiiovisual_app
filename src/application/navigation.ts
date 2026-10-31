@@ -26,29 +26,73 @@ export interface NavDestination extends NavItem {
   children?: NavItem[];
 }
 
-/** The primary streamlined destinations: Inicio, Eventos, Propuestas, and KIT AI. */
+/** The 6 primary destinations: Inicio, Eventos, Ventas, Diseño, Recursos, and KIT. */
 export const destinations: NavDestination[] = [
   {
     id: "home",
     label: "Inicio",
     to: "/",
     icon: LayoutDashboard,
+    children: [
+      { id: "overview", label: "Resumen", to: "/" },
+      { id: "reports", label: "Informes", to: "/reports" },
+    ],
   },
   {
     id: "events",
     label: "Eventos",
     to: "/events",
     icon: CalendarDays,
+    children: [
+      { id: "events", label: "Eventos", to: "/events", match: ["/events"] },
+      { id: "production", label: "Producción", to: "/production" },
+    ],
   },
   {
-    id: "proposals",
-    label: "Propuestas",
+    id: "sales",
+    label: "Ventas",
     to: "/proposals",
     icon: FileText,
+    children: [
+      {
+        id: "proposals",
+        label: "Propuestas",
+        to: "/proposals",
+        match: ["/proposals"],
+      },
+      { id: "inbox", label: "Mensajes", to: "/inbox", badge: "unread" },
+      { id: "clients", label: "Clientes", to: "/clients" },
+    ],
+  },
+  {
+    id: "design",
+    label: "Diseño",
+    to: "/design",
+    icon: Layers3,
+    children: [
+      { id: "layouts", label: "Planos y 3D", to: "/design" },
+      { id: "creative", label: "Estudio creativo", to: "/creative" },
+    ],
+  },
+  {
+    id: "resources",
+    label: "Recursos",
+    to: "/inventory",
+    icon: Box,
+    children: [
+      { id: "inventory", label: "Equipos", to: "/inventory" },
+      { id: "venues", label: "Lugares", to: "/venues" },
+      {
+        id: "files",
+        label: "Archivos",
+        to: "/library/files",
+        match: ["/files"],
+      },
+    ],
   },
   {
     id: "kit",
-    label: "KIT AI",
+    label: "KIT",
     to: "/kit",
     icon: Sparkles,
   },

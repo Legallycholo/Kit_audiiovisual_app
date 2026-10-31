@@ -45,12 +45,15 @@ export function createApp(repo: Repository, config: AppConfig) {
           userId: res.locals.user?.id,
         }),
       );
+    const isApi = req.path.startsWith("/api/");
     res.set({
       "X-Request-Id": requestId,
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "same-origin",
       "Content-Security-Policy":
-        "default-src 'self' 'unsafe-inline' blob:; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://www.google.com https://*.firebaseapp.com https://accounts.google.com; connect-src 'self' blob: ws: wss: https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com",
+        "default-src 'self' 'unsafe-inline' blob:; " +
+        (isApi ? "frame-ancestors 'none'; " : "") +
+        "base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://www.google.com https://*.firebaseapp.com https://accounts.google.com; connect-src 'self' blob: ws: wss: https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com",
       "Permissions-Policy":
         "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
       "Cache-Control": "no-store",

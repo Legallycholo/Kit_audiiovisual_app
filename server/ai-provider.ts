@@ -250,59 +250,63 @@ async function anthropic(options: StructuredOptions) {
 }
 
 async function gemini(options: StructuredOptions) {
+  let response: Response;
+  const promptText =
+    typeof options.input === "string"
+      ? options.input
+      : JSON.stringify(options.input);
+
+  const parts: any[] = [
+    ...(options.images ?? []).map((image) => ({
+      inline_data: { mime_type: image.mimeType, data: image.data },
+    })),
+    { text: promptText },
+  ];
+
   try {
-    const ai = new GoogleGenAI({
-      apiKey: options.key,
-      httpOptions: {
+    response = await (options.transport || fetch)(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(options.model)}:generateContent`,
+      {
+        method: "POST",
+        redirect: "error",
         headers: {
-          "User-Agent": "aistudio-build",
+          "x-goog-api-key": options.key,
+          "Content-Type": "application/json",
         },
+        signal: signalFor(options),
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: options.instructions }],
+          },
+          contents: [{ parts }],
+          generationConfig: {
+            responseMimeType: "application/json",
+          },
+        }),
       },
-    });
-
-    const promptText =
-      typeof options.input === "string"
-        ? options.input
-        : JSON.stringify(options.input);
-
-    const parts: any[] = [
-      ...(options.images ?? []).map((image) => ({
-        inlineData: { mimeType: image.mimeType, data: image.data },
-      })),
-      { text: promptText },
-    ];
-
-    const modelName = options.model || DEFAULT_GEMINI_MODEL;
-
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: { parts },
-      config: {
-        systemInstruction: options.instructions,
-        responseMimeType: "application/json",
-      },
-    });
-
-    const text = response.text;
-    if (!text) throw new HttpError(502, "La IA no devolvió contenido.");
-    return parseOutput(text);
-  } catch (error: any) {
-    if (error instanceof HttpError) throw error;
-    if (error?.status === 429) {
-      throw new HttpError(429, "La IA alcanzó su límite de uso. Intenta más tarde.");
-    }
-    if (error?.status === 403 || error?.status === 400) {
-      throw new HttpError(403, "La clave o permisos de Gemini no son válidos.");
-    }
+    );
+  } catch {
     throw unreachable();
   }
+  const value = await readJson(response);
+  if (value.promptFeedback?.blockReason === "SAFETY")
+    throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
+  const candidate = value.candidates?.[0];
+  if (!candidate) throw new HttpError(502, "La respuesta de IA quedó incompleta.");
+  if (candidate.finishReason === "SAFETY")
+    throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
+  if (candidate.finishReason === "MAX_TOKENS")
+    throw new HttpError(502, "La respuesta de IA quedó incompleta.");
+  const text = candidate.content?.parts?.map((p: any) => p.text || "").join("");
+  if (!text) throw new HttpError(502, "La IA no devolvió contenido.");
+  return parseOutput(text);
 }
 
 /** Shared stateless transport for every provider. */
 export async function structuredResponse(
   options: StructuredOptions,
 ): Promise<unknown> {
-  const provider = options.provider ?? "gemini";
+  const provider = options.provider ?? "openai";
   if (provider === "anthropic") return anthropic(options);
   if (provider === "gemini") return gemini(options);
   return openAI(options);
@@ -318,25 +322,6 @@ export async function probeModel(options: {
   model: string;
   transport?: typeof fetch;
 }): Promise<void> {
-  if (options.provider === "gemini") {
-    try {
-      const ai = new GoogleGenAI({
-        apiKey: options.key,
-        httpOptions: {
-          headers: {
-            "User-Agent": "aistudio-build",
-          },
-        },
-      });
-      await ai.models.generateContent({
-        model: options.model || DEFAULT_GEMINI_MODEL,
-        contents: "hola",
-      });
-      return;
-    } catch {
-      throw new HttpError(502, "El proveedor no reconoció la clave o modelo de Gemini.");
-    }
-  }
   const request: { url: string; headers: Record<string, string> } =
     options.provider === "anthropic"
       ? {
@@ -346,10 +331,15 @@ export async function probeModel(options: {
             "anthropic-version": "2023-06-01",
           },
         }
-      : {
-          url: `https://api.openai.com/v1/models/${encodeURIComponent(options.model)}`,
-          headers: { Authorization: `Bearer ${options.key}` },
-        };
+      : options.provider === "gemini"
+        ? {
+            url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(options.model)}`,
+            headers: { "x-goog-api-key": options.key },
+          }
+        : {
+            url: `https://api.openai.com/v1/models/${encodeURIComponent(options.model)}`,
+            headers: { Authorization: `Bearer ${options.key}` },
+          };
   let response: Response;
   try {
     response = await (options.transport || fetch)(request.url, {
@@ -396,20 +386,25 @@ export const aiKeyName = (provider: AIProvider) => keyNames[provider];
 export function resolveAIConfig(
   env: Record<string, string | undefined>,
 ): AIConfig | null {
-  const geminiKey = env.GEMINI_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim();
   const requested = env.KIT_AI_PROVIDER?.trim().toLowerCase();
+  if (requested && !(aiProviders as string[]).includes(requested)) {
+    return null;
+  }
+  const geminiKey = env.GEMINI_API_KEY?.trim() || env.GOOGLE_API_KEY?.trim();
   const provider: AIProvider | undefined =
-    requested && (aiProviders as string[]).includes(requested)
-      ? (requested as AIProvider)
-      : geminiKey
-        ? "gemini"
-        : env.OPENAI_API_KEY
-          ? "openai"
-          : env.ANTHROPIC_API_KEY
-            ? "anthropic"
-            : undefined;
+    (requested as AIProvider | undefined) ||
+    (geminiKey
+      ? "gemini"
+      : env.OPENAI_API_KEY
+        ? "openai"
+        : env.ANTHROPIC_API_KEY
+          ? "anthropic"
+          : undefined);
   if (!provider) return null;
-  const key = provider === "gemini" ? (geminiKey || "") : (env[keyNames[provider]]?.trim() || "");
+  const key =
+    provider === "gemini"
+      ? geminiKey || ""
+      : env[keyNames[provider]]?.trim() || "";
   if (!key) return null;
   const fallback =
     provider === "gemini"
@@ -417,7 +412,8 @@ export function resolveAIConfig(
       : provider === "anthropic"
         ? DEFAULT_CLAUDE_MODEL
         : undefined;
-  const proposalModel = env.KIT_AI_MODEL?.trim() || fallback || DEFAULT_GEMINI_MODEL;
+  const proposalModel =
+    env.KIT_AI_MODEL?.trim() || fallback || DEFAULT_GEMINI_MODEL;
   return {
     provider,
     key,
