@@ -12,6 +12,7 @@ import { DesignService } from "./design";
 import { jsonLogger } from "./logger";
 import type { AppConfig, RouteContext } from "./routes/context";
 import { mountAuthRoutes } from "./routes/auth";
+import { mountSupabaseAccountRoutes } from "./routes/supabase-accounts";
 import { mountWorkspaceRoutes } from "./routes/workspace";
 import { mountConversationRoutes } from "./routes/conversations";
 import { mountMessagingRoutes } from "./routes/messaging";
@@ -29,6 +30,11 @@ export function createApp(repo: Repository, config: AppConfig) {
   const app = express();
   // Without a configured logger only failures are reported, as before.
   const logger = config.logger ?? jsonLogger("warn");
+  // The browser signs in against Supabase Auth directly, so its origin has to
+  // be allowed in connect-src. Only the configured project is allowed.
+  const supabaseOrigin = config.supabaseOrigin
+    ? ` ${new URL(config.supabaseOrigin).origin}`
+    : "";
   app.disable("x-powered-by");
   app.use((req, res, next) => {
     const requestId = randomUUID();
@@ -53,7 +59,8 @@ export function createApp(repo: Repository, config: AppConfig) {
       "Content-Security-Policy":
         "default-src 'self' 'unsafe-inline' blob:; " +
         (isApi ? "frame-ancestors 'none'; " : "") +
-        "base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://www.google.com https://*.firebaseapp.com https://accounts.google.com; connect-src 'self' blob: ws: wss: https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com",
+        "base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://www.google.com https://*.firebaseapp.com https://accounts.google.com; connect-src 'self' blob: ws: wss: https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com" +
+        supabaseOrigin,
       "Permissions-Policy":
         "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
       "Cache-Control": "no-store",
@@ -85,6 +92,7 @@ export function createApp(repo: Repository, config: AppConfig) {
   };
   const context: RouteContext = { repo, config, response };
   mountAuthRoutes(app, context);
+  mountSupabaseAccountRoutes(app, context);
   mountWorkspaceRoutes(app, context);
   mountConversationRoutes(app, context);
   mountMessagingRoutes(app, context);

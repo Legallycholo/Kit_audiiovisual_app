@@ -33,6 +33,7 @@ const routes = [
   "/inventory",
   "/production",
   "/reports",
+  "/admin",
   "/library/files",
   "/kit",
   "/settings/general",

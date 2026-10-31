@@ -36,6 +36,8 @@ export const destinations: NavDestination[] = [
     children: [
       { id: "overview", label: "Resumen", to: "/" },
       { id: "reports", label: "Informes", to: "/reports" },
+      // Administrators only: canSeeModule() denies /admin to every other role.
+      { id: "admin", label: "Administración", to: "/admin" },
     ],
   },
   {

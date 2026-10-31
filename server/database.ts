@@ -3,7 +3,7 @@ import { mkdirSync, chmodSync } from "node:fs";
 import { dirname } from "node:path";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Workspace } from "../src/shared/types";
-import type { WorkspaceUser } from "../src/shared/access";
+import type { Role, WorkspaceUser } from "../src/shared/access";
 import { emptyWorkspace } from "../src/shared/empty";
 
 export class HttpError extends Error {
@@ -93,6 +93,46 @@ export class Repository {
         .prepare("SELECT * FROM users ORDER BY name")
         .all() as unknown as UserRow[]
     ).map(publicUser);
+  }
+  /**
+   * Mirrors an externally approved account (Supabase Auth) into the local users
+   * table, so every existing scope and authorization check keeps working on a
+   * normal user row. The identity provider owns the role and approval status;
+   * KIT never stores a usable password for these accounts.
+   */
+  upsertFederatedUser(account: {
+    id: string;
+    email: string;
+    name: string;
+    role: Role;
+    isOwner: boolean;
+    clientId?: string | null;
+    eventIds: string[];
+    sharedProposalIds: string[];
+  }): UserRow {
+    // No colon, so passwordMatches() rejects it before hashing anything.
+    const noPassword = "external-identity-provider";
+    this.db
+      .prepare(
+        `INSERT INTO users (id,email,name,role,owner,active,password_hash,event_ids,client_id,shared_proposals)
+         VALUES (?,?,?,?,?,1,?,?,?,?)
+         ON CONFLICT(id) DO UPDATE SET
+           email=excluded.email, name=excluded.name, role=excluded.role,
+           owner=excluded.owner, active=1, event_ids=excluded.event_ids,
+           client_id=excluded.client_id, shared_proposals=excluded.shared_proposals`,
+      )
+      .run(
+        account.id,
+        account.email,
+        account.name,
+        account.role,
+        account.isOwner ? 1 : 0,
+        noPassword,
+        JSON.stringify(account.eventIds),
+        account.clientId || null,
+        JSON.stringify(account.sharedProposalIds),
+      );
+    return this.user(account.id)!;
   }
   read(): { workspace: Workspace; revision: number } {
     const row = this.db

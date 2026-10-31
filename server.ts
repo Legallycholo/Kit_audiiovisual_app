@@ -9,6 +9,11 @@ import { createApp } from "./server/app";
 import { httpSearchProvider, type SearchGateway } from "./server/search";
 import { aiKitGenerator, type KitService } from "./server/kit";
 import { firebaseVerifier } from "./server/firebase-auth";
+import {
+  supabaseAccountReader,
+  supabaseDirectory,
+  supabaseVerifier,
+} from "./server/supabase-auth";
 import { recaptchaVerifier } from "./server/recaptcha";
 import { jsonLogger, parseLogLevel } from "./server/logger";
 
@@ -24,27 +29,47 @@ const repo = new Repository(
   resolve(process.env.KIT_DATABASE || "data/kit.sqlite"),
 );
 
+// A fresh database can be seeded with a sample workspace for local work. The
+// owner password is never hardcoded: without KIT_SEED_OWNER_PASSWORD the app
+// shows its normal first-run setup screen and the owner is created there.
 if (!repo.initialized()) {
-  const { createSeed } = await import("./src/shared/seed");
-  const { passwordHash } = await import("./server/security");
-  const adminId = "user-admin-dariel";
-  const email = "dariel@tanygrowth.com";
-  const name = "Dariel";
-  const hash = await passwordHash("Kit2026!Events");
-  repo.db
-    .prepare(
-      "INSERT INTO users (id,email,name,role,owner,password_hash) VALUES (?,?,?,?,1,?)",
-    )
-    .run(adminId, email, name, "Administrator", hash);
-  repo.db
-    .prepare("INSERT INTO workspace VALUES (1,0,?)")
-    .run(JSON.stringify(createSeed()));
-  repo.audit(adminId, "Espacio inicial creado", "KIT Audiovisual");
-  console.log("Seeded initial production workspace for:", email);
+  const seedPassword = process.env.KIT_SEED_OWNER_PASSWORD;
+  const email = process.env.KIT_SEED_OWNER_EMAIL || "owner@kit.local";
+  if (seedPassword) {
+    const { createSeed } = await import("./src/shared/seed");
+    const { passwordHash } = await import("./server/security");
+    const adminId = "user-admin-seed";
+    const hash = await passwordHash(seedPassword);
+    repo.db
+      .prepare(
+        "INSERT INTO users (id,email,name,role,owner,password_hash) VALUES (?,?,?,?,1,?)",
+      )
+      .run(
+        adminId,
+        email.toLowerCase(),
+        process.env.KIT_SEED_OWNER_NAME || "Owner",
+        "Administrator",
+        hash,
+      );
+    repo.db
+      .prepare("INSERT INTO workspace VALUES (1,0,?)")
+      .run(JSON.stringify(createSeed()));
+    repo.audit(adminId, "Espacio inicial creado", "KIT Audiovisual");
+    console.log("Seeded initial production workspace for:", email);
+  } else {
+    console.log(
+      "Empty workspace. Open the app to create the owner account, or set KIT_SEED_OWNER_PASSWORD to seed sample data.",
+    );
+  }
 }
 
 const integrations = integrationsFromEnv(process.env);
 const ai = integrations.ai;
+// Supabase Auth signs users in; this server still verifies the token and reads
+// the approved role from the database before it issues a KIT session.
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseReady = Boolean(supabaseUrl && supabaseServiceKey);
 
 let viteMiddleware: express.RequestHandler | undefined;
 if (isDev) {
@@ -61,6 +86,18 @@ const app = createApp(repo, {
   firebaseVerifier: process.env.FIREBASE_PROJECT_ID
     ? firebaseVerifier(process.env.FIREBASE_PROJECT_ID)
     : undefined,
+  supabaseVerifier: supabaseReady
+    ? supabaseVerifier(supabaseUrl!, {
+        jwtSecret: process.env.SUPABASE_JWT_SECRET,
+      })
+    : undefined,
+  supabaseAccount: supabaseReady
+    ? supabaseAccountReader(supabaseUrl!, supabaseServiceKey!)
+    : undefined,
+  supabaseDirectory: supabaseReady
+    ? supabaseDirectory(supabaseUrl!, supabaseServiceKey!)
+    : undefined,
+  supabaseOrigin: supabaseUrl,
   recaptchaVerifier:
     process.env.RECAPTCHA_PROJECT_ID &&
     process.env.RECAPTCHA_API_KEY &&

@@ -3899,6 +3899,55 @@ td small {
   gap: 16px;
   margin: 24px 0;
 }
+.session-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 22px;
+  padding: 4px;
+  background: var(--color-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.session-switch button {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.session-switch button:hover {
+  color: var(--color-text);
+}
+.session-switch button.is-current {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-1);
+}
+.session-notice {
+  display: flex;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  line-height: 1.55;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-elevated);
+  color: var(--color-text);
+}
+.session-notice svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.session-hint {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+}
 .session-footnote {
   display: flex;
   gap: 10px;

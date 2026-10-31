@@ -564,7 +564,9 @@ export function KitChat({
           type="button"
           className="kit-suggestion-chip"
           onClick={() => {
-            kit.setDraft("¿Qué eventos tenemos programados y qué tareas faltan por asignar?");
+            kit.setDraft(
+              "¿Qué eventos tenemos programados y qué tareas faltan por asignar?",
+            );
             editor.current?.focus();
           }}
         >
@@ -574,7 +576,9 @@ export function KitChat({
           type="button"
           className="kit-suggestion-chip"
           onClick={() => {
-            kit.setDraft("Recomiéndame una configuración técnica de sonido e iluminación para un evento corporativo de 200 personas.");
+            kit.setDraft(
+              "Recomiéndame una configuración técnica de sonido e iluminación para un evento corporativo de 200 personas.",
+            );
             editor.current?.focus();
           }}
         >
@@ -585,7 +589,9 @@ export function KitChat({
           className="kit-suggestion-chip"
           onClick={() => {
             setActionMode("act");
-            kit.setDraft("Propón una lista de tareas de montaje y pruebas de sonido para el próximo evento activo.");
+            kit.setDraft(
+              "Propón una lista de tareas de montaje y pruebas de sonido para el próximo evento activo.",
+            );
             editor.current?.focus();
           }}
         >

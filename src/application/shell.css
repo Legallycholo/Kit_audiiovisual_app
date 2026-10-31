@@ -434,7 +434,10 @@ body {
   gap: var(--space-4);
   height: var(--topbar-height);
   padding: 0 var(--space-8);
-  background: var(--glass-surface, color-mix(in srgb, var(--color-bg) 88%, transparent));
+  background: var(
+    --glass-surface,
+    color-mix(in srgb, var(--color-bg) 88%, transparent)
+  );
   backdrop-filter: var(--backdrop-blur, blur(16px));
   -webkit-backdrop-filter: var(--backdrop-blur, blur(16px));
   border-bottom: 1px solid var(--color-border);
@@ -532,7 +535,11 @@ body {
   color: var(--brand-blue);
 }
 .assistant-toggle:hover {
-  background: color-mix(in srgb, var(--color-primary) 12%, var(--glass-elevated));
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 12%,
+    var(--glass-elevated)
+  );
   box-shadow: 0 0 20px 0 var(--color-primary-subtle);
   transform: translateY(-1px);
 }
@@ -571,7 +578,11 @@ body {
   font-weight: 700;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(129, 140, 248, 0.24));
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.16),
+    rgba(129, 140, 248, 0.24)
+  );
   border: 1px solid rgba(129, 140, 248, 0.35);
   color: var(--color-primary);
   letter-spacing: 0.4px;

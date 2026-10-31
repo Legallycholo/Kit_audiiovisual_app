@@ -92,6 +92,10 @@ const SearchPage = page(
   () => import("../modules/UniversalSearch"),
   "SearchPage",
 );
+const AdminDashboard = page(
+  () => import("../modules/AdminDashboard"),
+  "AdminDashboard",
+);
 const FileLibrary = page(() => import("../modules/FileLibrary"), "FileLibrary");
 const FilePreview = page(() => import("../modules/FileLibrary"), "FilePreview");
 
@@ -661,6 +665,7 @@ export function App() {
                   <Route path="/inventory" element={<Inventory />} />
                   <Route path="/production" element={<Production />} />
                   <Route path="/reports" element={<Reports />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/settings/:section" element={<SettingsPage />} />
                   <Route

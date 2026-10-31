@@ -738,6 +738,81 @@ export const spanish: Record<string, string> = {
   "Device authorization required.": "Este dispositivo necesita autorización.",
   "Email or password is incorrect.":
     "El correo o la contraseña no son correctos.",
+  // Sign-up, sign-in and account approval
+  "Sign in": "Iniciar sesión",
+  "Create account": "Crear cuenta",
+  "A new account has no access until an administrator approves it and assigns a role.":
+    "Una cuenta nueva no tiene acceso hasta que un administrador la apruebe y le asigne un rol.",
+  "Resend the confirmation email": "Reenviar el correo de confirmación",
+  "Supabase sign-in is not configured.":
+    "El inicio de sesión con Supabase no está configurado.",
+  "The sign-in could not be verified.":
+    "No se pudo verificar el inicio de sesión.",
+  "Confirm your email address before signing in.":
+    "Confirma tu correo antes de iniciar sesión.",
+  "Your account is waiting for an administrator to approve it.":
+    "Tu cuenta está esperando la aprobación de un administrador.",
+  "This account has been disabled.": "Esta cuenta está desactivada.",
+  "This account does not have a role yet. An administrator must assign one.":
+    "Esta cuenta todavía no tiene rol. Un administrador debe asignarle uno.",
+  "This account does not have access to the workspace.":
+    "Esta cuenta no tiene acceso al espacio de trabajo.",
+  "The account directory is unavailable.":
+    "El directorio de cuentas no está disponible.",
+  "Your own role and access cannot be changed here.":
+    "Tu propio rol y acceso no se pueden cambiar aquí.",
+  "The owner account cannot be changed here.":
+    "La cuenta del propietario no se puede cambiar aquí.",
+  "Account not found.": "No se encontró la cuenta.",
+  "An approved account needs a role.": "Una cuenta aprobada necesita un rol.",
+  "Choose a role or a status to change.":
+    "Elige un rol o un estado para cambiar.",
+  "Pending approval": "Pendiente de aprobación",
+  "Access requests": "Solicitudes de acceso",
+  "No access requests": "Sin solicitudes de acceso",
+  Approve: "Aprobar",
+  Reject: "Rechazar",
+  "Account disabled": "Desactivada",
+  "Account active": "Activa",
+  "Registered accounts": "Cuentas registradas",
+  "Choose a role to approve this request.":
+    "Elige un rol para aprobar esta solicitud.",
+  "Signed up": "Se registró",
+  "Choose role": "Elige un rol",
+  "No role": "Sin rol",
+  Disable: "Desactivar",
+  "Workspace owner": "Propietario",
+  "Accounts that registered and are waiting for a role.":
+    "Cuentas que se registraron y esperan un rol.",
+  "Accounts created through sign-up, with the role they hold now.":
+    "Cuentas creadas por registro, con el rol que tienen ahora.",
+  // Administrator overview
+  "Access and roles": "Acceso y roles",
+  "Manage users": "Gestionar usuarios",
+  "Accounts with access": "Cuentas con acceso",
+  deactivated: "desactivadas",
+  "Waiting for approval": "Esperando aprobación",
+  "Review requests": "Revisar solicitudes",
+  "Roles in use": "Roles en uso",
+  "roles defined": "roles definidos",
+  "Recent access events": "Eventos de acceso recientes",
+  "Who holds each role": "Quién tiene cada rol",
+  "Active accounts grouped by the role they sign in with.":
+    "Cuentas activas agrupadas por el rol con el que inician sesión.",
+  "No accounts yet": "Todavía no hay cuentas",
+  "Full access to every section": "Acceso completo a todas las secciones",
+  Sections: "Secciones",
+  "Access history": "Historial de acceso",
+  "Sign-ins, approvals and role changes recorded by the server.":
+    "Inicios de sesión, aprobaciones y cambios de rol registrados por el servidor.",
+  "No access events yet": "Todavía no hay eventos de acceso",
+  "The full audit trail is in Settings › Data.":
+    "El registro completo está en Configuración › Datos.",
+  "Open it": "Abrirlo",
+  // Your access, on the dashboard
+  "The role you signed in with and what it opens.":
+    "El rol con el que iniciaste sesión y lo que abre.",
+  "Your role": "Tu rol",
   "Indexed file source is unavailable.":
     "El archivo indexado no está disponible.",
   "Initial setup must be completed on the server machine.":

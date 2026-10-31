@@ -8,7 +8,13 @@ import {
   passwordMatches,
   rateLimit,
 } from "../security";
-import { firebaseLoginSchema, loginSchema, setupSchema } from "../schema";
+import {
+  firebaseLoginSchema,
+  loginSchema,
+  setupSchema,
+  supabaseLoginSchema,
+} from "../schema";
+import { roles } from "../../src/shared/access";
 import type { AppConfig, RouteContext } from "./context";
 
 async function requireHuman(config: AppConfig, token?: string) {
@@ -117,6 +123,73 @@ export function mountAuthRoutes(
       Boolean(config.secureCookies),
     );
     repo.audit(row.id, "User signed in with Firebase", row.email);
+    res.json({ user: publicUser(row), csrf });
+  });
+  app.post("/api/login/supabase", async (req, res) => {
+    if (!config.supabaseVerifier || !config.supabaseAccount)
+      throw new HttpError(404, "Supabase sign-in is not configured.");
+    rateLimit(repo, `login:${req.ip}`);
+    const { accessToken, recaptchaToken } = supabaseLoginSchema.parse(req.body);
+    await requireHuman(config, recaptchaToken);
+    let identity;
+    try {
+      identity = await config.supabaseVerifier(accessToken);
+    } catch {
+      throw new HttpError(401, "The sign-in could not be verified.");
+    }
+    if (!identity.emailVerified)
+      throw new HttpError(
+        403,
+        "Confirm your email address before signing in.",
+      );
+    // Supabase proves who signed in. The role and approval status are read
+    // from the database with the service-role key, never taken from the token,
+    // and KIT still decides who may enter.
+    let account;
+    try {
+      account = await config.supabaseAccount(identity.userId);
+    } catch {
+      throw new HttpError(503, "The account directory is unavailable.");
+    }
+    if (!account)
+      throw new HttpError(
+        401,
+        "This account does not have access to the workspace.",
+      );
+    if (account.status === "pending")
+      throw new HttpError(
+        403,
+        "Your account is waiting for an administrator to approve it.",
+      );
+    if (account.status !== "active")
+      throw new HttpError(403, "This account has been disabled.");
+    // A role that KIT does not know is never written into the users table.
+    const role = roles.find((known) => known === account.role);
+    if (!role)
+      throw new HttpError(
+        403,
+        "This account does not have a role yet. An administrator must assign one.",
+      );
+    const row = repo.transaction(() =>
+      repo.upsertFederatedUser({
+        id: account.id,
+        email: account.email,
+        name: account.name || account.email,
+        role,
+        isOwner: account.isOwner,
+        clientId: account.clientId,
+        eventIds: account.eventIds,
+        sharedProposalIds: account.sharedProposalIds,
+      }),
+    );
+    destroySession(repo, req, res, Boolean(config.secureCookies));
+    const csrf = createSession(
+      repo,
+      row.id,
+      res,
+      Boolean(config.secureCookies),
+    );
+    repo.audit(row.id, "User signed in with Supabase", row.email);
     res.json({ user: publicUser(row), csrf });
   });
   app.post("/api/logout", (req, res) => {

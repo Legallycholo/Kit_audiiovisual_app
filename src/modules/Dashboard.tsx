@@ -7,13 +7,75 @@ import {
   Clock3,
   FileText,
   Plus,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWorkspace } from "../shared/store";
 import { Avatar, Badge, PageHeader, Panel, Stat, TextLink } from "../shared/ui";
+import { canSeeModule } from "../shared/access";
 import { shortDate } from "../shared/domain";
 import { uiLabel } from "../shared/i18n";
+/**
+ * The role the signed-in account holds and the sections it opens. Shown so a
+ * person can see their own scope without opening Settings; administrators get
+ * the fuller picture at /admin instead.
+ */
+function YourAccess() {
+  const { user } = useWorkspace();
+  if (!user) return null;
+  const sections = Object.entries({
+    "/": "Inicio",
+    "/events": "Eventos",
+    "/proposals": "Propuestas",
+    "/clients": "Clientes",
+    "/venues": "Lugares",
+    "/design": "Diseño",
+    "/creative": "Creativo",
+    "/inventory": "Equipos",
+    "/production": "Producción",
+    "/inbox": "Mensajes",
+    "/reports": "Informes",
+  })
+    .filter(([path]) => canSeeModule(user, path))
+    .map(([, label]) => label);
+  return (
+    <Panel
+      title="Your access"
+      subtitle="The role you signed in with and what it opens."
+      action={
+        user.role === "Administrator" ? (
+          <TextLink to="/admin">{uiLabel("Access and roles")}</TextLink>
+        ) : undefined
+      }
+    >
+      <div className="panel-body">
+        <div className="role-row">
+          <ShieldCheck size={21} />
+          <div>
+            <strong>
+              {user.name || user.email}
+              {user.isOwner ? ` · ${uiLabel("Workspace owner")}` : ""}
+            </strong>
+            <p>
+              {uiLabel("Your role")}: {user.role}
+            </p>
+            <small>
+              {uiLabel("Sections")}: {sections.join(", ") || "—"}
+            </small>
+          </div>
+          <Badge tone="blue">{user.role}</Badge>
+          <Badge tone="neutral">
+            {user.role === "Administrator" || user.role === "Sales Manager"
+              ? uiLabel("All events")
+              : `${user.eventIds.length} ${uiLabel("Assigned events").toLowerCase()}`}
+          </Badge>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 export function Dashboard() {
   const { data, update } = useWorkspace();
   const active = data.events.filter(
@@ -241,6 +303,7 @@ export function Dashboard() {
           </div>
         </Panel>
       </div>
+      <YourAccess />
       <Panel title="Recent activity">
         <div className="activity-list">
           {data.activity.slice(0, 3).map((item, i) => (
