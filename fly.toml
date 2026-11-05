@@ -10,7 +10,7 @@ primary_region = 'dfw'
 [env]
   KIT_BACKUP_DIR = '/data/backups'
   KIT_DATABASE = '/data/kit.sqlite'
-  KIT_ORIGINS = 'https://mellow-ember-705.fly.dev'
+  KIT_ORIGINS = 'https://kit-audiiovisual-app.fly.dev'
   KIT_SECURE_COOKIES = 'true'
   NODE_ENV = 'production'
   PORT = '8080'
