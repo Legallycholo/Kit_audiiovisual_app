@@ -8,7 +8,6 @@ import { Repository } from "./server/database";
 import { createApp } from "./server/app";
 import { httpSearchProvider, type SearchGateway } from "./server/search";
 import { aiKitGenerator, type KitService } from "./server/kit";
-import { firebaseVerifier } from "./server/firebase-auth";
 import { recaptchaVerifier } from "./server/recaptcha";
 import { jsonLogger, parseLogLevel } from "./server/logger";
 
@@ -73,9 +72,6 @@ if (isDev) {
 const app = createApp(repo, {
   logger: jsonLogger(parseLogLevel(process.env.KIT_LOG_LEVEL)),
   integrations,
-  firebaseVerifier: process.env.FIREBASE_PROJECT_ID
-    ? firebaseVerifier(process.env.FIREBASE_PROJECT_ID)
-    : undefined,
   recaptchaVerifier:
     process.env.RECAPTCHA_PROJECT_ID &&
     process.env.RECAPTCHA_API_KEY &&

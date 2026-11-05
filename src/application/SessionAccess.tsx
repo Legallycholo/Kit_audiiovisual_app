@@ -1,18 +1,10 @@
 import { uiLabel } from "../shared/i18n";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { LockKeyhole, LogIn, MonitorUp } from "lucide-react";
 import { Button, Field, ErrorNote } from "../shared/ui";
 import { api } from "../shared/api";
 import { recaptchaToken } from "../shared/recaptcha";
 import type { WorkspaceUser } from "../shared/access";
-import {
-  firebaseEnabled,
-  firebaseEmailSignIn,
-  firebaseGoogleSignIn,
-  firebasePhoneConfirm,
-  firebasePhoneStart,
-  type ConfirmationResult,
-} from "../shared/firebase";
 export function SessionAccess({
   initialized,
   error,
@@ -43,34 +35,6 @@ export function SessionAccess({
   };
   const [busy, setBusy] = useState(false);
   const setup = initialized === false;
-  const [phoneStep, setPhoneStep] = useState<ConfirmationResult | null>(null);
-  const [phoneOpen, setPhoneOpen] = useState(false);
-  const recaptcha = useRef<HTMLDivElement>(null);
-  const viaFirebase = async (getToken: () => Promise<string>) => {
-    setBusy(true);
-    setMessage("");
-    try {
-      const result = await api<{ user: WorkspaceUser; csrf: string }>(
-        "/login/firebase",
-        {
-          method: "POST",
-          body: {
-            idToken: await getToken(),
-            recaptchaToken: await recaptchaToken("LOGIN"),
-          },
-        },
-      );
-      await authenticated(result.user, result.csrf);
-    } catch (err) {
-      setMessage(
-        (err as { code?: string }).code?.startsWith("auth/")
-          ? "No se pudo iniciar sesión. Revisa tus datos e inténtalo de nuevo."
-          : (err as Error).message,
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <main className="session-screen">
       <section className="session-card">
@@ -121,10 +85,6 @@ export function SessionAccess({
               const email = String(fields.get("email"));
               const password = String(fields.get("password"));
               try {
-                if (firebaseEnabled && !setup) {
-                  await viaFirebase(() => firebaseEmailSignIn(email, password));
-                  return;
-                }
                 const result = await api<{
                   user: WorkspaceUser;
                   csrf: string;
@@ -202,79 +162,6 @@ export function SessionAccess({
                   : "Iniciar sesión"}
             </Button>
           </form>
-        )}
-        {firebaseEnabled && !setup && initialized !== null && (
-          <div className="session-actions">
-            <Button
-              variant="secondary"
-              disabled={busy}
-              onClick={() => void viaFirebase(firebaseGoogleSignIn)}
-            >
-              Continuar con Google
-            </Button>
-            {!phoneOpen ? (
-              <Button variant="secondary" onClick={() => setPhoneOpen(true)}>
-                Continuar con teléfono
-              </Button>
-            ) : (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const fields = new FormData(event.currentTarget);
-                  if (!phoneStep)
-                    void (async () => {
-                      setBusy(true);
-                      setMessage("");
-                      try {
-                        setPhoneStep(
-                          await firebasePhoneStart(
-                            String(fields.get("phone")),
-                            recaptcha.current!,
-                          ),
-                        );
-                      } catch {
-                        setMessage(
-                          "No se pudo enviar el código. Usa el formato +52…",
-                        );
-                      } finally {
-                        setBusy(false);
-                      }
-                    })();
-                  else
-                    void viaFirebase(() =>
-                      firebasePhoneConfirm(
-                        phoneStep,
-                        String(fields.get("code")),
-                      ),
-                    );
-                }}
-              >
-                {!phoneStep ? (
-                  <Field label="Teléfono (con código de país)">
-                    <input
-                      required
-                      name="phone"
-                      type="tel"
-                      autoComplete="tel"
-                    />
-                  </Field>
-                ) : (
-                  <Field label="Código recibido por SMS">
-                    <input
-                      required
-                      name="code"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                    />
-                  </Field>
-                )}
-                <Button disabled={busy}>
-                  {phoneStep ? "Verificar código" : "Enviar código"}
-                </Button>
-                <div ref={recaptcha} />
-              </form>
-            )}
-          </div>
         )}
         {enterWithoutBackend && (
           <div className="session-actions">

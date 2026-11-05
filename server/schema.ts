@@ -727,10 +727,3 @@ export const loginSchema = z
   })
   .strict();
 
-export const firebaseLoginSchema = z
-  .object({
-    idToken: z.string().min(20).max(8192),
-    recaptchaToken: z.string().max(8192).optional(),
-  })
-  .strict();
-

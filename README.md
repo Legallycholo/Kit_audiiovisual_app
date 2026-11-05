@@ -20,7 +20,7 @@ Feature details: [docs/FEATURES.md](docs/FEATURES.md). Product plan: [docs/IMPLE
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Frontend         | React 19, TypeScript 5.9, Vite 7, React Router 7, Three.js, lucide-react                                                                                  |
 | Company server   | Node ≥ 22.12, Express 5, built-in `node:sqlite`, Zod 4 for validation, `tsx` runner                                                                       |
-| Auth             | Server-side sessions (HTTP-only cookies, CSRF, role/event scoping); Firebase Auth (email, Google, phone/SMS) + reCAPTCHA hooks |
+| Auth             | Server-side sessions (HTTP-only cookies, CSRF, role/event scoping); reCAPTCHA hooks |
 | AI               | Server-only provider adapter: Gemini (`@google/genai`), OpenAI, Anthropic; structured output validated against the catalog                                |
 | Desktop          | Tauri 2 (Rust): shell, native file commands, OS keyring                                                                                                   |
 | Local file index | Rust crate `native/file-index`: SQLCipher (rusqlite), file watching, PDF/Office text extraction                                                           |
@@ -38,10 +38,8 @@ Both modes must keep working.
 
 There is no self-service sign-up: an administrator creates every account in
 _Configuración › Usuarios_ and assigns one of the six roles in
-`src/shared/access.ts`. Sign-in is by password (`/api/login`) or, when
-configured, Firebase Auth (`/api/login/firebase` — email, Google, or
-phone/SMS); either way the Express server issues its own session and stays
-the authorization gate.
+`src/shared/access.ts`. Sign-in is by password (`/api/login`); the Express server issues its own
+session and stays the authorization gate.
 
 Administrators also get `/admin`, an overview of who holds each role and the
 recent access history. Everyone sees their own role on the dashboard.
@@ -58,7 +56,7 @@ npm run dev:server   # company server    → http://127.0.0.1:3001
 
 In the app choose **Abrir espacio de empresa**. First run creates the owner account and an empty workspace (no sample import, no default credentials). Account setup is limited to connections from the server machine; both services bind to loopback.
 
-Copy `.env.example` to `.env` for optional settings (AI keys and models, Firebase, reCAPTCHA, backup dir, search provider). Provider secrets are read by the server only. Never put credentials in a `VITE_` variable.
+Copy `.env.example` to `.env` for optional settings (AI keys and models, reCAPTCHA, backup dir, search provider). Provider secrets are read by the server only. Never put credentials in a `VITE_` variable.
 
 ### Commands
 

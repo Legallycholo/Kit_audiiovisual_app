@@ -5,7 +5,6 @@ import type { KitGenerator } from "../kit";
 import type { ProposalGenerator } from "../proposal-ai";
 import type { MessageTransport } from "../messaging";
 import type { FloorPlanExtractor } from "../design";
-import type { FirebaseVerifier } from "../firebase-auth";
 import type { RecaptchaVerifier } from "../recaptcha";
 import type { Logger } from "../logger";
 import type { IntegrationsConfig } from "../integrations";
@@ -22,8 +21,6 @@ export type AppConfig = {
   kitGenerator?: KitGenerator;
   floorPlanExtractor?: FloorPlanExtractor;
   logger?: Logger;
-  /** Enables sign-in with Firebase Authentication when set. */
-  firebaseVerifier?: FirebaseVerifier;
   /** Requires a valid reCAPTCHA Enterprise token on sign-in when set. */
   recaptchaVerifier?: RecaptchaVerifier;
   /** Connection settings shown in Settings › Integraciones. */
