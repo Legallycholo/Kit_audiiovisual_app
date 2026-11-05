@@ -20,7 +20,7 @@ Feature details: [docs/FEATURES.md](docs/FEATURES.md). Product plan: [docs/IMPLE
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Frontend         | React 19, TypeScript 5.9, Vite 7, React Router 7, Three.js, lucide-react                                                                                  |
 | Company server   | Node ≥ 22.12, Express 5, built-in `node:sqlite`, Zod 4 for validation, `tsx` runner                                                                       |
-| Auth             | Server-side sessions (HTTP-only cookies, CSRF, role/event scoping); Supabase Auth sign-up/sign-in with roles in Postgres; Firebase Auth + reCAPTCHA hooks |
+| Auth             | Server-side sessions (HTTP-only cookies, CSRF, role/event scoping); Firebase Auth (email, Google, phone/SMS) + reCAPTCHA hooks |
 | AI               | Server-only provider adapter: Gemini (`@google/genai`), OpenAI, Anthropic; structured output validated against the catalog                                |
 | Desktop          | Tauri 2 (Rust): shell, native file commands, OS keyring                                                                                                   |
 | Local file index | Rust crate `native/file-index`: SQLCipher (rusqlite), file watching, PDF/Office text extraction                                                           |
@@ -36,13 +36,12 @@ Both modes must keep working.
 
 ## Accounts and roles
 
-Sign-up is self-service through Supabase Auth, but **registering grants no
-access**: a new account is `pending` with no role until an administrator
-approves it in _Configuración › Usuarios_ and assigns one of the six roles in
-`src/shared/access.ts`. The Express server verifies the Supabase token, reads
-the approved role from Postgres and issues its own session, so it stays the
-authorization gate. Setup, the role rules and the remaining gaps are in
-[docs/SUPABASE_AUTH.md](docs/SUPABASE_AUTH.md).
+There is no self-service sign-up: an administrator creates every account in
+_Configuración › Usuarios_ and assigns one of the six roles in
+`src/shared/access.ts`. Sign-in is by password (`/api/login`) or, when
+configured, Firebase Auth (`/api/login/firebase` — email, Google, or
+phone/SMS); either way the Express server issues its own session and stays
+the authorization gate.
 
 Administrators also get `/admin`, an overview of who holds each role and the
 recent access history. Everyone sees their own role on the dashboard.
@@ -106,7 +105,7 @@ docs/              plan, technical decisions, status, desktop phases, cleanup pl
 
 ## Known gaps
 
-Nothing is deployed. Not yet verified: live AI quality, WhatsApp/webhooks, business formulas (pricing, tax, deposits), Windows desktop launch and signing, production hosting/HTTPS, off-site backups and email account recovery. Supabase sign-in has unit and API coverage but has not been run against the live project.
+Not yet verified: live AI quality, WhatsApp/webhooks, business formulas (pricing, tax, deposits), Windows desktop launch and signing, off-site backups and email account recovery.
 
 The sign-in screen keeps one escape hatch, "Entrar sin servidor", for working without a backend. It is gated on `import.meta.env.DEV` (`src/shared/store.tsx`), so it is absent from a production build.
 

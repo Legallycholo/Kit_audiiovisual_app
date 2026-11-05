@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowUpRight,
   History,
   ShieldCheck,
-  ShieldQuestion,
   UserCog,
   Users,
 } from "lucide-react";
@@ -20,13 +18,6 @@ import {
   Stat,
   TextLink,
 } from "../shared/ui";
-import { AccessRequests } from "./settings/AccessRequests";
-
-type Registration = {
-  id: string;
-  email: string;
-  status: "pending" | "active" | "disabled";
-};
 
 /** Sign-in and access events, separated from ordinary record activity. */
 const ACCESS_EVENTS =
@@ -39,7 +30,6 @@ const ACCESS_EVENTS =
 export function AdminDashboard() {
   const { data, request, user } = useWorkspace();
   const [team, setTeam] = useState<WorkspaceUser[] | null>(null);
-  const [pending, setPending] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -50,19 +40,6 @@ export function AdminDashboard() {
       } catch (failure) {
         setError((failure as Error).message);
         setTeam([]);
-      }
-    })();
-    void (async () => {
-      try {
-        const result = await request<{ accounts: Registration[] }>(
-          "/supabase/accounts",
-        );
-        setPending(
-          result.accounts.filter((a) => a.status === "pending").length,
-        );
-      } catch {
-        // Supabase sign-in is optional; the rest of the page still works.
-        setPending(null);
       }
     })();
   }, [request]);
@@ -111,18 +88,6 @@ export function AdminDashboard() {
           icon={<Users size={18} />}
         />
         <Stat
-          label="Waiting for approval"
-          value={pending === null ? "—" : pending.toString().padStart(2, "0")}
-          detail={
-            pending ? (
-              <Link to="/settings/users">
-                {uiLabel("Review requests")} <ArrowUpRight size={13} />
-              </Link>
-            ) : undefined
-          }
-          icon={<ShieldQuestion size={18} />}
-        />
-        <Stat
           label="Roles in use"
           value={byRole.length.toString().padStart(2, "0")}
           detail={
@@ -138,7 +103,6 @@ export function AdminDashboard() {
           icon={<History size={18} />}
         />
       </div>
-      <AccessRequests />
       <Panel
         title="Who holds each role"
         subtitle="Active accounts grouped by the role they sign in with."

@@ -1,5 +1,4 @@
 import { UserManagement } from "../UserManagement";
-import { AccessRequests } from "../settings/AccessRequests";
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, useParams } from "react-router-dom";
 import { AppearanceSettings } from "../settings/Appearance";
@@ -159,12 +158,7 @@ export function SettingsPage() {
               </form>
             </Panel>
           )}
-          {tab === "users" && admin && (
-            <>
-              <AccessRequests />
-              <UserManagement />
-            </>
-          )}
+          {tab === "users" && admin && <UserManagement />}
           {tab === "integrations" && <IntegrationsSettings />}
           {tab === "general" && (
             <Panel title="Notification preferences">

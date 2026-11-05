@@ -1,14 +1,8 @@
 import { uiLabel } from "../shared/i18n";
 import { useRef, useState } from "react";
-import {
-  LockKeyhole,
-  LogIn,
-  MailCheck,
-  MonitorUp,
-  UserPlus,
-} from "lucide-react";
+import { LockKeyhole, LogIn, MonitorUp } from "lucide-react";
 import { Button, Field, ErrorNote } from "../shared/ui";
-import { api, type ApiError } from "../shared/api";
+import { api } from "../shared/api";
 import { recaptchaToken } from "../shared/recaptcha";
 import type { WorkspaceUser } from "../shared/access";
 import {
@@ -19,14 +13,6 @@ import {
   firebasePhoneStart,
   type ConfirmationResult,
 } from "../shared/firebase";
-import {
-  supabaseEnabled,
-  supabaseMessage,
-  supabaseResendConfirmation,
-  supabaseSignIn,
-  supabaseSignUp,
-  SupabaseSignInError,
-} from "../shared/supabase";
 export function SessionAccess({
   initialized,
   error,
@@ -57,95 +43,6 @@ export function SessionAccess({
   };
   const [busy, setBusy] = useState(false);
   const setup = initialized === false;
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [notice, setNotice] = useState("");
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState("");
-  const signup = supabaseEnabled && !setup && mode === "signup";
-  const switchMode = (next: "signin" | "signup") => {
-    setMode(next);
-    setMessage("");
-    setNotice("");
-    setAwaitingConfirmation("");
-  };
-  /**
-   * Exchanges a Supabase access token for a KIT session. The server verifies
-   * the token and reads the approved role from the database, so a pending
-   * account is refused here no matter what the browser holds.
-   */
-  const exchangeSupabase = async (accessToken: string) => {
-    try {
-      const result = await api<{ user: WorkspaceUser; csrf: string }>(
-        "/login/supabase",
-        {
-          method: "POST",
-          body: {
-            accessToken,
-            recaptchaToken: await recaptchaToken("LOGIN"),
-          },
-        },
-      );
-      await authenticated(result.user, result.csrf);
-      return true;
-    } catch (err) {
-      // "Waiting for approval" is the expected answer for a new account, so it
-      // is reported as a status rather than as a failure.
-      const failure = err as ApiError;
-      if (failure.status === 403) setNotice(failure.message);
-      else setMessage(failure.message);
-      return false;
-    }
-  };
-  const viaSupabase = async (email: string, password: string) => {
-    let accessToken: string;
-    try {
-      accessToken = await supabaseSignIn(email, password);
-    } catch (err) {
-      // The owner created by POST /api/setup has a server password and no
-      // Supabase account, so that path stays available.
-      if (err instanceof SupabaseSignInError && err.status === 400) {
-        try {
-          const result = await api<{ user: WorkspaceUser; csrf: string }>(
-            "/login",
-            {
-              method: "POST",
-              body: {
-                email,
-                password,
-                recaptchaToken: await recaptchaToken("LOGIN"),
-              },
-            },
-          );
-          await authenticated(result.user, result.csrf);
-          return;
-        } catch {
-          setMessage(supabaseMessage(err));
-          return;
-        }
-      }
-      setMessage(supabaseMessage(err));
-      return;
-    }
-    await exchangeSupabase(accessToken);
-  };
-  const register = async (email: string, password: string, name: string) => {
-    let outcome;
-    try {
-      outcome = await supabaseSignUp(email, password, name);
-    } catch (err) {
-      setMessage(supabaseMessage(err));
-      return;
-    }
-    if (outcome.kind === "confirm-email") {
-      setAwaitingConfirmation(outcome.email);
-      setNotice(
-        `Revisa ${outcome.email} y confirma tu correo. Después, un administrador debe aprobar tu cuenta.`,
-      );
-      return;
-    }
-    // Confirmation is switched off, so the account exists already; the server
-    // still refuses it until an administrator approves it.
-    if (!(await exchangeSupabase(outcome.accessToken))) setMode("signin");
-  };
   const [phoneStep, setPhoneStep] = useState<ConfirmationResult | null>(null);
   const [phoneOpen, setPhoneOpen] = useState(false);
   const recaptcha = useRef<HTMLDivElement>(null);
@@ -190,9 +87,7 @@ export function SessionAccess({
               : "No se pudo conectar con el servidor"
             : setup
               ? "Crea tu espacio de trabajo"
-              : signup
-                ? "Crea tu cuenta"
-                : "Te damos la bienvenida"}
+              : "Te damos la bienvenida"}
         </h1>
         <p>
           {initialized === null
@@ -201,38 +96,10 @@ export function SessionAccess({
               : "Revisa que el servidor de empresa esté en marcha y vuelve a intentarlo."
             : setup
               ? "Crea la cuenta del propietario y un espacio vacío para la empresa."
-              : signup
-                ? "Regístrate y un administrador te asignará un rol para entrar."
-                : "Inicia sesión para acceder a los registros y eventos de tu cuenta."}
+              : "Inicia sesión para acceder a los registros y eventos de tu cuenta."}
         </p>
         {error && !desktopLocal && <ErrorNote>{error}</ErrorNote>}
         {message && <ErrorNote>{message}</ErrorNote>}
-        {notice && (
-          <p className="session-notice">
-            <MailCheck size={15} />
-            <span>{notice}</span>
-          </p>
-        )}
-        {supabaseEnabled && !setup && initialized !== null && (
-          <div className="session-switch">
-            <button
-              type="button"
-              aria-pressed={mode === "signin"}
-              className={mode === "signin" ? "is-current" : ""}
-              onClick={() => switchMode("signin")}
-            >
-              {uiLabel("Sign in")}
-            </button>
-            <button
-              type="button"
-              aria-pressed={mode === "signup"}
-              className={mode === "signup" ? "is-current" : ""}
-              onClick={() => switchMode("signup")}
-            >
-              {uiLabel("Create account")}
-            </button>
-          </div>
-        )}
         {initialized === null ? (
           <div className="session-actions">
             {desktopLocal ? (
@@ -250,19 +117,10 @@ export function SessionAccess({
               event.preventDefault();
               setBusy(true);
               setMessage("");
-              setNotice("");
               const fields = new FormData(event.currentTarget);
               const email = String(fields.get("email"));
               const password = String(fields.get("password"));
               try {
-                if (signup) {
-                  await register(email, password, String(fields.get("name")));
-                  return;
-                }
-                if (supabaseEnabled && !setup) {
-                  await viaSupabase(email, password);
-                  return;
-                }
                 if (firebaseEnabled && !setup) {
                   await viaFirebase(() => firebaseEmailSignIn(email, password));
                   return;
@@ -294,7 +152,7 @@ export function SessionAccess({
               }
             }}
           >
-            {(setup || signup) && (
+            {setup && (
               <Field label={uiLabel("Your name")}>
                 <input
                   required
@@ -324,60 +182,26 @@ export function SessionAccess({
             </Field>
             <Field
               label={uiLabel("Password")}
-              hint={setup || signup ? "Usa al menos 12 caracteres." : undefined}
+              hint={setup ? "Usa al menos 12 caracteres." : undefined}
             >
               <input
                 required
                 name="password"
                 type="password"
-                minLength={setup || signup ? 12 : 1}
+                minLength={setup ? 12 : 1}
                 maxLength={256}
-                autoComplete={
-                  setup || signup ? "new-password" : "current-password"
-                }
+                autoComplete={setup ? "new-password" : "current-password"}
               />
             </Field>
             <Button disabled={busy}>
-              {signup ? <UserPlus size={16} /> : <LogIn size={16} />}
+              <LogIn size={16} />
               {busy
                 ? "Conectando…"
                 : setup
                   ? "Crear espacio de empresa"
-                  : signup
-                    ? "Crear cuenta"
-                    : "Iniciar sesión"}
+                  : "Iniciar sesión"}
             </Button>
-            {signup && (
-              <p className="session-hint">
-                {uiLabel(
-                  "A new account has no access until an administrator approves it and assigns a role.",
-                )}
-              </p>
-            )}
           </form>
-        )}
-        {awaitingConfirmation && (
-          <div className="session-actions">
-            <Button
-              variant="secondary"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  await supabaseResendConfirmation(awaitingConfirmation);
-                  setNotice(
-                    `Te enviamos otro correo de confirmación a ${awaitingConfirmation}.`,
-                  );
-                } catch (err) {
-                  setMessage(supabaseMessage(err));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {uiLabel("Resend the confirmation email")}
-            </Button>
-          </div>
         )}
         {firebaseEnabled && !setup && initialized !== null && (
           <div className="session-actions">

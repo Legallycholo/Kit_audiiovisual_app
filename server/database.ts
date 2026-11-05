@@ -95,10 +95,11 @@ export class Repository {
     ).map(publicUser);
   }
   /**
-   * Mirrors an externally approved account (Supabase Auth) into the local users
-   * table, so every existing scope and authorization check keeps working on a
-   * normal user row. The identity provider owns the role and approval status;
-   * KIT never stores a usable password for these accounts.
+   * Mirrors an externally approved account (an identity provider other than
+   * KIT's own password login) into the local users table, so every existing
+   * scope and authorization check keeps working on a normal user row. The
+   * identity provider owns the role and approval status; KIT never stores a
+   * usable password for these accounts.
    */
   upsertFederatedUser(account: {
     id: string;

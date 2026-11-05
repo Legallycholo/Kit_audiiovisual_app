@@ -26,9 +26,9 @@ export default defineConfig({
   ],
   webServer: {
     // Tests run against the local account path, with no external identity
-    // provider, even when .env enables Firebase, reCAPTCHA or Supabase.
+    // provider, even when .env enables Firebase or reCAPTCHA.
     command:
-      "VITE_FIREBASE_API_KEY= VITE_RECAPTCHA_SITE_KEY= VITE_SUPABASE_URL= VITE_SUPABASE_PUBLISHABLE_KEY= SUPABASE_URL= SUPABASE_SERVICE_ROLE_KEY= npm run dev",
+      "VITE_FIREBASE_API_KEY= VITE_RECAPTCHA_SITE_KEY= npm run dev",
     url: "http://127.0.0.1:5173",
     reuseExistingServer: true,
     timeout: 30_000,

@@ -9,11 +9,6 @@ import { createApp } from "./server/app";
 import { httpSearchProvider, type SearchGateway } from "./server/search";
 import { aiKitGenerator, type KitService } from "./server/kit";
 import { firebaseVerifier } from "./server/firebase-auth";
-import {
-  supabaseAccountReader,
-  supabaseDirectory,
-  supabaseVerifier,
-} from "./server/supabase-auth";
 import { recaptchaVerifier } from "./server/recaptcha";
 import { jsonLogger, parseLogLevel } from "./server/logger";
 
@@ -65,11 +60,6 @@ if (!repo.initialized()) {
 
 const integrations = integrationsFromEnv(process.env);
 const ai = integrations.ai;
-// Supabase Auth signs users in; this server still verifies the token and reads
-// the approved role from the database before it issues a KIT session.
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseReady = Boolean(supabaseUrl && supabaseServiceKey);
 
 let viteMiddleware: express.RequestHandler | undefined;
 if (isDev) {
@@ -86,18 +76,6 @@ const app = createApp(repo, {
   firebaseVerifier: process.env.FIREBASE_PROJECT_ID
     ? firebaseVerifier(process.env.FIREBASE_PROJECT_ID)
     : undefined,
-  supabaseVerifier: supabaseReady
-    ? supabaseVerifier(supabaseUrl!, {
-        jwtSecret: process.env.SUPABASE_JWT_SECRET,
-      })
-    : undefined,
-  supabaseAccount: supabaseReady
-    ? supabaseAccountReader(supabaseUrl!, supabaseServiceKey!)
-    : undefined,
-  supabaseDirectory: supabaseReady
-    ? supabaseDirectory(supabaseUrl!, supabaseServiceKey!)
-    : undefined,
-  supabaseOrigin: supabaseUrl,
   recaptchaVerifier:
     process.env.RECAPTCHA_PROJECT_ID &&
     process.env.RECAPTCHA_API_KEY &&

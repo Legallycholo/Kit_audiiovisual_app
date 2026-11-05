@@ -25,13 +25,6 @@ RUN npm install \
 FROM deps AS build
 WORKDIR /app
 COPY . .
-# VITE_* vars are inlined into the client bundle at build time, not read at
-# runtime — they are the two values .env.example calls "published by design
-# and safe in the client bundle."
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_PUBLISHABLE_KEY
-ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL} \
-    VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
 RUN npm run build
 
 FROM deps AS runtime

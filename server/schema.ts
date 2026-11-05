@@ -734,23 +734,3 @@ export const firebaseLoginSchema = z
   })
   .strict();
 
-export const supabaseLoginSchema = z
-  .object({
-    accessToken: z.string().min(20).max(8192),
-    recaptchaToken: z.string().max(8192).optional(),
-  })
-  .strict();
-
-/** What an administrator may change on a pending or existing registration. */
-export const supabaseAccessSchema = z
-  .object({
-    role: z.enum(roles).nullable().optional(),
-    status: z.enum(["pending", "active", "disabled"]).optional(),
-  })
-  .strict()
-  .refine((value) => value.role !== undefined || value.status !== undefined, {
-    message: "Choose a role or a status to change.",
-  })
-  .refine((value) => value.status !== "active" || Boolean(value.role), {
-    message: "An approved account needs a role.",
-  });
