@@ -11,7 +11,7 @@ end $$;
 
 create trigger user_roles_dashboard_change after update of role on public.user_roles
   for each row
-  when (old.role is distinct from new.role and (select auth.uid()) is null)
+  when (old.role is distinct from new.role and auth.uid() is null)
   execute function public.log_dashboard_role_change();
 
 revoke execute on function public.log_dashboard_role_change() from public, anon, authenticated;
