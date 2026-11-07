@@ -84,19 +84,19 @@ export function Login() {
           <Button disabled={busy || !supabaseConfigured}>
             {busy ? "Entrando…" : "Iniciar sesión"}
           </Button>
-          <div className="flex justify-between text-sm">
+          <div className="text-right text-sm">
             <Link
               className="text-k-primary hover:underline"
               to="/portal/forgot-password"
             >
               ¿Olvidaste tu contraseña?
             </Link>
-            <Link
-              className="text-k-primary hover:underline"
-              to="/portal/signup"
-            >
-              Crear cuenta
-            </Link>
+          </div>
+          <div className="grid gap-3 border-t border-k-border pt-4 text-center">
+            <p className="text-sm text-k-muted">¿Aún no tienes cuenta?</p>
+            <Button asChild variant="outline">
+              <Link to="/portal/signup">Crear cuenta</Link>
+            </Button>
           </div>
         </form>
       </CardContent>

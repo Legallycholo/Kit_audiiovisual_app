@@ -163,6 +163,13 @@ export function SessionAccess({
             </Button>
           </form>
         )}
+        {initialized !== null && !setup && !desktopLocal && (
+          <div className="session-actions">
+            <a className="button secondary" href="/portal/signup">
+              Crear cuenta de cliente
+            </a>
+          </div>
+        )}
         {enterWithoutBackend && (
           <div className="session-actions">
             <Button variant="secondary" onClick={enterWithoutBackend}>
