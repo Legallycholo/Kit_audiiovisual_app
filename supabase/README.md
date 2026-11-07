@@ -19,6 +19,13 @@ update public.user_roles
 Every other role change is made from `/portal/admin/users`, which calls `admin_set_role` and records who
 changed what and why. The last admin cannot be demoted.
 
+## Change a user's role from the dashboard
+
+Table Editor → `user_roles` → click the `role` cell of that user → choose `user`, `client` or `admin`.
+(Find the user by `user_id`; the same id is in Authentication → Users and in `profiles` next to the email.)
+The change is recorded in `user_status_events` as "changed in Supabase dashboard". The last-admin guard only
+applies to changes made through the portal, so keep at least one admin yourself.
+
 ## Dashboard settings to review (cannot be set from SQL)
 
 - Authentication → URL Configuration: add `http://localhost:3001/portal/**` and the Fly URL to Redirect URLs.
