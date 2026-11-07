@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  CalendarCheck,
   History,
   ShieldCheck,
   UserCog,
@@ -62,10 +63,17 @@ export function AdminDashboard() {
         eyebrow={uiLabel("Access and roles")}
         title="Administración"
         actions={
-          <Link className="button primary" to="/settings/users">
-            <UserCog size={17} />
-            {uiLabel("Manage users")}
-          </Link>
+          <>
+            {/* The portal is a separate app, so a plain link (full page load). */}
+            <a className="button" href="/portal/admin">
+              <CalendarCheck size={17} />
+              Abrir portal de reservas
+            </a>
+            <Link className="button primary" to="/settings/users">
+              <UserCog size={17} />
+              {uiLabel("Manage users")}
+            </Link>
+          </>
         }
       />
       {error && <ErrorNote>{error}</ErrorNote>}

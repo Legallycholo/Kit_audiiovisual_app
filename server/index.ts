@@ -1,4 +1,5 @@
 import { aiProposalGenerator } from "./proposal-ai";
+import { supabaseVerifier } from "./supabase-auth";
 import { integrationsFromEnv } from "./integrations";
 import { aiFloorPlanExtractor } from "./design";
 import { resolve } from "node:path";
@@ -23,6 +24,13 @@ const ai = integrations.ai;
 const app = createApp(repo, {
   logger: jsonLogger(parseLogLevel(process.env.KIT_LOG_LEVEL)),
   integrations,
+  supabaseVerifier:
+    process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY
+      ? supabaseVerifier(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_PUBLISHABLE_KEY,
+        )
+      : undefined,
   recaptchaVerifier:
     process.env.RECAPTCHA_PROJECT_ID &&
     process.env.RECAPTCHA_API_KEY &&

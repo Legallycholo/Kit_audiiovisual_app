@@ -24,7 +24,7 @@ Before committing, run typecheck, `npm test` and `npm run test:browser`. Compare
 ## Rules
 
 - **No external calls.** Never make live AI, WhatsApp, cloud or provider requests, and never add credentials. Tests use explicit fixtures at the model and messaging boundaries.
-  - **Exception (owner-approved 2026-11-06): the portal** (`src/portal/`, `supabase/`) may call the company's own Supabase project (`hgugkgbpsrbqusazmthb`) with the public publishable key only. The secret key stays in `.env` and Edge Function secrets, is never read by `vite.config.ts` and never reaches the browser. Everything else above still applies.
+  - **Exception (owner-approved 2026-11-06): the portal** (`src/portal/`, `supabase/`) may call the company's own Supabase project (`hgugkgbpsrbqusazmthb`) with the public publishable key only. The secret key stays in `.env` and Edge Function secrets, is never read by `vite.config.ts` and never reaches the browser. The company server may also call that same project, with the public key and the user's own token only, to verify a portal administrator on `POST /api/login/supabase` (single login for admins; added 2026-11-06 with owner approval). Everything else above still applies.
 - **Never touch** `data/` (real company SQLite), `.env*`, or `node_modules/`. Supabase Postgres is a separate store from `data/`; the SQLite format is unchanged.
 - **No push or deploy** without explicit user approval.
 - **Refactors do not change behavior.** Moves and extractions keep exported names, API routes and response shapes identical. If a test must change, stop and explain.

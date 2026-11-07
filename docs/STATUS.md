@@ -8,6 +8,8 @@ Updated: October 17, 2026. One-page summary. Detailed evidence per requirement: 
 - **Desktop app (Tauri):** milestones 1–2 (shell, hubs, tabs) and 5 (shared KIT conversations) are implemented. Milestones 3–4 (local file index, search) are implemented with release gates outstanding. Milestone 6 (design pipeline) has a provider-neutral foundation. Milestone 7 (sync and recovery) has started. See [DESKTOP.md](DESKTOP.md).
 - **Nothing is deployed.** No live AI call, WhatsApp message, or cloud upload has been made.
 
+- **Portal (Supabase):** accounts, roles, bookings and mock dashboards on `feature/backend-dashboards`; a portal admin signs in once and lands in the workspace (`POST /api/login/supabase`). See [backend-dashboards/implementation_plan.md](backend-dashboards/implementation_plan.md).
+
 ## What is verified
 
 - Automated: typecheck, 150 unit/API tests (plus 1 expected failure documenting a half-cent rounding issue), 48 Playwright browser journeys including axe accessibility checks, and an offline AI-drafting evaluation harness. Details in [CLEANUP_LOG.md](CLEANUP_LOG.md).

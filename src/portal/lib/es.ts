@@ -7,6 +7,7 @@ export const es = {
     admin: "Panel",
     users: "Usuarios",
     profile: "Perfil",
+    workspace: "Espacio de trabajo",
     signOut: "Cerrar sesión",
     mainNav: "Navegación principal",
   },

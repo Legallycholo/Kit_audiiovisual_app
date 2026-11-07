@@ -13,13 +13,18 @@ export function PortalShell() {
   const navigate = useNavigate();
   const role = account?.role ?? "user";
 
-  const links =
+  const links: {
+    to: string;
+    label: string;
+    end?: boolean;
+    external?: boolean;
+  }[] =
     role === "admin"
       ? [
           { to: "/portal/admin", label: es.nav.admin, end: true },
           { to: "/portal/admin/users", label: es.nav.users },
-          { to: "/portal/book", label: es.nav.book },
-          { to: "/portal/profile", label: es.nav.profile },
+          // A different app (full page load): the company workspace.
+          { to: "/", label: es.nav.workspace, external: true },
         ]
       : role === "client"
         ? [
@@ -41,23 +46,33 @@ export function PortalShell() {
             aria-label={es.nav.mainNav}
             className="flex flex-1 gap-1 overflow-x-auto"
           >
-            {links.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                end={link.end}
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-k-sm px-3 py-1.5 text-sm font-medium whitespace-nowrap",
-                    isActive
-                      ? "bg-k-primary-subtle text-k-primary"
-                      : "text-k-muted hover:text-k-text",
-                  )
-                }
-              >
-                {link.label}
-              </NavLink>
-            ))}
+            {links.map((link) =>
+              link.external ? (
+                <a
+                  key={link.to}
+                  href={link.to}
+                  className="rounded-k-sm px-3 py-1.5 text-sm font-medium whitespace-nowrap text-k-muted no-underline hover:text-k-text"
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  end={link.end}
+                  className={({ isActive }) =>
+                    cn(
+                      "rounded-k-sm px-3 py-1.5 text-sm font-medium whitespace-nowrap",
+                      isActive
+                        ? "bg-k-primary-subtle text-k-primary"
+                        : "text-k-muted hover:text-k-text",
+                    )
+                  }
+                >
+                  {link.label}
+                </NavLink>
+              ),
+            )}
           </nav>
           <div className="flex items-center gap-3">
             <span className="hidden text-sm text-k-muted sm:inline">

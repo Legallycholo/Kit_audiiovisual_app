@@ -40,6 +40,13 @@ You asked to start with the database, roles, login/sign-up and a mock admin/user
 | End-to-end browser test with real accounts                      | **Blocked**                     | Creating throwaway users in the live auth tables was denied by the permission system. Needs either your OK, or you sign up two accounts by hand (see `supabase/README.md`).                                                                                    |
 | Admin created manually                                          | Pending you                     | One SQL line, documented in `supabase/README.md`.                                                                                                                                                                                                              |
 
+### Admin single login and workspace navigation (added 2026-11-06)
+
+- A portal **admin** who signs in is taken straight to the **workspace home** (`/`). The portal sends the Supabase access token to `POST /api/login/supabase`; the server verifies it against the project, reads the role and status with the user's own token (RLS), and issues the normal workspace session. Only a verified-email, active, `admin` account passes. An existing workspace user keeps their own role; otherwise a workspace Administrator is created (never the owner; `/api/setup` stays the only way to create the first account). If the hand-over fails, the admin gets the portal dashboard instead of an error page.
+- Portal pages are a **section of the workspace** for admins: sidebar footer "Portal de reservas" and a button on the workspace Administración page open `/portal/admin`; the portal nav has "Espacio de trabajo" and the portal dashboard has "Abrir espacio de trabajo" and "Crear reserva".
+- The workspace password login at `/` is unchanged. Non-admin portal users never reach the workspace (the endpoint returns 401 for them). This resolves risk R2 for admins.
+- Roles stay in `user_roles` (the idea of a `role` column on `profiles` was dropped by the owner). To change a role in Supabase use Table Editor -> `user_roles`.
+
 ### Deviations from the original plan (and why)
 
 1. **No local Supabase stack.** This machine has no Docker or Supabase CLI. Migrations were applied to the hosted project through the Supabase connector and tested in rolled-back transactions. Phase 1's `supabase start` and the Playwright-against-local-stack idea in §9 stay open until Docker is installed. Until then, browser tests that need accounts would run against the live project with throwaway users, which needs your approval each time.

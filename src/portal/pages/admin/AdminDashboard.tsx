@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { EmptyState, PageHeader, Spinner } from "../../components/PageHeader";
 import { Badge, bookingTone } from "../../components/ui/badge";
@@ -134,6 +135,16 @@ export function AdminDashboard() {
       <PageHeader
         title="Panel de administración"
         description="Resumen de usuarios y reservas."
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <a href="/">Abrir espacio de trabajo</a>
+            </Button>
+            <Button asChild>
+              <Link to="/portal/book">Crear reserva</Link>
+            </Button>
+          </>
+        }
       />
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map(([label, value]) => (

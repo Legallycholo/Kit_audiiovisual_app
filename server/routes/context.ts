@@ -6,6 +6,7 @@ import type { ProposalGenerator } from "../proposal-ai";
 import type { MessageTransport } from "../messaging";
 import type { FloorPlanExtractor } from "../design";
 import type { RecaptchaVerifier } from "../recaptcha";
+import type { SupabaseVerifier } from "../supabase-auth";
 import type { Logger } from "../logger";
 import type { IntegrationsConfig } from "../integrations";
 import type { WorkspaceResponse } from "../../src/shared/access";
@@ -23,6 +24,8 @@ export type AppConfig = {
   logger?: Logger;
   /** Requires a valid reCAPTCHA Enterprise token on sign-in when set. */
   recaptchaVerifier?: RecaptchaVerifier;
+  /** Lets a verified portal (Supabase) administrator enter the workspace without a second login. */
+  supabaseVerifier?: SupabaseVerifier;
   /** Connection settings shown in Settings › Integraciones. */
   integrations?: IntegrationsConfig;
 };

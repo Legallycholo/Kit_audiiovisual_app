@@ -2,6 +2,7 @@ import { createServer as createViteServer } from "vite";
 import type express from "express";
 import { resolve } from "node:path";
 import { aiProposalGenerator } from "./server/proposal-ai";
+import { supabaseVerifier } from "./server/supabase-auth";
 import { integrationsFromEnv } from "./server/integrations";
 import { aiFloorPlanExtractor } from "./server/design";
 import { Repository } from "./server/database";
@@ -72,6 +73,13 @@ if (isDev) {
 const app = createApp(repo, {
   logger: jsonLogger(parseLogLevel(process.env.KIT_LOG_LEVEL)),
   integrations,
+  supabaseVerifier:
+    process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY
+      ? supabaseVerifier(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_PUBLISHABLE_KEY,
+        )
+      : undefined,
   recaptchaVerifier:
     process.env.RECAPTCHA_PROJECT_ID &&
     process.env.RECAPTCHA_API_KEY &&

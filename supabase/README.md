@@ -19,7 +19,7 @@ update public.user_roles
 Every other role change is made from `/portal/admin/users`, which calls `admin_set_role` and records who
 changed what and why. The last admin cannot be demoted.
 
-## Change a user's role from the dashboard
+## Change a user's role from the dashboard (roles live in `user_roles`)
 
 Table Editor → `user_roles` → click the `role` cell of that user → choose `user`, `client` or `admin`.
 (Find the user by `user_id`; the same id is in Authentication → Users and in `profiles` next to the email.)

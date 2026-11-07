@@ -8,7 +8,7 @@ import {
   passwordMatches,
   rateLimit,
 } from "../security";
-import { loginSchema, setupSchema } from "../schema";
+import { loginSchema, setupSchema, supabaseLoginSchema } from "../schema";
 import type { AppConfig, RouteContext } from "./context";
 
 async function requireHuman(config: AppConfig, token?: string) {
@@ -19,8 +19,7 @@ async function requireHuman(config: AppConfig, token?: string) {
   } catch {
     // An unreachable verifier fails closed.
   }
-  if (!human)
-    throw new HttpError(403, "The security check failed. Try again.");
+  if (!human) throw new HttpError(403, "The security check failed. Try again.");
 }
 
 export function mountAuthRoutes(
@@ -84,6 +83,57 @@ export function mountAuthRoutes(
       Boolean(config.secureCookies),
     );
     repo.audit(row.id, "User signed in", row.email);
+    res.json({ user: publicUser(row), csrf });
+  });
+  app.post("/api/login/supabase", async (req, res) => {
+    if (!config.supabaseVerifier)
+      throw new HttpError(404, "Portal sign-in is not configured.");
+    rateLimit(repo, `login:${req.ip}`);
+    const { accessToken } = supabaseLoginSchema.parse(req.body);
+    let identity;
+    try {
+      identity = await config.supabaseVerifier(accessToken);
+    } catch {
+      throw new HttpError(401, "The sign-in could not be verified.");
+    }
+    // Supabase proves who signed in; the workspace still decides who may enter.
+    // Only a verified, active portal administrator may.
+    if (
+      !identity.emailVerified ||
+      identity.portalRole !== "admin" ||
+      identity.accountStatus !== "active"
+    )
+      throw new HttpError(
+        401,
+        "This account does not have access to the workspace.",
+      );
+    // The owner account is only ever created by /api/setup.
+    if (!repo.initialized())
+      throw new HttpError(409, "Create the company workspace first.");
+    let row = repo.userByEmail(identity.email);
+    if (row && !row.active)
+      throw new HttpError(
+        401,
+        "This account does not have access to the workspace.",
+      );
+    // An existing workspace user keeps their own role; a new one is an Administrator.
+    row ??= repo.upsertFederatedUser({
+      id: randomUUID(),
+      email: identity.email,
+      name: identity.name || identity.email,
+      role: "Administrator",
+      isOwner: false,
+      eventIds: [],
+      sharedProposalIds: [],
+    });
+    destroySession(repo, req, res, Boolean(config.secureCookies));
+    const csrf = createSession(
+      repo,
+      row.id,
+      res,
+      Boolean(config.secureCookies),
+    );
+    repo.audit(row.id, "User signed in with the portal", row.email);
     res.json({ user: publicUser(row), csrf });
   });
   app.post("/api/logout", (req, res) => {

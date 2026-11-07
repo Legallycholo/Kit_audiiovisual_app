@@ -716,6 +716,10 @@ export const setupSchema = z
     company: name,
   })
   .strict();
+export const supabaseLoginSchema = z
+  .object({ accessToken: z.string().min(20).max(8192) })
+  .strict();
+
 export const loginSchema = z
   .object({
     email: z
@@ -726,4 +730,3 @@ export const loginSchema = z
     recaptchaToken: z.string().max(8192).optional(),
   })
   .strict();
-

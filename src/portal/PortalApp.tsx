@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { toast } from "sonner";
+import { enterWorkspace } from "./lib/workspace";
 import { PortalShell } from "./layouts/PortalShell";
 import { PublicLayout } from "./layouts/PublicLayout";
 import { Spinner } from "./components/PageHeader";
@@ -52,6 +55,31 @@ function RequireAuth({ roles }: { roles?: AppRole[] }) {
   return <Outlet />;
 }
 
+/** An administrator is the boss of the workspace: sign them in there and open its home. */
+function EnterWorkspace({ accessToken }: { accessToken: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void enterWorkspace(accessToken).then((ok) => {
+      if (cancelled) return;
+      if (ok) {
+        window.location.assign("/");
+      } else {
+        toast.error(
+          "No se pudo abrir el espacio de trabajo. Abrimos el panel del portal.",
+        );
+        setFailed(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+  // If the hand-over fails the admin still gets the portal dashboard, never a dead end.
+  if (failed) return <Navigate to="/portal/admin" replace />;
+  return <Spinner label="Entrando al espacio de trabajo…" />;
+}
+
 /** Sends visitors to the right home, or to login. */
 function Home() {
   const { loading, session, account } = useAuth();
@@ -59,6 +87,8 @@ function Home() {
   if (!session || !account) return <Navigate to="/portal/login" replace />;
   if (account.profile.account_status !== "active")
     return <Navigate to="/portal/account-status" replace />;
+  if (account.role === "admin")
+    return <EnterWorkspace accessToken={session.access_token} />;
   return <Navigate to={homeFor(account.role)} replace />;
 }
 

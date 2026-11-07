@@ -15,6 +15,7 @@ import {
   CircleHelp,
   ExternalLink,
   LogOut,
+  CalendarCheck,
   PanelLeftClose,
   PanelLeftOpen,
   RefreshCw,
@@ -204,22 +205,18 @@ export function Sidebar({
           </li>
           {bookingUrl && (
             <li>
-              <SidebarRowTooltip compact={compact} label="Página de reservas">
+              <SidebarRowTooltip compact={compact} label="Portal de reservas">
+                {/* The portal is a separate app (full page load, same tab). */}
                 <a
                   className="sidebar-row"
                   href={bookingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   aria-label={
-                    compact ? uiLabel("Página de reservas") : undefined
+                    compact ? uiLabel("Portal de reservas") : undefined
                   }
                 >
-                  <ExternalLink size={18} aria-hidden="true" />
+                  <CalendarCheck size={18} aria-hidden="true" />
                   <span className="sidebar-label">
-                    {uiLabel("Página de reservas")}
-                  </span>
-                  <span className="sidebar-trailing">
-                    <ExternalLink size={14} aria-hidden="true" />
+                    {uiLabel("Portal de reservas")}
                   </span>
                 </a>
               </SidebarRowTooltip>
