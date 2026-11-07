@@ -45,7 +45,11 @@ You asked to start with the database, roles, login/sign-up and a mock admin/user
 - A portal **admin** who signs in is taken straight to the **workspace home** (`/`). The portal sends the Supabase access token to `POST /api/login/supabase`; the server verifies it against the project, reads the role and status with the user's own token (RLS), and issues the normal workspace session. Only a verified-email, active, `admin` account passes. An existing workspace user keeps their own role; otherwise a workspace Administrator is created (never the owner; `/api/setup` stays the only way to create the first account). If the hand-over fails, the admin gets the portal dashboard instead of an error page.
 - Portal pages are a **section of the workspace** for admins: sidebar footer "Portal de reservas" and a button on the workspace Administración page open `/portal/admin`; the portal nav has "Espacio de trabajo" and the portal dashboard has "Abrir espacio de trabajo" and "Crear reserva".
 - The workspace password login at `/` is unchanged. Non-admin portal users never reach the workspace (the endpoint returns 401 for them). This resolves risk R2 for admins.
-- Roles stay in `user_roles` (the idea of a `role` column on `profiles` was dropped by the owner). To change a role in Supabase use Table Editor -> `user_roles`.
+- The role is a **column of `profiles`** (decided 2026-11-07; `user_roles` is deleted by migration 9), so role and account status are edited in one place: Table Editor -> `profiles`. Users cannot write those columns (column-level grants).
+
+### Pending: owner runs migration 9 (2026-11-07)
+
+The app already reads `profiles.role`. Migration `20261106000009_move_role_to_profiles.sql` (adds the column, repoints the functions, deletes `user_roles`) must be run once in the Supabase SQL editor; the hosted-project connector declined to apply it. Until it runs, portal sign-in cannot read roles. After it runs, set the first admin with `update public.profiles set role = 'admin' where email = '...';`.
 
 ### Deviations from the original plan (and why)
 
@@ -264,7 +268,7 @@ Helper functions (`security definer`, stable, `search_path` fixed): `is_admin()`
 - Password policy and rate limits configured in Supabase Auth settings.
 - Custom Access Token hook adds `app_role` and `account_status` claims.
 - Ban = Supabase `ban_duration` set via Admin API **and** `profiles.account_status = 'banned'` (belt and braces; RLS reads the table).
-- Sign-up trigger: create `profiles` row + `user_roles(role='user')` + `login_events(signup)`.
+- Sign-up trigger: create `profiles` row (role `user`) + `login_events(signup)`.
 - Promotion trigger: on first `bookings` insert by a `user`, set role to `client` and write `user_status_events(role_changed, reason='first_booking')`. Runs `security definer` so users still cannot write roles.
 - First admin: created by a one-time SQL statement documented in `ENV.md` (never through the UI).
 

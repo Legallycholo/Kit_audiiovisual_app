@@ -26,6 +26,7 @@ export type BookingStatus =
 export interface Profile {
   id: string;
   email: string | null;
+  role: AppRole;
   full_name: string | null;
   phone: string | null;
   company: string | null;

@@ -26,16 +26,15 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 async function loadAccount(userId: string): Promise<Account | null> {
-  const [profile, role] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
-  if (profile.error || role.error || !profile.data || !role.data) return null;
-  return { profile: profile.data as Profile, role: role.data.role as AppRole };
+  // The role is a column of profiles (users can read it but never write it).
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const profile = data as Profile;
+  return { profile, role: profile.role };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

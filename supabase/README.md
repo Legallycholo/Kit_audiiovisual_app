@@ -11,19 +11,19 @@ rolled-back SQL transactions.
 2. In the SQL editor run (replace the email):
 
 ```sql
-update public.user_roles
+update public.profiles
    set role = 'admin'
- where user_id = (select id from auth.users where email = 'you@example.com');
+ where email = 'you@example.com';
 ```
 
-Every other role change is made from `/portal/admin/users`, which calls `admin_set_role` and records who
+Every other role change is made in the `profiles` table or from `/portal/admin/users`, which calls `admin_set_role` and records who
 changed what and why. The last admin cannot be demoted.
 
-## Change a user's role from the dashboard (roles live in `user_roles`)
+## Change a user's role from the dashboard
 
-Table Editor → `user_roles` → click the `role` cell of that user → choose `user`, `client` or `admin`.
-(Find the user by `user_id`; the same id is in Authentication → Users and in `profiles` next to the email.)
-The change is recorded in `user_status_events` as "changed in Supabase dashboard". The last-admin guard only
+Table Editor → `profiles` → click the `role` cell of that person (the email is in the same row) → choose
+`user`, `client` or `admin`. `account_status` (`active`, `rejected`, `banned`…) is in the same table. Both
+changes are recorded in `user_status_events` as "changed in Supabase dashboard". The last-admin guard only
 applies to changes made through the portal, so keep at least one admin yourself.
 
 ## Dashboard settings to review (cannot be set from SQL)

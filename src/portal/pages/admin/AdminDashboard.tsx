@@ -65,8 +65,8 @@ export function AdminDashboard() {
         ),
         count(
           supabase
-            .from("user_roles")
-            .select("user_id", { count: "exact", head: true })
+            .from("profiles")
+            .select("id", { count: "exact", head: true })
             .eq("role", "client"),
         ),
         count(

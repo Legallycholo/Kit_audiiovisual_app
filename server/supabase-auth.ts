@@ -41,20 +41,19 @@ export function supabaseVerifier(
     };
     if (!user.id || !user.email) throw new Error("no user");
     const id = encodeURIComponent(user.id);
-    const [roles, profiles] = (await Promise.all([
-      get(`/rest/v1/user_roles?user_id=eq.${id}&select=role`, accessToken),
-      get(
-        `/rest/v1/profiles?id=eq.${id}&select=account_status,full_name`,
-        accessToken,
-      ),
-    ])) as [
-      { role?: PortalRole }[],
-      { account_status?: string; full_name?: string | null }[],
-    ];
+    // Role and status live on the same profiles row; the user's own token reads it (RLS).
+    const profiles = (await get(
+      `/rest/v1/profiles?id=eq.${id}&select=role,account_status,full_name`,
+      accessToken,
+    )) as {
+      role?: PortalRole;
+      account_status?: string;
+      full_name?: string | null;
+    }[];
     return {
       email: user.email,
       emailVerified: Boolean(user.email_confirmed_at),
-      portalRole: roles[0]?.role ?? "user",
+      portalRole: profiles[0]?.role ?? "user",
       accountStatus: profiles[0]?.account_status ?? "unknown",
       name: profiles[0]?.full_name || undefined,
     };

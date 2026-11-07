@@ -38,23 +38,12 @@ export function AdminUsers() {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [profiles, roles] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false }),
-      supabase.from("user_roles").select("user_id,role"),
-    ]);
-    if (profiles.error || roles.error) toast.error(es.errors.generic);
-    const byId = new Map(
-      (roles.data ?? []).map((r) => [r.user_id as string, r.role as AppRole]),
-    );
-    setRows(
-      ((profiles.data as Profile[] | null) ?? []).map((p) => ({
-        ...p,
-        role: byId.get(p.id) ?? "user",
-      })),
-    );
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) toast.error(es.errors.generic);
+    setRows((data as Row[] | null) ?? []);
   }, []);
   useEffect(() => {
     void load();
