@@ -23,3 +23,10 @@ These are implementation choices made after the user's instruction to begin deve
 - **Verification boundary:** API/domain tests cover authentication, scope, atomic reservations, version protection, model-output validation and failure handling. Browser tests use real isolated API/database instances and an explicit substitute only for model generation. This does not prove live model quality or delivery.
 
 The Responses request shape follows [OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs). Production hosting, company-authorized provider configuration, managed secrets, backup/recovery and operational support still require completion.
+
+## Supabase portal (2026-11-06)
+
+- Commit `9ed9d10` removed an earlier Supabase _workspace-login_ integration, and Firebase sign-in was then removed too. Supabase now returns with a different scope: the public booking layer only (accounts, roles, bookings, availability, history, media buckets). The workspace keeps its local password login and SQLite data.
+- Roles live in `user_roles`, never in profile fields. Role, account status, bookings and sessions are written only through `SECURITY DEFINER` RPCs; history tables are append-only.
+- Portal and workspace are separate bundles so Tailwind and the portal CSS never touch the workspace.
+- Details: `docs/backend-dashboards/implementation_plan.md`.

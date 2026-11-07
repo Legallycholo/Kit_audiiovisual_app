@@ -30,6 +30,17 @@ export function createApp(repo: Repository, config: AppConfig) {
   // Without a configured logger only failures are reported, as before.
   const logger = config.logger ?? jsonLogger("warn");
   app.disable("x-powered-by");
+  // The portal talks to its own Supabase project from the browser (public key only).
+  const supabaseOrigin = (() => {
+    try {
+      return new URL(process.env.SUPABASE_URL ?? "").origin;
+    } catch {
+      return "";
+    }
+  })();
+  const supabaseConnect = supabaseOrigin
+    ? ` ${supabaseOrigin} ${supabaseOrigin.replace(/^https/, "wss")}`
+    : "";
   app.use((req, res, next) => {
     const requestId = randomUUID();
     const started = performance.now();
@@ -53,7 +64,8 @@ export function createApp(repo: Repository, config: AppConfig) {
       "Content-Security-Policy":
         "default-src 'self' 'unsafe-inline' blob:; " +
         (isApi ? "frame-ancestors 'none'; " : "") +
-        "base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://www.google.com https://accounts.google.com; connect-src 'self' blob: ws: wss: https://www.google.com",
+        "base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://www.google.com https://accounts.google.com; connect-src 'self' blob: ws: wss: https://www.google.com" +
+        supabaseConnect,
       "Permissions-Policy":
         "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
       "Cache-Control": "no-store",

@@ -24,7 +24,8 @@ Before committing, run typecheck, `npm test` and `npm run test:browser`. Compare
 ## Rules
 
 - **No external calls.** Never make live AI, WhatsApp, cloud or provider requests, and never add credentials. Tests use explicit fixtures at the model and messaging boundaries.
-- **Never touch** `data/` (real company SQLite), `.env*`, or `node_modules/`.
+  - **Exception (owner-approved 2026-11-06): the portal** (`src/portal/`, `supabase/`) may call the company's own Supabase project (`hgugkgbpsrbqusazmthb`) with the public publishable key only. The secret key stays in `.env` and Edge Function secrets, is never read by `vite.config.ts` and never reaches the browser. Everything else above still applies.
+- **Never touch** `data/` (real company SQLite), `.env*`, or `node_modules/`. Supabase Postgres is a separate store from `data/`; the SQLite format is unchanged.
 - **No push or deploy** without explicit user approval.
 - **Refactors do not change behavior.** Moves and extractions keep exported names, API routes and response shapes identical. If a test must change, stop and explain.
 - **Ask before** deleting files, changing an API route or response shape, or changing the on-disk database format.
@@ -39,6 +40,8 @@ Before committing, run typecheck, `npm test` and `npm run test:browser`. Compare
 - `src/shared/` — domain records/calculations, access policy, API/store boundary, interface labels, sample data and common UI.
 - `server/` — authenticated API, validation, SQLite persistence, authorization, proposal generation adapter and tests.
 - `src-tauri/` — desktop shell and native file commands.
+- `src/portal/` — Supabase booking portal (auth, roles, client/admin dashboards). Separate bundle (entry split in `src/main.tsx`), Tailwind + shadcn-style components with `k-` prefixed tokens. Plan: `docs/backend-dashboards/implementation_plan.md`.
+- `supabase/` — SQL migrations (applied to the hosted project), see `supabase/README.md`.
 - `native/file-index/` — encrypted local file index (Rust, SQLCipher).
 - `tests/browser/` — sample/company journeys, responsive/print and accessibility checks.
 - `docs/` — product plan, technical decisions and implementation evidence. Cleanup plan: `docs/claude-cleanup.md`.

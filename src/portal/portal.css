@@ -1,0 +1,110 @@
+/*
+ * Portal styles. Tailwind is loaded WITHOUT its global reset and without
+ * scanning the workspace, and every Tailwind name is prefixed `k-` so it can
+ * never collide with (or overwrite) the KIT tokens in src/shared/tokens.css.
+ * Rule: no raw hex values here; map to tokens only.
+ */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "./";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-k-bg: var(--color-bg);
+  --color-k-text: var(--color-text);
+  --color-k-muted: var(--color-text-muted);
+  --color-k-card: var(--color-elevated);
+  --color-k-surface: var(--color-surface);
+  --color-k-border: var(--color-border);
+  --color-k-border-strong: var(--color-border-strong);
+  --color-k-primary: var(--color-primary);
+  --color-k-primary-hover: var(--color-primary-hover);
+  --color-k-on-primary: var(--color-on-primary);
+  --color-k-primary-subtle: var(--color-primary-subtle);
+  --color-k-success: var(--color-success);
+  --color-k-success-subtle: var(--color-success-subtle);
+  --color-k-warning: var(--color-warning);
+  --color-k-warning-subtle: var(--color-warning-subtle);
+  --color-k-danger: var(--color-danger);
+  --color-k-danger-subtle: var(--color-danger-subtle);
+  --color-k-info: var(--color-info);
+  --color-k-info-subtle: var(--color-info-subtle);
+  --color-k-focus: var(--color-focus);
+  --color-k-overlay: var(--color-overlay);
+  --radius-k-sm: var(--radius-sm);
+  --radius-k-md: var(--radius-md);
+  --radius-k-lg: var(--radius-lg);
+  --font-k-heading: var(--font-heading);
+  --font-k-body: var(--font-body);
+}
+
+/* Base (unlayered on purpose: tokens, not a Tailwind reset). */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+.portal-root {
+  min-height: 100vh;
+}
+.portal-scope,
+.portal-scope *,
+.portal-scope *::before,
+.portal-scope *::after {
+  box-sizing: border-box;
+  border-color: var(--color-border);
+}
+.portal-scope button,
+.portal-scope input,
+.portal-scope select,
+.portal-scope textarea {
+  font-family: inherit;
+}
+.portal-scope h1,
+.portal-scope h2,
+.portal-scope h3 {
+  font-family: var(--font-heading);
+  margin: 0;
+}
+.portal-scope p {
+  margin: 0;
+}
+.portal-scope :focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.portal-glass {
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border-subtle);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--backdrop-blur);
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-scope * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Wordmark (same rules as src/shared/ui/components.css, which the portal does not load). */
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text);
+}
+.wordmark-mark {
+  display: block;
+  overflow: visible;
+}
+.wordmark-dot {
+  fill: var(--color-text);
+}
