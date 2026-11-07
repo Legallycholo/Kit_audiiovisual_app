@@ -101,9 +101,3 @@ export function useAuth(): AuthState {
   if (!value) throw new Error("useAuth must be used inside AuthProvider");
   return value;
 }
-
-export function homeFor(role: AppRole): string {
-  if (role === "admin") return "/portal/admin";
-  if (role === "client") return "/portal/client";
-  return "/portal/book";
-}

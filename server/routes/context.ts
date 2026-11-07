@@ -28,10 +28,16 @@ export type AppConfig = {
   supabaseVerifier?: SupabaseVerifier;
   /** Connection settings shown in Settings › Integraciones. */
   integrations?: IntegrationsConfig;
+  /** Express "trust proxy" setting. Needed behind Vercel so req.ip is the real client (login rate limits). */
+  trustProxy?: boolean | number;
+  /** Interrupt AI jobs left running by a previous process at startup. Off on serverless (see KitService). */
+  resetBusyOnBoot?: boolean;
+  /** Bearer secret for the cron route (Vercel sends CRON_SECRET). Without it the route answers 503. */
+  cronSecret?: string;
 };
 
 export type RouteContext = {
   repo: Repository;
   config: AppConfig;
-  response: (res: express.Response) => WorkspaceResponse;
+  response: (res: express.Response) => Promise<WorkspaceResponse>;
 };

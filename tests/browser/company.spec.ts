@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
   failGeneration = false;
   offlinePatches = false;
   deliveredMessages.length = 0;
-  repo = new Repository(":memory:");
+  repo = await Repository.open("memory://");
   server = createApp(repo, {
     origins: ["http://127.0.0.1:5173"],
     proposalGenerator: {
@@ -76,7 +76,7 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async ({ page }) => {
   await page.close();
   await new Promise<void>((resolve) => server.close(() => resolve()));
-  repo.close();
+  await repo.close();
 });
 async function setup(page: import("@playwright/test").Page) {
   await page.goto("/");
@@ -123,7 +123,7 @@ test("encrypted offline save requires explicit conflict resolution", async ({
       exact: true,
     }),
   ).toBeVisible();
-  expect(repo.read().workspace.clients).toEqual([]);
+  expect((await repo.read()).workspace.clients).toEqual([]);
   const encrypted = await page.evaluate(() =>
     localStorage.getItem("kit.company-sync.v1"),
   );
@@ -139,7 +139,7 @@ test("encrypted offline save requires explicit conflict resolution", async ({
     page.getByText("Cliente pendiente cifrado", { exact: true }),
   ).toBeVisible();
 
-  repo.save(createSeed(), 0);
+  await repo.save(createSeed(), 0);
   offlinePatches = false;
   await page
     .getByRole("button", { name: "Reintentar sincronización", exact: true })
@@ -152,7 +152,7 @@ test("encrypted offline save requires explicit conflict resolution", async ({
   await expect(
     page.getByRole("region", { name: "Estado de sincronización" }),
   ).toContainText("clients/");
-  expect(repo.read().workspace.clients).not.toContainEqual(
+  expect((await repo.read()).workspace.clients).not.toContainEqual(
     expect.objectContaining({ name: "Cliente pendiente cifrado" }),
   );
 
@@ -167,7 +167,7 @@ test("encrypted offline save requires explicit conflict resolution", async ({
       exact: true,
     }),
   ).toBeVisible();
-  expect(repo.read().workspace.clients).toContainEqual(
+  expect((await repo.read()).workspace.clients).toContainEqual(
     expect.objectContaining({ name: "Cliente pendiente cifrado" }),
   );
   expect(
@@ -183,16 +183,16 @@ test("administrator previews, restores and rolls back a verified backup", async 
   for (const conversation of seed.conversations)
     for (const message of conversation.messages)
       message.at = new Date(message.at).toISOString();
-  repo.save(seed, 0);
+  await repo.save(seed, 0);
   const backup = await page.evaluate(async () => {
     const response = await fetch("/api/backup", { credentials: "same-origin" });
     if (!response.ok) throw new Error("Backup export failed in the test.");
     return response.json();
   });
-  const current = repo.read();
+  const current = await repo.read();
   const changed = structuredClone(current.workspace);
   changed.clients[0].name = "Cliente cambiado después de la copia";
-  repo.save(changed, current.revision);
+  await repo.save(changed, current.revision);
 
   await page.goto("/settings");
   await page
@@ -219,7 +219,7 @@ test("administrator previews, restores and rolls back a verified backup", async 
       { exact: true },
     ),
   ).toBeVisible();
-  expect(repo.read().workspace.clients[0].name).not.toBe(
+  expect((await repo.read()).workspace.clients[0].name).not.toBe(
     "Cliente cambiado después de la copia",
   );
 
@@ -239,15 +239,15 @@ test("administrator previews, restores and rolls back a verified backup", async 
   await expect(
     page.getByText("Versión anterior recuperada.", { exact: true }),
   ).toBeVisible();
-  expect(repo.read().workspace.clients[0].name).toBe(
+  expect((await repo.read()).workspace.clients[0].name).toBe(
     "Cliente cambiado después de la copia",
   );
 });
-test("company setup separates sample data and durable records survive sign-out", async ({
+test("company setup separates sample data, durable records survive sign-out and the one login page is the portal's", async ({
   page,
 }) => {
   await setup(page);
-  expect(repo.read().workspace.clients).toEqual([]);
+  expect((await repo.read()).workspace.clients).toEqual([]);
   await page.goto("/clients");
   await page
     .getByRole("button", { name: "Agregar cliente", exact: true })
@@ -258,35 +258,25 @@ test("company setup separates sample data and durable records survive sign-out",
     .getByRole("button", { name: "Guardar cliente", exact: true })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  expect(repo.read().workspace.clients[0].name).toBe("Empresa nueva");
+  expect((await repo.read()).workspace.clients[0].name).toBe("Empresa nueva");
   await page
     .getByRole("button", { name: "Cerrar sesión", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Abrir espacio de empresa", exact: true })
-    .click();
-  await page
-    .getByLabel("Correo electrónico", { exact: true })
-    .fill("owner@example.test");
-  await page
-    .getByLabel("Contraseña", { exact: true })
-    .fill("test-only-password-123");
-  await page
-    .getByRole("button", { name: "Iniciar sesión", exact: true })
-    .click();
+  // Signing out leaves through the portal's single login page; the workspace has no
+  // login form of its own any more.
+  await expect(page).toHaveURL(/\/portal\/login$/);
   await expect(
-    page.getByRole("button", { name: "Cerrar sesión", exact: true }),
+    page.getByRole("button", { name: "Iniciar sesión", exact: true }),
   ).toBeVisible();
-  await page.goto("/clients");
-  await expect(
-    page.getByRole("button", { name: /^EN Empresa nueva/ }),
-  ).toBeVisible();
+  await expect(page.getByText("Crear cuenta", { exact: false })).toHaveCount(0);
+  // The record is durable on the server.
+  expect((await repo.read()).workspace.clients[0].name).toBe("Empresa nueva");
 });
 test("company KIT keeps one cited thread between the sidebar and full workspace", async ({
   page,
 }) => {
   await setup(page);
-  repo.save(createSeed(), 0);
+  await repo.save(createSeed(), 0);
   await page.getByRole("button", { name: "Actualizar", exact: true }).click();
   await page.goto("/events/e1");
   await page.getByRole("button", { name: "Consultar a KIT" }).click();
@@ -325,7 +315,7 @@ test("owner reviews AI suggestion, edits, saves, reopens and preserves manual ed
   seed.conversations.forEach((c) =>
     c.messages.forEach((m) => (m.at = new Date(m.at).toISOString())),
   );
-  repo.save(seed, 0);
+  await repo.save(seed, 0);
   await page.getByRole("button", { name: "Actualizar", exact: true }).click();
   await page.goto("/proposals");
   await page
@@ -346,7 +336,7 @@ test("owner reviews AI suggestion, edits, saves, reopens and preserves manual ed
   await expect(
     page.getByRole("region", { name: "Historial de generación" }),
   ).toContainText("test-model");
-  const before = repo.read().workspace.proposals.length;
+  const before = (await repo.read()).workspace.proposals.length;
   await page
     .getByRole("button", {
       name: "Crear propuesta con esta sugerencia",
@@ -356,7 +346,7 @@ test("owner reviews AI suggestion, edits, saves, reopens and preserves manual ed
   await expect(page.getByLabel("Título de la propuesta")).toHaveValue(
     "Conferencia con audio profesional",
   );
-  expect(repo.read().workspace.proposals).toHaveLength(before + 1);
+  expect((await repo.read()).workspace.proposals).toHaveLength(before + 1);
   await page
     .getByLabel("Introducción y alcance del evento")
     .fill("Alcance editado y revisado por el propietario.");
@@ -423,7 +413,7 @@ test("provider failure preserves the brief and unsaved manual proposal edits", a
   page,
 }) => {
   await setup(page);
-  repo.save(createSeed(), 0);
+  await repo.save(createSeed(), 0);
   await page.goto("/proposals/p2");
   await page
     .getByLabel("Introducción y alcance del evento")
@@ -457,7 +447,7 @@ test("provider failure preserves the brief and unsaved manual proposal edits", a
     page.getByText("Versión guardada", { exact: true }),
   ).toBeVisible();
   expect(
-    repo.read().workspace.proposals.find((p) => p.id === "p2")?.introduction,
+    (await repo.read()).workspace.proposals.find((p) => p.id === "p2")?.introduction,
   ).toBe("Conservar este cambio manual sin guardar.");
 });
 
@@ -471,7 +461,7 @@ test("owner reviews an exact outgoing message and sees its delivery state", asyn
       (message) => (message.at = new Date(message.at).toISOString()),
     ),
   );
-  repo.save(seed, 0);
+  await repo.save(seed, 0);
   await page.getByRole("button", { name: "Actualizar", exact: true }).click();
   await page.goto("/inbox?conversation=m2");
   await expect(
@@ -504,7 +494,7 @@ test("proposal review creates an exact message and issues only after delivery", 
       (message) => (message.at = new Date(message.at).toISOString()),
     ),
   );
-  repo.save(seed, 0);
+  await repo.save(seed, 0);
   await page.getByRole("button", { name: "Actualizar", exact: true }).click();
   await page.goto("/proposals/p2");
   await page
@@ -525,7 +515,7 @@ test("proposal review creates an exact message and issues only after delivery", 
       }),
   ).toBeVisible();
   expect(
-    repo.read().workspace.proposals.find((proposal) => proposal.id === "p2")
+    (await repo.read()).workspace.proposals.find((proposal) => proposal.id === "p2")
       ?.status,
   ).toBe("Ready to send");
   await page
@@ -536,7 +526,7 @@ test("proposal review creates an exact message and issues only after delivery", 
     .click();
   await expect(page.getByText("Entregado", { exact: false })).toBeVisible();
   expect(
-    repo.read().workspace.proposals.find((proposal) => proposal.id === "p2")
+    (await repo.read()).workspace.proposals.find((proposal) => proposal.id === "p2")
       ?.status,
   ).toBe("Issued");
 });
@@ -551,8 +541,8 @@ test("ambiguous inbound acceptance is deduplicated into a linking review", async
       (message) => (message.at = new Date(message.at).toISOString()),
     ),
   );
-  repo.save(seed, 0);
-  const current = repo.read();
+  await repo.save(seed, 0);
+  const current = await repo.read();
   const first = ingestInboundMessage(current.workspace, {
     externalId: "ambiguous-browser-1",
     channel: "Canal de demostración",
@@ -570,7 +560,7 @@ test("ambiguous inbound acceptance is deduplicated into a linking review", async
     acceptanceSignal: true,
   });
   expect(duplicate.duplicate).toBe(true);
-  repo.save(first.workspace, current.revision);
+  await repo.save(first.workspace, current.revision);
   await page.getByRole("button", { name: "Actualizar", exact: true }).click();
   await page
     .getByRole("button", { name: /Notificaciones: 2 pendientes/ })
@@ -598,7 +588,7 @@ test("administrator manages account access and passwords without email", async (
   page,
 }) => {
   await setup(page);
-  repo.save(createSeed(), 0);
+  await repo.save(createSeed(), 0);
   await page.goto("/settings");
   await page
     .getByRole("button", { name: "Users & roles", exact: true })
@@ -635,7 +625,7 @@ test("administrator manages account access and passwords without email", async (
   expect(
     await passwordMatches(
       temporary,
-      repo.userByEmail("audio@example.test")!.password_hash,
+      (await repo.userByEmail("audio@example.test"))!.password_hash,
     ),
   ).toBe(true);
   await shown.getByRole("button", { name: "Listo", exact: true }).click();
@@ -649,7 +639,7 @@ test("administrator manages account access and passwords without email", async (
     .click();
   await expect(edit).not.toBeVisible();
   await expect(row).toContainText("Production Manager");
-  expect(repo.userByEmail("audio@example.test")!.role).toBe(
+  expect((await repo.userByEmail("audio@example.test"))!.role).toBe(
     "Production Manager",
   );
 
@@ -675,7 +665,7 @@ test("administrator manages account access and passwords without email", async (
   expect(
     await passwordMatches(
       "a-new-owner-password-456",
-      repo.userByEmail("owner@example.test")!.password_hash,
+      (await repo.userByEmail("owner@example.test"))!.password_hash,
     ),
   ).toBe(true);
   expect(

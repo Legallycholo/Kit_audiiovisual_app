@@ -1,5 +1,5 @@
 import { uiLabel } from "../shared/i18n";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LockKeyhole, LogIn, MonitorUp } from "lucide-react";
 import { Button, Field, ErrorNote } from "../shared/ui";
 import { api } from "../shared/api";
@@ -10,14 +10,11 @@ export function SessionAccess({
   error,
   retry,
   authenticated,
-  enterWithoutBackend,
 }: {
   initialized: boolean | null;
   error: string;
   retry: () => void;
   authenticated: (user: WorkspaceUser, csrf: string) => Promise<void>;
-  /** Temporary dev-only bypass while there is no backend. */
-  enterWithoutBackend?: () => void;
 }) {
   const [message, setMessage] = useState("");
   // The local desktop window reaches the company server in its own window.
@@ -35,6 +32,14 @@ export function SessionAccess({
   };
   const [busy, setBusy] = useState(false);
   const setup = initialized === false;
+  // There is exactly one login page: the portal's. A configured workspace that needs
+  // a session sends people there; this screen only handles first-time setup and
+  // "server unreachable".
+  const goToLogin = initialized === true && !desktopLocal;
+  useEffect(() => {
+    if (goToLogin) window.location.replace("/portal/login");
+  }, [goToLogin]);
+  if (goToLogin) return null;
   return (
     <main className="session-screen">
       <section className="session-card">
@@ -162,20 +167,6 @@ export function SessionAccess({
                   : "Iniciar sesión"}
             </Button>
           </form>
-        )}
-        {initialized !== null && !setup && !desktopLocal && (
-          <div className="session-actions">
-            <a className="button secondary" href="/portal/signup">
-              Crear cuenta de cliente
-            </a>
-          </div>
-        )}
-        {enterWithoutBackend && (
-          <div className="session-actions">
-            <Button variant="secondary" onClick={enterWithoutBackend}>
-              Entrar sin servidor (temporal)
-            </Button>
-          </div>
         )}
         <div className="session-footnote">
           <LockKeyhole size={15} />

@@ -222,7 +222,7 @@ export function AdminUsers() {
                 value={role}
                 onChange={(e) => setRole(e.target.value as AppRole)}
               >
-                {(["user", "client", "admin"] as const).map((r) => (
+                {(["user", "admin"] as const).map((r) => (
                   <option key={r} value={r}>
                     {es.roles[r]}
                   </option>

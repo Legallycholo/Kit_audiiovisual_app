@@ -9,12 +9,12 @@ export function mountWorkspaceRoutes(
   app: express.Express,
   { repo, response }: RouteContext,
 ) {
-  app.get("/api/workspace", (_req, res) => res.json(response(res)));
-  app.patch("/api/workspace", (req, res) => {
+  app.get("/api/workspace", async (_req, res) => res.json(await response(res)));
+  app.patch("/api/workspace", async (req, res) => {
     const user = userOf(res);
     const input = changeSchema.parse(req.body);
-    repo.transaction(() => {
-      const current = repo.read();
+    await repo.transaction(async () => {
+      const current = await repo.read();
       if (input.revision !== current.revision)
         throw new HttpError(
           409,
@@ -26,7 +26,7 @@ export function mountWorkspaceRoutes(
       )) {
         const task = next.tasks.find((t) => t.id === change.id)!;
         if (task.assigneeId) {
-          const assignee = repo.user(task.assigneeId);
+          const assignee = await repo.user(task.assigneeId);
           if (
             !assignee?.active ||
             assignee.role === "Client / Guest" ||
@@ -48,7 +48,7 @@ export function mountWorkspaceRoutes(
         )!;
         for (const shift of operation.crewShifts) {
           if (!shift.memberId) continue;
-          const member = repo.user(shift.memberId);
+          const member = await repo.user(shift.memberId);
           if (
             !member?.active ||
             member.role === "Client / Guest" ||
@@ -62,7 +62,7 @@ export function mountWorkspaceRoutes(
             );
         }
       }
-      repo.save(next, input.revision);
+      await repo.save(next, input.revision);
       for (const c of input.changes) {
         const eventId =
           c.collection === "events"
@@ -70,7 +70,7 @@ export function mountWorkspaceRoutes(
             : typeof c.value === "object" && c.value && "eventId" in c.value
               ? String(c.value.eventId)
               : undefined;
-        repo.audit(
+        await repo.audit(
           user.id,
           `${c.collection} record saved`,
           `${user.name} · ${c.id}`,
@@ -78,6 +78,6 @@ export function mountWorkspaceRoutes(
         );
       }
     });
-    res.json(response(res));
+    res.json(await response(res));
   });
 }

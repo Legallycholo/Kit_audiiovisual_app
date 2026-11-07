@@ -17,8 +17,8 @@ export function mountAccountRoutes(
   app.post("/api/account/password", async (req, res) => {
     const user = userOf(res);
     const input = passwordChangeSchema.parse(req.body);
-    rateLimit(repo, `password:${user.id}`, 5);
-    const row = repo.user(user.id)!;
+    await rateLimit(repo, `password:${user.id}`, 5);
+    const row = (await repo.user(user.id))!;
     // 422 rather than 401 so a mistyped password never looks like an expired session.
     if (!(await passwordMatches(input.currentPassword, row.password_hash)))
       throw new HttpError(422, "La contraseña actual no es correcta.");
@@ -28,15 +28,15 @@ export function mountAccountRoutes(
         "La nueva contraseña debe ser diferente de la actual.",
       );
     const encoded = await passwordHash(input.newPassword);
-    repo.transaction(() => {
-      repo.db
+    await repo.transaction(async () => {
+      await repo.db
         .prepare("UPDATE users SET password_hash=? WHERE id=?")
         .run(encoded, user.id);
       // Sign out every other device; this session stays active.
-      repo.db
+      await repo.db
         .prepare("DELETE FROM sessions WHERE user_id=? AND token_hash<>?")
         .run(user.id, currentSessionHash(req));
-      repo.audit(user.id, "Password changed", row.email);
+      await repo.audit(user.id, "Password changed", row.email);
     });
     res.json({ ok: true });
   });

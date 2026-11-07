@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
-import { homeFor, useAuth } from "../../lib/auth";
+import { useAuth } from "../../lib/auth";
 import { es } from "../../lib/es";
 
 const copy = {
@@ -24,8 +24,7 @@ export function AccountStatus() {
   const navigate = useNavigate();
   if (!account) return <Navigate to="/portal/login" replace />;
   const status = account.profile.account_status;
-  if (status === "active")
-    return <Navigate to={homeFor(account.role)} replace />;
+  if (status === "active") return <Navigate to="/portal" replace />;
 
   return (
     <Card>

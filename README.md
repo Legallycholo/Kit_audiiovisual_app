@@ -19,7 +19,7 @@ Feature details: [docs/FEATURES.md](docs/FEATURES.md). Product plan: [docs/IMPLE
 | Layer            | Technology                                                                                                                                                |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Frontend         | React 19, TypeScript 5.9, Vite 7, React Router 7, Three.js, lucide-react                                                                                  |
-| Company server   | Node ≥ 22.12, Express 5, built-in `node:sqlite`, Zod 4 for validation, `tsx` runner                                                                       |
+| Company server   | Node ≥ 22.12, Express 5, Postgres (Supabase in production, PGlite locally), Zod 4 for validation, `tsx` runner                                           |
 | Auth             | Server-side sessions (HTTP-only cookies, CSRF, role/event scoping); reCAPTCHA hooks |
 | AI               | Server-only provider adapter: Gemini (`@google/genai`), OpenAI, Anthropic; structured output validated against the catalog                                |
 | Desktop          | Tauri 2 (Rust): shell, native file commands, OS keyring                                                                                                   |
@@ -30,7 +30,7 @@ Feature details: [docs/FEATURES.md](docs/FEATURES.md). Product plan: [docs/IMPLE
 ## Two data modes
 
 - **Sample mode** — runs in the browser only; data lives in local storage. Good for UI work.
-- **Company mode** — data is persisted by the Express server in SQLite (`data/kit.sqlite`, git-ignored). The workspace is currently one JSON row guarded by a single global revision, so concurrent saves conflict. A per-record model is proposed in [docs/DATA_MODEL_PROPOSAL.md](docs/DATA_MODEL_PROPOSAL.md).
+- **Company mode** — data is persisted by the Express server in Postgres: the company's Supabase project in production (private `kit` schema), and an in-process PGlite database in `.kit-local/` (git-ignored) for local work. The workspace is currently one JSON row guarded by a single global revision, so concurrent saves conflict. A per-record model is proposed in [docs/DATA_MODEL_PROPOSAL.md](docs/DATA_MODEL_PROPOSAL.md).
 
 Both modes must keep working.
 
@@ -44,9 +44,13 @@ session and stays the authorization gate.
 Administrators also get `/admin`, an overview of who holds each role and the
 recent access history. Everyone sees their own role on the dashboard.
 
+## Hosting
+
+Production runs on **Vercel**: the Vite build is served as static files and the API runs as one serverless function (`api/index.ts`) against the company's Supabase Postgres. See [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md) for the setup and the owner's manual steps. Search retries run from a Vercel Cron job and after search activity instead of an in-process timer.
+
 ## Getting started
 
-Requires Node ≥ 22.12 and npm (no pnpm/yarn). Node 22 prints an experimental warning for `node:sqlite`; this is expected.
+Requires Node ≥ 22.12 and npm (no pnpm/yarn). Local runs need no database setup and no network: `KIT_DATABASE` is unset, so a PGlite database is created in `.kit-local/pglite`.
 
 ```sh
 npm ci
@@ -82,8 +86,9 @@ src/application/   app frame, navigation, session entry, contextual assistant
 src/modules/       business workspaces, proposal editor, AI suggestion review
 src/shared/        domain records and calculations, access policy, API/store boundary,
                    i18n labels (i18n.ts), sample data, common UI
-server/            authenticated API, validation, SQLite persistence, authorization,
+server/            authenticated API, validation, Postgres persistence (server/db), authorization,
                    AI adapters, backups, tests
+api/               Vercel Function entry (the same Express app); vercel.json routes /api here
 src-tauri/         Tauri 2 desktop shell and native file commands
 native/file-index/ encrypted local file index (Rust, SQLCipher)
 tests/browser/     Playwright journeys, responsive/print and accessibility checks

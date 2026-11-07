@@ -54,7 +54,7 @@ describe("portal administrator sign-in", () => {
     });
     expect(session.json.user.role).toBe("Administrator");
     // The created account has no usable password.
-    expect(repo.userByEmail("boss@example.test")?.password_hash).not.toContain(
+    expect((await repo.userByEmail("boss@example.test"))?.password_hash).not.toContain(
       ":",
     );
   });
@@ -83,7 +83,6 @@ describe("portal administrator sign-in", () => {
 
   it.each([
     ["unverified email", { ...admin, emailVerified: false }],
-    ["a client", { ...admin, portalRole: "client" as const }],
     ["a plain user", { ...admin, portalRole: "user" as const }],
     ["a banned account", { ...admin, accountStatus: "banned" }],
     ["a rejected account", { ...admin, accountStatus: "rejected" }],
@@ -92,7 +91,7 @@ describe("portal administrator sign-in", () => {
     const res = await call("/login/supabase", "POST", { accessToken: token });
     expect(res.status).toBe(401);
     expect(res.cookie).toBe("");
-    expect(repo.userByEmail("boss@example.test")).toBeUndefined();
+    expect(await repo.userByEmail("boss@example.test")).toBeUndefined();
   });
 
   it("refuses a token the verifier rejects", async () => {
@@ -123,7 +122,7 @@ describe("portal administrator sign-in", () => {
     );
     const res = await call("/login/supabase", "POST", { accessToken: token });
     expect(res.status).toBe(401);
-    expect(repo.userByEmail("boss@example.test")?.active).toBe(0);
+    expect((await repo.userByEmail("boss@example.test"))?.active).toBe(0);
   });
 
   it("rejects malformed bodies", async () => {

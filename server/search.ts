@@ -7,6 +7,7 @@ import {
 } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
+import { waitUntil } from "@vercel/functions";
 import { Repository, HttpError, publicUser } from "./database";
 import { scopeWorkspace } from "./permissions";
 import { searchWorkspace } from "../src/shared/search";
@@ -81,22 +82,15 @@ const upload = z
 
 export class SearchGateway {
   private queue: Promise<unknown> = Promise.resolve();
-  readonly tenant: string;
+  /** Set by init(); await `ready` before using the gateway directly (createApp does). */
+  tenant!: string;
   readonly fingerprint: string;
+  /** Resolves when the tenant is loaded and the provider policy is verified; rejects if the policy changed. */
+  readonly ready: Promise<void>;
   constructor(
     readonly repo: Repository,
     readonly config: SearchConfig = disabled,
   ) {
-    repo.db.exec(`CREATE TABLE IF NOT EXISTS search_tenant(id TEXT PRIMARY KEY);
-      CREATE TABLE IF NOT EXISTS search_devices(token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,name TEXT NOT NULL,expires INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0);
-      CREATE TABLE IF NOT EXISTS search_sources(user_id TEXT NOT NULL,id TEXT NOT NULL,hash TEXT NOT NULL,payload TEXT NOT NULL,state TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,error TEXT NOT NULL DEFAULT '',updated TEXT NOT NULL, PRIMARY KEY(user_id,id));
-      CREATE TABLE IF NOT EXISTS search_usage(month TEXT NOT NULL,user_id TEXT NOT NULL,cents INTEGER NOT NULL, PRIMARY KEY(month,user_id));`);
-    const row = repo.db
-      .prepare("SELECT id FROM search_tenant LIMIT 1")
-      .get() as { id: string } | undefined;
-    this.tenant = row?.id || randomUUID();
-    if (!row)
-      repo.db.prepare("INSERT INTO search_tenant VALUES(?)").run(this.tenant);
     this.fingerprint = sha(
       JSON.stringify([
         config.name,
@@ -105,16 +99,25 @@ export class SearchGateway {
         config.providerIdentity || "",
       ]),
     );
-    const columns = repo.db
-      .prepare("PRAGMA table_info(search_sources)")
-      .all() as { name: string }[];
-    if (!columns.some((c) => c.name === "policy"))
-      repo.db.exec(
-        "ALTER TABLE search_sources ADD COLUMN policy TEXT NOT NULL DEFAULT ''",
-      );
-    const incompatible = repo.db
+    this.ready = this.init();
+    // The rejection is reported to whoever awaits `ready`; this only prevents an unhandled-rejection crash.
+    this.ready.catch(() => {});
+  }
+  private async init() {
+    // The transaction takes the database writer lock, so two instances starting
+    // together cannot each create a different tenant.
+    this.tenant = await this.repo.transaction(async () => {
+      const row = (await this.repo.db
+        .prepare("SELECT id FROM search_tenant LIMIT 1")
+        .get()) as { id: string } | undefined;
+      if (row) return row.id;
+      const id = randomUUID();
+      await this.repo.db.prepare("INSERT INTO search_tenant VALUES(?)").run(id);
+      return id;
+    });
+    const incompatible = (await this.repo.db
       .prepare("SELECT count(*) count FROM search_sources WHERE policy<>?")
-      .get(this.fingerprint) as { count: number };
+      .get(this.fingerprint)) as { count: number };
     if (incompatible.count)
       throw new Error(
         "Drain and confirm deletion with the previous search provider policy before changing provider, region or retention.",
@@ -179,16 +182,16 @@ export class SearchGateway {
     this.queue = task.catch(() => {});
     return task;
   }
-  private checkUser(user: string) {
-    const row = this.repo.user(user);
+  private async checkUser(user: string) {
+    const row = await this.repo.user(user);
     if (!row?.active || row.role === "Client / Guest")
       throw new HttpError(
         403,
         "Cloud file search is unavailable for this account.",
       );
   }
-  private reserve(user: string, characters: number) {
-    this.checkUser(user);
+  private async reserve(user: string, characters: number) {
+    await this.checkUser(user);
     const month = new Date().toISOString().slice(0, 7);
     const cents = Math.max(
       1,
@@ -196,8 +199,8 @@ export class SearchGateway {
         (characters / 1000) * this.config.embeddingCentsPerThousandCharacters,
       ),
     );
-    this.repo.transaction(() => {
-      const spent = this.repo.db
+    await this.repo.transaction(async () => {
+      const spent = await this.repo.db
         .prepare(
           "SELECT COALESCE(SUM(cents),0) total FROM search_usage WHERE month=?",
         )
@@ -207,46 +210,46 @@ export class SearchGateway {
           429,
           "Monthly search budget exhausted. Deletions remain available.",
         );
-      this.repo.db
+      await this.repo.db
         .prepare(
-          "INSERT INTO search_usage VALUES(?,?,?) ON CONFLICT(month,user_id) DO UPDATE SET cents=cents+excluded.cents",
+          "INSERT INTO search_usage VALUES(?,?,?) ON CONFLICT(month,user_id) DO UPDATE SET cents=search_usage.cents+excluded.cents",
         )
         .run(month, user, cents);
     });
   }
-  private audit(user: string, action: string, detail: string) {
-    this.repo.db
+  private async audit(user: string, action: string, detail: string) {
+    await this.repo.db
       .prepare(
         "INSERT INTO audit(id,actor_id,action,detail,created_at) VALUES(?,?,?,?,?)",
       )
       .run(randomUUID(), user, action, detail, new Date().toISOString());
   }
-  device(req: Request): string {
+  async device(req: Request): Promise<string> {
     const token = req.get("authorization")?.replace(/^Bearer /, "") || "";
     if (!/^[a-f0-9]{64}$/.test(token))
       throw new HttpError(401, "Device authorization required.");
-    const row = this.repo.db
+    const row = await this.repo.db
       .prepare(
         "SELECT * FROM search_devices WHERE token_hash=? AND revoked=0 AND expires>?",
       )
       .get(sha(token), Date.now()) as { user_id: string } | undefined;
     if (!row)
       throw new HttpError(401, "Device authorization expired or revoked.");
-    this.checkUser(row.user_id);
-    rateLimit(this.repo, `search-device:${row.user_id}`, 120);
+    await this.checkUser(row.user_id);
+    await rateLimit(this.repo, `search-device:${row.user_id}`, 120);
     return row.user_id;
   }
-  issue(user: string, name: string) {
-    this.checkUser(user);
+  async issue(user: string, name: string) {
+    await this.checkUser(user);
     const token = randomBytes(32).toString("hex");
-    this.repo.db
+    await this.repo.db
       .prepare("INSERT INTO search_devices VALUES(?,?,?,?,0)")
       .run(sha(token), user, name, Date.now() + 30 * 86400_000);
-    this.audit(user, "search-device-created", name);
+    await this.audit(user, "search-device-created", name);
     return token;
   }
   async put(user: string, input: unknown) {
-    this.checkUser(user);
+    await this.checkUser(user);
     if (!this.enabled())
       throw new HttpError(
         503,
@@ -261,8 +264,8 @@ export class SearchGateway {
     const clean = redactSecrets(item.text);
     const title = redactSecrets(item.title).text;
     return this.serial(async () => {
-      this.checkUser(user);
-      const old = this.repo.db
+      await this.checkUser(user);
+      const old = await this.repo.db
         .prepare(
           "SELECT state,hash FROM search_sources WHERE user_id=? AND id=?",
         )
@@ -274,7 +277,7 @@ export class SearchGateway {
         mime: item.mime,
         chunks: chunks(`${title}\n${clean.text}`),
       });
-      this.repo.db
+      await this.repo.db
         .prepare(
           "INSERT INTO search_sources(user_id,id,hash,payload,state,attempts,error,updated,policy) VALUES(?,?,?,?, 'pending',0,'',?,?) ON CONFLICT(user_id,id) DO UPDATE SET hash=excluded.hash,payload=excluded.payload,state='pending',attempts=0,error='',updated=excluded.updated,policy=excluded.policy",
         )
@@ -286,24 +289,24 @@ export class SearchGateway {
           new Date().toISOString(),
           this.fingerprint,
         );
-      this.audit(
+      await this.audit(
         user,
         "search-source-queued",
         JSON.stringify({ source: item.id, redactions: clean.count }),
       );
       await this.process(user, item.id);
-      return this.sourceState(user, item.id);
+      return await this.sourceState(user, item.id);
     });
   }
-  private sourceState(user: string, id: string) {
-    return this.repo.db
+  private async sourceState(user: string, id: string) {
+    return await this.repo.db
       .prepare(
         "SELECT id,state,error,updated FROM search_sources WHERE user_id=? AND id=?",
       )
       .get(user, id);
   }
   private async process(user: string, id: string) {
-    const row = this.repo.db
+    const row = await this.repo.db
       .prepare("SELECT * FROM search_sources WHERE user_id=? AND id=?")
       .get(user, id) as
       { state: string; payload: string; attempts: number } | undefined;
@@ -317,20 +320,20 @@ export class SearchGateway {
           id,
         );
         if (!confirmed) throw new Error("Provider deletion not confirmed");
-        this.repo.db
+        await this.repo.db
           .prepare("DELETE FROM search_sources WHERE user_id=? AND id=?")
           .run(user, id);
-        this.audit(user, "search-source-deleted", id);
+        await this.audit(user, "search-source-deleted", id);
         return;
       }
       if (!this.enabled()) throw new Error("Provider unavailable");
-      this.checkUser(user);
+      await this.checkUser(user);
       const data = this.decrypt(row.payload) as {
         title: string;
         mime: string;
         chunks: string[];
       };
-      this.reserve(user, data.chunks.join("").length);
+      await this.reserve(user, data.chunks.join("").length);
       const vectors = await this.config.provider!.embed(data.chunks);
       if (
         vectors.length !== data.chunks.length ||
@@ -349,16 +352,16 @@ export class SearchGateway {
           vector: vectors[i],
         })),
       );
-      this.checkUser(user);
-      this.repo.db
+      await this.checkUser(user);
+      await this.repo.db
         .prepare(
           "UPDATE search_sources SET state='ready',error='',updated=? WHERE user_id=? AND id=?",
         )
         .run(new Date().toISOString(), user, id);
-      this.audit(user, "search-source-indexed", id);
+      await this.audit(user, "search-source-indexed", id);
     } catch (error) {
       // Never persist provider response bodies: they can contain document content.
-      this.repo.db
+      await this.repo.db
         .prepare(
           "UPDATE search_sources SET state=CASE WHEN state='deletion_pending' THEN state ELSE 'failed' END,attempts=attempts+1,error=?,updated=? WHERE user_id=? AND id=?",
         )
@@ -375,29 +378,29 @@ export class SearchGateway {
   async remove(user: string, id?: string) {
     return this.serial(async () => {
       if (id)
-        this.repo.db
+        await this.repo.db
           .prepare(
             "UPDATE search_sources SET state='deletion_pending',payload='' WHERE user_id=? AND id=?",
           )
           .run(user, id);
       else
-        this.repo.db
+        await this.repo.db
           .prepare(
             "UPDATE search_sources SET state='deletion_pending',payload='' WHERE user_id=?",
           )
           .run(user);
-      const rows = this.repo.db
+      const rows = await this.repo.db
         .prepare(
           "SELECT id FROM search_sources WHERE user_id=? AND state='deletion_pending'",
         )
         .all(user) as { id: string }[];
       for (const r of rows) await this.process(user, r.id);
-      const pending = this.repo.db
+      const pending = await this.repo.db
         .prepare(
           "SELECT count(*) count FROM search_sources WHERE user_id=? AND state='deletion_pending'",
         )
         .get(user) as { count: number };
-      this.audit(
+      await this.audit(
         user,
         "search-access-revoked",
         JSON.stringify({ pending: pending.count }),
@@ -407,10 +410,10 @@ export class SearchGateway {
   }
   async retry() {
     return this.serial(async () => {
-      this.repo.db.exec(
+      await this.repo.db.exec(
         "UPDATE search_sources SET state='deletion_pending',payload='' WHERE user_id NOT IN (SELECT id FROM users WHERE active=1 AND role<>'Client / Guest')",
       );
-      const rows = this.repo.db
+      const rows = await this.repo.db
         .prepare(
           "SELECT user_id,id FROM search_sources WHERE state='deletion_pending' OR (state IN ('pending','failed') AND attempts<3) ORDER BY updated LIMIT 20",
         )
@@ -421,11 +424,31 @@ export class SearchGateway {
   async drain() {
     await this.queue;
   }
+  private lastKick = 0;
+  /**
+   * Retries pending or failed sources soon after search activity, at most once a
+   * minute per instance. Serverless has no 30-second timer; this plus the daily
+   * cron replaces it. Safe when several instances run it: retry() only touches
+   * rows that are still pending or failed.
+   */
+  kickRetry() {
+    const now = Date.now();
+    if (!this.enabled() || now - this.lastKick < 60_000) return;
+    this.lastKick = now;
+    const job = this.retry().catch(() => {});
+    if (process.env.VERCEL) {
+      try {
+        waitUntil(job);
+      } catch {
+        // Not inside a request context: it simply runs on its own.
+      }
+    }
+  }
   async search(user: string, query: string) {
-    this.checkUser(user);
+    await this.checkUser(user);
     if (!this.enabled()) return { configured: false, results: [] };
     return this.serial(async () => {
-      this.reserve(user, query.length);
+      await this.reserve(user, query.length);
       const vectors = await this.config.provider!.embed([
         redactSecrets(query).text,
       ]);
@@ -436,11 +459,11 @@ export class SearchGateway {
         vectors[0],
         50,
       );
-      this.checkUser(user);
+      await this.checkUser(user);
       const unique = new Map<string, unknown>();
       for (const match of matches.slice(0, 100)) {
         if (!Number.isFinite(match.score)) continue;
-        const row = this.repo.db
+        const row = await this.repo.db
           .prepare(
             "SELECT payload,updated FROM search_sources WHERE user_id=? AND id=? AND state='ready'",
           )
@@ -459,7 +482,7 @@ export class SearchGateway {
           reason: "Coincidencia semántica",
         });
       }
-      this.audit(
+      await this.audit(
         user,
         "search-query",
         JSON.stringify({ resultCount: unique.size }),
@@ -467,11 +490,11 @@ export class SearchGateway {
       return { configured: true, results: [...unique.values()] };
     });
   }
-  source(user: string, id: string) {
-    this.checkUser(user);
+  async source(user: string, id: string) {
+    await this.checkUser(user);
     if (!/^[a-f0-9]{64}$/.test(id))
       throw new HttpError(422, "Invalid indexed source identifier.");
-    const row = this.repo.db
+    const row = await this.repo.db
       .prepare(
         "SELECT hash,payload,updated FROM search_sources WHERE user_id=? AND id=? AND state='ready'",
       )
@@ -493,9 +516,9 @@ export class SearchGateway {
       modified: row.updated,
     };
   }
-  status(user: string) {
-    this.checkUser(user);
-    const account = this.repo.user(user)!;
+  async status(user: string) {
+    await this.checkUser(user);
+    const account = (await this.repo.user(user))!;
     return {
       account: {
         id: account.id,
@@ -504,12 +527,12 @@ export class SearchGateway {
         tenant: this.tenant,
       },
       policy: this.policy(),
-      sources: this.repo.db
+      sources: await this.repo.db
         .prepare(
           "SELECT id,state,error,updated FROM search_sources WHERE user_id=? ORDER BY updated DESC LIMIT 100",
         )
         .all(user),
-      usage: this.repo.db
+      usage: await this.repo.db
         .prepare(
           "SELECT month,cents FROM search_usage WHERE user_id=? ORDER BY month DESC LIMIT 12",
         )
@@ -517,11 +540,15 @@ export class SearchGateway {
     };
   }
   mountDevice(app: Express) {
-    app.post("/api/search/device/records", (req, res) => {
-      const id = this.device(req);
-      const user = publicUser(this.repo.user(id)!);
+    app.use("/api/search", (_req, res, next) => {
+      res.on("finish", () => this.kickRetry());
+      next();
+    });
+    app.post("/api/search/device/records", async (req, res) => {
+      const id = await this.device(req);
+      const user = publicUser((await this.repo.user(id))!);
       const query = z.string().trim().min(1).max(300).parse(req.body.query);
-      const data = scopeWorkspace(this.repo.read().workspace, user);
+      const data = scopeWorkspace((await this.repo.read()).workspace, user);
       res.json({
         connected: true,
         results: searchWorkspace(data, user, query)
@@ -529,16 +556,16 @@ export class SearchGateway {
           .map((r) => ({ ...r, source: "company" })),
       });
     });
-    app.get("/api/search/device/status", (req, res) =>
-      res.json(this.status(this.device(req))),
+    app.get("/api/search/device/status", async (req, res) =>
+      res.json(await this.status(await this.device(req))),
     );
     app.post("/api/search/device/sources", async (req, res) =>
-      res.json(await this.put(this.device(req), req.body)),
+      res.json(await this.put(await this.device(req), req.body)),
     );
     app.post("/api/search/device/query", async (req, res) =>
       res.json(
         await this.search(
-          this.device(req),
+          await this.device(req),
           z.string().trim().min(1).max(300).parse(req.body.query),
         ),
       ),
@@ -546,7 +573,7 @@ export class SearchGateway {
     app.delete("/api/search/device/sources/:id", async (req, res) =>
       res.json(
         await this.remove(
-          this.device(req),
+          await this.device(req),
           z
             .string()
             .regex(/^[a-f0-9]{64}$/)
@@ -555,16 +582,16 @@ export class SearchGateway {
       ),
     );
     app.delete("/api/search/device/sources", async (req, res) =>
-      res.json(await this.remove(this.device(req))),
+      res.json(await this.remove(await this.device(req))),
     );
   }
   mountSession(app: Express) {
-    app.get("/api/search/status", (_req, res) =>
-      res.json(this.status(userOf(res).id)),
+    app.get("/api/search/status", async (_req, res) =>
+      res.json(await this.status(userOf(res).id)),
     );
-    app.post("/api/search/devices", (req, res) =>
+    app.post("/api/search/devices", async (req, res) =>
       res.json({
-        token: this.issue(
+        token: await this.issue(
           userOf(res).id,
           z.string().trim().min(1).max(80).parse(req.body.name),
         ),
@@ -572,7 +599,7 @@ export class SearchGateway {
     );
     app.delete("/api/search/devices", async (_req, res) => {
       const user = userOf(res);
-      this.repo.db
+      await this.repo.db
         .prepare("UPDATE search_devices SET revoked=1 WHERE user_id=?")
         .run(user.id);
       res.json(await this.remove(user.id));
@@ -585,8 +612,8 @@ export class SearchGateway {
         ),
       ),
     );
-    app.get("/api/search/sources/:id", (req, res) => {
-      const source = this.source(
+    app.get("/api/search/sources/:id", async (req, res) => {
+      const source = await this.source(
         userOf(res).id,
         z
           .string()
@@ -606,21 +633,21 @@ export class SearchGateway {
     app.delete("/api/search/sources", async (_req, res) =>
       res.json(await this.remove(userOf(res).id)),
     );
-    app.get("/api/search/admin", (_req, res) => {
+    app.get("/api/search/admin", async (_req, res) => {
       requireAdmin(res);
       res.json({
         policy: this.policy(),
-        sources: this.repo.db
+        sources: await this.repo.db
           .prepare(
             "SELECT user_id,state,count(*) count FROM search_sources GROUP BY user_id,state",
           )
           .all(),
-        usage: this.repo.db
+        usage: await this.repo.db
           .prepare("SELECT * FROM search_usage ORDER BY month DESC LIMIT 100")
           .all(),
-        audit: this.repo.db
+        audit: await this.repo.db
           .prepare(
-            "SELECT * FROM audit WHERE action LIKE 'search-%' ORDER BY created_at DESC LIMIT 100",
+            "SELECT id,actor_id,action,detail,event_id,created_at FROM audit WHERE action LIKE 'search-%' ORDER BY created_at DESC LIMIT 100",
           )
           .all(),
       });

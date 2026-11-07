@@ -10,7 +10,7 @@ export function mountMessagingRoutes(
   app: express.Express,
   { repo, config, response }: RouteContext,
 ) {
-  app.get("/api/messaging/status", (_req, res) => {
+  app.get("/api/messaging/status", async (_req, res) => {
     const user = userOf(res);
     if (!["Administrator", "Sales Manager"].includes(user.role))
       throw new HttpError(403, "No tienes acceso a mensajes de clientes.");
@@ -19,7 +19,7 @@ export function mountMessagingRoutes(
       label: config.messageTransport?.label || null,
     });
   });
-  app.post("/api/messaging/showcase/inbound", (req, res) => {
+  app.post("/api/messaging/showcase/inbound", async (req, res) => {
     const user = userOf(res);
     if (!user.isOwner)
       throw new HttpError(
@@ -45,17 +45,17 @@ export function mountMessagingRoutes(
       .parse(req.body);
     let duplicate = false;
     let needsLinking = false;
-    repo.transaction(() => {
-      const current = repo.read();
+    await repo.transaction(async () => {
+      const current = await repo.read();
       const result = ingestInboundMessage(current.workspace, input);
       duplicate = result.duplicate;
       needsLinking = result.needsLinking;
       if (duplicate) return;
-      repo.save(result.workspace, current.revision);
+      await repo.save(result.workspace, current.revision);
       const conversation = result.workspace.conversations.find(
         (item) => item.id === input.conversationId,
       )!;
-      repo.audit(
+      await repo.audit(
         user.id,
         needsLinking
           ? "Inbound response needs linking"
@@ -65,7 +65,7 @@ export function mountMessagingRoutes(
       );
     });
     res.status(duplicate ? 200 : 201).json({
-      ...response(res),
+      ...(await response(res)),
       intake: { duplicate, needsLinking },
     });
   });
@@ -94,8 +94,8 @@ export function mountMessagingRoutes(
         proposalId?: string;
         proposalVersion?: number;
       };
-      repo.transaction(() => {
-        const current = repo.read();
+      await repo.transaction(async () => {
+        const current = await repo.read();
         if (current.revision !== revision)
           throw new HttpError(
             409,
@@ -158,8 +158,8 @@ export function mountMessagingRoutes(
           proposalId: message.proposalId,
           proposalVersion: message.proposalVersion,
         };
-        repo.save(next, revision);
-        repo.audit(
+        await repo.save(next, revision);
+        await repo.audit(
           user.id,
           "Owner approved outgoing message",
           `${user.name} · ${message.id} · ${transport.label}`,
@@ -172,8 +172,8 @@ export function mountMessagingRoutes(
           conversationId: String(req.params.conversationId),
           ...outgoing,
         });
-        repo.transaction(() => {
-          const current = repo.read();
+        await repo.transaction(async () => {
+          const current = await repo.read();
           const next = structuredClone(current.workspace);
           const conversation = next.conversations.find(
             (item) => item.id === req.params.conversationId,
@@ -193,8 +193,8 @@ export function mountMessagingRoutes(
             : undefined;
           if (linkedProposal?.status === "Ready to send")
             linkedProposal.status = "Issued";
-          repo.save(next, current.revision);
-          repo.audit(
+          await repo.save(next, current.revision);
+          await repo.audit(
             user.id,
             "Outgoing message delivered to transport",
             `${message.id} · ${result.status} · ${transport.label}`,
@@ -202,8 +202,8 @@ export function mountMessagingRoutes(
           );
         });
       } catch (error) {
-        repo.transaction(() => {
-          const current = repo.read();
+        await repo.transaction(async () => {
+          const current = await repo.read();
           const next = structuredClone(current.workspace);
           const conversation = next.conversations.find(
             (item) => item.id === req.params.conversationId,
@@ -215,8 +215,8 @@ export function mountMessagingRoutes(
             message.status = "Failed";
             message.failureReason =
               "El canal no confirmó la entrega. Revisa la conexión antes de reintentar.";
-            repo.save(next, current.revision);
-            repo.audit(
+            await repo.save(next, current.revision);
+            await repo.audit(
               user.id,
               "Outgoing message failed",
               `${message.id} · ${transport.label}`,
@@ -230,7 +230,7 @@ export function mountMessagingRoutes(
           "El canal no confirmó el envío. El mensaje quedó marcado como fallido.",
         );
       }
-      res.json(response(res));
+      res.json(await response(res));
     },
   );
 }

@@ -12,17 +12,9 @@ export const supabase = createClient(
   { auth: { persistSession: true, autoRefreshToken: true } },
 );
 
-export type AppRole = "user" | "client" | "admin";
+export type AppRole = "user" | "admin";
 export type AccountStatus =
   "active" | "pending" | "rejected" | "banned" | "deleted";
-export type BookingStatus =
-  | "requested"
-  | "confirmed"
-  | "rejected"
-  | "cancelled"
-  | "completed"
-  | "no_show";
-
 export interface Profile {
   id: string;
   email: string | null;
@@ -34,23 +26,4 @@ export interface Profile {
   account_status: AccountStatus;
   status_reason: string | null;
   created_at: string;
-}
-export interface Service {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  duration_minutes: number;
-}
-export interface Booking {
-  id: string;
-  client_id: string;
-  service_id: string;
-  status: BookingStatus;
-  starts_at: string;
-  ends_at: string;
-  notes_client: string | null;
-  created_at: string;
-  services?: { name: string } | null;
-  profiles?: { full_name: string | null; email: string | null } | null;
 }

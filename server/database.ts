@@ -1,10 +1,8 @@
-import { DatabaseSync } from "node:sqlite";
-import { mkdirSync, chmodSync } from "node:fs";
-import { dirname } from "node:path";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Workspace } from "../src/shared/types";
 import type { Role, WorkspaceUser } from "../src/shared/access";
 import { emptyWorkspace } from "../src/shared/empty";
+import { Db, openDb } from "./db";
 
 export class HttpError extends Error {
   constructor(
@@ -40,58 +38,78 @@ export function publicUser(row: UserRow): WorkspaceUser {
   };
 }
 export { emptyWorkspace };
+/** Every table the company server needs; created by supabase/migrations/20261107000012_kit_company_schema.sql. */
+const TABLES = [
+  "workspace",
+  "users",
+  "sessions",
+  "audit",
+  "login_attempts",
+  "workspace_recovery",
+  "search_tenant",
+  "search_devices",
+  "search_sources",
+  "search_usage",
+  "kit_threads",
+];
 export class Repository {
-  db: DatabaseSync;
-  constructor(path: string) {
-    if (path !== ":memory:")
-      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    this.db = new DatabaseSync(path);
-    if (path !== ":memory:") chmodSync(path, 0o600);
-    this.db
-      .exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
-      CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, payload TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE COLLATE NOCASE, name TEXT NOT NULL, role TEXT NOT NULL, owner INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, password_hash TEXT NOT NULL, event_ids TEXT NOT NULL DEFAULT '[]', client_id TEXT, shared_proposals TEXT NOT NULL DEFAULT '[]');
-      CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, csrf_token TEXT NOT NULL, expires_at INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS audit (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, action TEXT NOT NULL, detail TEXT NOT NULL, event_id TEXT, created_at TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS workspace_recovery (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, previous_revision INTEGER NOT NULL, restored_revision INTEGER NOT NULL, payload TEXT NOT NULL, payload_checksum TEXT NOT NULL, source_checksum TEXT NOT NULL, created_at TEXT NOT NULL);
-      CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
-      CREATE INDEX IF NOT EXISTS audit_time ON audit(created_at);
-      CREATE INDEX IF NOT EXISTS workspace_recovery_time ON workspace_recovery(created_at);
-      PRAGMA user_version=1;`);
-  }
-  close() {
-    this.db.close();
-  }
-  transaction<T>(fn: () => T): T {
-    this.db.exec("BEGIN IMMEDIATE");
+  /**
+   * `url` is the KIT_DATABASE value: a postgres:// connection string, a local
+   * PGlite directory, or `memory://` (see server/db). The schema is owned by the
+   * SQL migration, so opening only verifies it exists.
+   */
+  static async open(url?: string) {
+    const db = await openDb(url);
     try {
-      const value = fn();
-      this.db.exec("COMMIT");
-      return value;
+      const found = (await db
+        .prepare(
+          "SELECT relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='kit' AND c.relkind='r'",
+        )
+        .all()) as { relname: string }[];
+      const missing = TABLES.filter(
+        (t) => !found.some((row) => row.relname === t),
+      );
+      if (missing.length)
+        throw new Error(
+          `The KIT database schema is missing tables (${missing.join(", ")}). Apply supabase/migrations/20261107000012_kit_company_schema.sql.`,
+        );
+      const visible = await db.prepare("SELECT to_regclass('workspace') AS t").get();
+      if (!visible?.t)
+        throw new Error(
+          "The KIT tables exist but are not on this connection's search_path. Connect as the kit_server role (ALTER ROLE kit_server SET search_path = kit).",
+        );
     } catch (error) {
-      this.db.exec("ROLLBACK");
+      await db.close();
       throw error;
     }
+    return new Repository(db);
   }
-  initialized() {
-    return Boolean(this.db.prepare("SELECT 1 FROM users LIMIT 1").get());
+  constructor(readonly db: Db) {}
+  close() {
+    return this.db.close();
   }
-  user(id: string) {
-    return this.db
-      .prepare("SELECT * FROM users WHERE id=?")
-      .get(id) as unknown as UserRow | undefined;
+  transaction<T>(fn: () => Promise<T> | T): Promise<T> {
+    return this.db.transaction(fn);
   }
-  userByEmail(email: string) {
-    return this.db
-      .prepare("SELECT * FROM users WHERE email=?")
-      .get(email) as unknown as UserRow | undefined;
+  async initialized() {
+    return Boolean(await this.db.prepare("SELECT 1 FROM users LIMIT 1").get());
   }
-  users() {
+  async user(id: string) {
+    return (await this.db.prepare("SELECT * FROM users WHERE id=?").get(id)) as
+      | UserRow
+      | undefined;
+  }
+  async userByEmail(email: string) {
+    return (await this.db
+      .prepare("SELECT * FROM users WHERE lower(email)=lower(?)")
+      .get(email)) as UserRow | undefined;
+  }
+  async users() {
+    // COLLATE "C" keeps SQLite's bytewise ordering of names.
     return (
-      this.db
-        .prepare("SELECT * FROM users ORDER BY name")
-        .all() as unknown as UserRow[]
+      (await this.db
+        .prepare('SELECT * FROM users ORDER BY name COLLATE "C"')
+        .all()) as UserRow[]
     ).map(publicUser);
   }
   /**
@@ -101,7 +119,7 @@ export class Repository {
    * identity provider owns the role and approval status; KIT never stores a
    * usable password for these accounts.
    */
-  upsertFederatedUser(account: {
+  async upsertFederatedUser(account: {
     id: string;
     email: string;
     name: string;
@@ -110,10 +128,10 @@ export class Repository {
     clientId?: string | null;
     eventIds: string[];
     sharedProposalIds: string[];
-  }): UserRow {
+  }): Promise<UserRow> {
     // No colon, so passwordMatches() rejects it before hashing anything.
     const noPassword = "external-identity-provider";
-    this.db
+    await this.db
       .prepare(
         `INSERT INTO users (id,email,name,role,owner,active,password_hash,event_ids,client_id,shared_proposals)
          VALUES (?,?,?,?,?,1,?,?,?,?)
@@ -133,12 +151,12 @@ export class Repository {
         account.clientId || null,
         JSON.stringify(account.sharedProposalIds),
       );
-    return this.user(account.id)!;
+    return (await this.user(account.id))!;
   }
-  read(): { workspace: Workspace; revision: number } {
-    const row = this.db
+  async read(): Promise<{ workspace: Workspace; revision: number }> {
+    const row = (await this.db
       .prepare("SELECT revision,payload FROM workspace WHERE id=1")
-      .get() as { revision: number; payload: string } | undefined;
+      .get()) as { revision: number; payload: string } | undefined;
     if (!row) throw new HttpError(409, "Create the company workspace first.");
     const workspace = JSON.parse(row.payload) as Workspace;
     workspace.brandAssets ||= [];
@@ -148,9 +166,9 @@ export class Repository {
     workspace.operations ||= [];
     workspace.automations ||= [];
     workspace.activity = (
-      this.db
-        .prepare("SELECT * FROM audit ORDER BY rowid DESC LIMIT 1000")
-        .all() as unknown as {
+      (await this.db
+        .prepare("SELECT * FROM audit ORDER BY seq DESC LIMIT 1000")
+        .all()) as {
         id: string;
         actor_id: string;
         action: string;
@@ -167,8 +185,8 @@ export class Repository {
     }));
     return { workspace, revision: row.revision };
   }
-  save(workspace: Workspace, expected: number) {
-    const result = this.db
+  async save(workspace: Workspace, expected: number) {
+    const result = await this.db
       .prepare(
         "UPDATE workspace SET payload=?, revision=revision+1 WHERE id=1 AND revision=?",
       )
@@ -179,15 +197,15 @@ export class Repository {
         "The workspace changed in another session. Reload the latest records before saving.",
       );
   }
-  replaceWorkspace(
+  async replaceWorkspace(
     workspace: Workspace,
     expected: number,
     actor: string,
     sourceChecksum: string,
   ) {
-    const current = this.db
+    const current = (await this.db
       .prepare("SELECT revision,payload FROM workspace WHERE id=1")
-      .get() as { revision: number; payload: string } | undefined;
+      .get()) as { revision: number; payload: string } | undefined;
     if (!current || current.revision !== expected)
       throw new HttpError(
         409,
@@ -199,7 +217,7 @@ export class Repository {
     const payloadChecksum = createHash("sha256")
       .update(current.payload)
       .digest("hex");
-    this.db
+    await this.db
       .prepare(
         "INSERT INTO workspace_recovery (id,actor_id,previous_revision,restored_revision,payload,payload_checksum,source_checksum,created_at) VALUES (?,?,?,?,?,?,?,?)",
       )
@@ -213,7 +231,7 @@ export class Repository {
         sourceChecksum,
         createdAt,
       );
-    const result = this.db
+    const result = await this.db
       .prepare(
         "UPDATE workspace SET payload=?, revision=? WHERE id=1 AND revision=?",
       )
@@ -227,9 +245,9 @@ export class Repository {
         409,
         "The workspace changed while recovery was running. No records were replaced.",
       );
-    this.db.exec(`DELETE FROM workspace_recovery
+    await this.db.exec(`DELETE FROM workspace_recovery
       WHERE id NOT IN (
-        SELECT id FROM workspace_recovery ORDER BY rowid DESC LIMIT 10
+        SELECT id FROM workspace_recovery ORDER BY seq DESC LIMIT 10
       )`);
     return {
       id,
@@ -238,12 +256,13 @@ export class Repository {
       restoredRevision,
     };
   }
-  recoveryPoints() {
-    return this.db
+  async recoveryPoints() {
+    // Aliases are quoted: Postgres would otherwise fold them to lower case.
+    return (await this.db
       .prepare(
-        "SELECT id,created_at AS createdAt,previous_revision AS previousRevision,restored_revision AS restoredRevision,source_checksum AS sourceChecksum FROM workspace_recovery ORDER BY rowid DESC LIMIT 10",
+        'SELECT id,created_at AS "createdAt",previous_revision AS "previousRevision",restored_revision AS "restoredRevision",source_checksum AS "sourceChecksum" FROM workspace_recovery ORDER BY seq DESC LIMIT 10',
       )
-      .all() as unknown as {
+      .all()) as {
       id: string;
       createdAt: string;
       previousRevision: number;
@@ -251,12 +270,12 @@ export class Repository {
       sourceChecksum: string;
     }[];
   }
-  recoveryWorkspace(id: string) {
-    const row = this.db
+  async recoveryWorkspace(id: string) {
+    const row = (await this.db
       .prepare(
-        "SELECT payload,payload_checksum AS payloadChecksum FROM workspace_recovery WHERE id=?",
+        'SELECT payload,payload_checksum AS "payloadChecksum" FROM workspace_recovery WHERE id=?',
       )
-      .get(id) as { payload: string; payloadChecksum: string } | undefined;
+      .get(id)) as { payload: string; payloadChecksum: string } | undefined;
     if (!row) throw new HttpError(404, "Recovery point not found.");
     const expected = Buffer.from(row.payloadChecksum, "hex");
     const actual = Buffer.from(
@@ -270,8 +289,8 @@ export class Repository {
       );
     return JSON.parse(row.payload) as Workspace;
   }
-  audit(actor: string, action: string, detail: string, eventId?: string) {
-    this.db
+  async audit(actor: string, action: string, detail: string, eventId?: string) {
+    await this.db
       .prepare(
         "INSERT INTO audit (id,actor_id,action,detail,event_id,created_at) VALUES (?,?,?,?,?,?)",
       )

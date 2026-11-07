@@ -11,7 +11,7 @@ export function mountAiRoutes(
   app: express.Express,
   { repo, config }: RouteContext,
 ) {
-  app.get("/api/ai/status", (_req, res) => {
+  app.get("/api/ai/status", async (_req, res) => {
     const user = userOf(res);
     if (!["Administrator", "Sales Manager"].includes(user.role))
       throw new HttpError(403, "No tienes acceso a la redacción comercial.");
@@ -37,9 +37,9 @@ export function mountAiRoutes(
         503,
         "La IA no está configurada. Puedes crear y editar una propuesta manualmente.",
       );
-    rateLimit(repo, `ai:user:${user.id}`, 10);
-    rateLimit(repo, "ai:company", 30);
-    const { workspace, revision } = repo.read();
+    await rateLimit(repo, `ai:user:${user.id}`, 10);
+    await rateLimit(repo, "ai:company", 30);
+    const { workspace, revision } = await repo.read();
     const context = proposalContext(
       scopeWorkspace(workspace, user),
       input.eventId,
@@ -47,16 +47,16 @@ export function mountAiRoutes(
     );
     const raw = await generator.generate(context);
     // Long-running provider calls must not outlive revoked access or changed source data.
-    const currentUser = repo.user(user.id);
+    const currentUser = await repo.user(user.id);
     if (!currentUser?.active || currentUser.role !== user.role)
       throw new HttpError(403, "Tu acceso cambió durante la generación.");
-    if (repo.read().revision !== revision)
+    if ((await repo.read()).revision !== revision)
       throw new HttpError(
         409,
         "Los datos cambiaron durante la generación. Actualiza el espacio antes de generar otra sugerencia.",
       );
     const suggestion = materializeSuggestion(raw, context, generator.model);
-    repo.audit(
+    await repo.audit(
       user.id,
       "AI proposal suggestion generated",
       `${user.name} · ${generator.model} · pending review`,

@@ -1,82 +1,20 @@
-import { aiProposalGenerator } from "./proposal-ai";
-import { supabaseVerifier } from "./supabase-auth";
-import { integrationsFromEnv } from "./integrations";
-import { aiFloorPlanExtractor } from "./design";
-import { resolve } from "node:path";
 import { Repository } from "./database";
 import { createApp } from "./app";
-import { httpSearchProvider, type SearchGateway } from "./search";
-import { aiKitGenerator, type KitService } from "./kit";
-import { recaptchaVerifier } from "./recaptcha";
-import { jsonLogger, parseLogLevel } from "./logger";
+import { configFromEnv } from "./bootstrap";
+import type { SearchGateway } from "./search";
+import type { KitService } from "./kit";
 
 const port = Number(process.env.PORT || 3001);
-const origins = (
-  process.env.KIT_ORIGINS ||
-  "http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:3001"
-).split(",");
-const repo = new Repository(
-  resolve(process.env.KIT_DATABASE || "data/kit.sqlite"),
-);
-// One AI provider for drafting, KIT chat and plan reading (Settings › Integraciones).
-const integrations = integrationsFromEnv(process.env);
-const ai = integrations.ai;
+const repo = await Repository.open(process.env.KIT_DATABASE);
 const app = createApp(repo, {
-  logger: jsonLogger(parseLogLevel(process.env.KIT_LOG_LEVEL)),
-  integrations,
-  supabaseVerifier:
-    process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY
-      ? supabaseVerifier(
-          process.env.SUPABASE_URL,
-          process.env.SUPABASE_PUBLISHABLE_KEY,
-        )
-      : undefined,
-  recaptchaVerifier:
-    process.env.RECAPTCHA_PROJECT_ID &&
-    process.env.RECAPTCHA_API_KEY &&
-    process.env.RECAPTCHA_SITE_KEY
-      ? recaptchaVerifier(
-          process.env.RECAPTCHA_PROJECT_ID,
-          process.env.RECAPTCHA_API_KEY,
-          process.env.RECAPTCHA_SITE_KEY,
-        )
-      : undefined,
-  kitGenerator: ai?.chatModel
-    ? aiKitGenerator(ai.provider, ai.key, ai.chatModel)
-    : undefined,
-  search: {
-    name: process.env.KIT_SEARCH_PROVIDER_NAME || "No configurado",
-    providerIdentity: process.env.KIT_SEARCH_PROVIDER_URL || "",
-    region: process.env.KIT_SEARCH_REGION || "",
-    retention: process.env.KIT_SEARCH_RETENTION || "",
-    monthlyBudgetCents: Number(
-      process.env.KIT_SEARCH_MONTHLY_BUDGET_CENTS || 0,
-    ),
-    embeddingCentsPerThousandCharacters: Number(
-      process.env.KIT_SEARCH_CENTS_PER_1000_CHARS || 0,
-    ),
-    encryptionKey: process.env.KIT_SEARCH_ENCRYPTION_KEY
-      ? Buffer.from(process.env.KIT_SEARCH_ENCRYPTION_KEY, "hex")
-      : undefined,
-    provider:
-      process.env.KIT_SEARCH_PROVIDER_URL &&
-      process.env.KIT_SEARCH_PROVIDER_TOKEN
-        ? httpSearchProvider(
-            process.env.KIT_SEARCH_PROVIDER_URL,
-            process.env.KIT_SEARCH_PROVIDER_TOKEN,
-          )
-        : undefined,
-  },
-  proposalGenerator: ai?.proposalModel
-    ? aiProposalGenerator(ai.provider, ai.key, ai.proposalModel)
-    : undefined,
-  floorPlanExtractor: ai?.planModel
-    ? aiFloorPlanExtractor(ai.provider, ai.key, ai.planModel)
-    : undefined,
-  origins,
-  secureCookies: process.env.KIT_SECURE_COOKIES === "true",
+  ...configFromEnv(
+    process.env,
+    "http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:3001",
+  ),
   serveStatic: process.env.NODE_ENV === "production",
 });
+// Fail at startup (not on the first request) if the search policy or database is wrong.
+await app.locals.ready;
 const server = app.listen(port, "127.0.0.1", () =>
   console.log(`KIT API ready at http://127.0.0.1:${port}`),
 );
@@ -91,7 +29,7 @@ function shutdown() {
   server.close(async () => {
     await (app.locals.searchGateway as SearchGateway).drain();
     await (app.locals.kit as KitService).drain();
-    repo.close();
+    await repo.close();
     process.exit(0);
   });
 }

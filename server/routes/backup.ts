@@ -21,11 +21,11 @@ export function mountBackupRoutes(
     ...structuredClone(backup.workspace),
     activity: [],
   });
-  const validateRecovery = (workspace: Workspace) => {
+  const validateRecovery = async (workspace: Workspace) => {
     validateWorkspace(workspace, workspace);
     for (const task of workspace.tasks) {
       if (!task.assigneeId) continue;
-      const assignee = repo.user(task.assigneeId);
+      const assignee = await repo.user(task.assigneeId);
       if (
         !assignee?.active ||
         assignee.role === "Client / Guest" ||
@@ -41,7 +41,7 @@ export function mountBackupRoutes(
     for (const operation of workspace.operations) {
       for (const shift of operation.crewShifts) {
         if (!shift.memberId) continue;
-        const member = repo.user(shift.memberId);
+        const member = await repo.user(shift.memberId);
         if (
           !member?.active ||
           member.role === "Client / Guest" ||
@@ -56,11 +56,11 @@ export function mountBackupRoutes(
       }
     }
   };
-  app.get("/api/backup", (_req, res) => {
+  app.get("/api/backup", async (_req, res) => {
     const user = requireAdmin(res);
-    const current = repo.read();
+    const current = await repo.read();
     const backup = createWorkspaceBackup(current.workspace, current.revision);
-    repo.audit(
+    await repo.audit(
       user.id,
       "Workspace backup exported",
       `Revision ${current.revision} · ${backup.checksum.slice(0, 12)}`,
@@ -71,13 +71,13 @@ export function mountBackupRoutes(
     );
     res.json(backup);
   });
-  app.post("/api/backup/preview", (req, res) => {
+  app.post("/api/backup/preview", async (req, res) => {
     requireAdmin(res);
     const input = z.object({ backup: z.unknown() }).strict().parse(req.body);
     const backup = readWorkspaceBackup(input.backup);
     const workspace = restorableWorkspace(backup);
-    validateRecovery(workspace);
-    const current = repo.read();
+    await validateRecovery(workspace);
+    const current = await repo.read();
     res.json({
       backup: backupSummary(backup),
       current: {
@@ -87,7 +87,7 @@ export function mountBackupRoutes(
       confirmation: `RESTORE ${backup.workspace.settings.company}`,
     });
   });
-  app.post("/api/backup/restore", (req, res) => {
+  app.post("/api/backup/restore", async (req, res) => {
     const user = requireAdmin(res);
     const input = z
       .object({
@@ -101,31 +101,31 @@ export function mountBackupRoutes(
     if (input.confirmation !== `RESTORE ${backup.workspace.settings.company}`)
       throw new HttpError(422, "The restore confirmation does not match.");
     const workspace = restorableWorkspace(backup);
-    validateRecovery(workspace);
-    let recoveryPoint!: ReturnType<Repository["replaceWorkspace"]>;
-    repo.transaction(() => {
-      recoveryPoint = repo.replaceWorkspace(
+    await validateRecovery(workspace);
+    let recoveryPoint!: Awaited<ReturnType<Repository["replaceWorkspace"]>>;
+    await repo.transaction(async () => {
+      recoveryPoint = await repo.replaceWorkspace(
         workspace,
         input.expectedRevision,
         user.id,
         backup.checksum,
       );
-      repo.audit(
+      await repo.audit(
         user.id,
         "Workspace backup restored",
         `${backup.workspace.settings.company} · source revision ${backup.sourceRevision} · safety point ${recoveryPoint.id}`,
       );
     });
-    res.json({ ...response(res), recoveryPoint });
+    res.json({ ...(await response(res)), recoveryPoint });
   });
-  app.get("/api/backup/recovery-points", (_req, res) => {
+  app.get("/api/backup/recovery-points", async (_req, res) => {
     requireAdmin(res);
     res.json({
-      recoveryPoints: repo.recoveryPoints(),
-      currentRevision: repo.read().revision,
+      recoveryPoints: await repo.recoveryPoints(),
+      currentRevision: (await repo.read()).revision,
     });
   });
-  app.post("/api/backup/recovery-points/:id/restore", (req, res) => {
+  app.post("/api/backup/recovery-points/:id/restore", async (req, res) => {
     const user = requireAdmin(res);
     const recoveryId = identifier.parse(req.params.id);
     const input = z
@@ -135,28 +135,28 @@ export function mountBackupRoutes(
       })
       .strict()
       .parse(req.body);
-    const workspace = repo.recoveryWorkspace(recoveryId);
-    validateRecovery(workspace);
-    let recoveryPoint!: ReturnType<Repository["replaceWorkspace"]>;
-    repo.transaction(() => {
-      recoveryPoint = repo.replaceWorkspace(
+    const workspace = await repo.recoveryWorkspace(recoveryId);
+    await validateRecovery(workspace);
+    let recoveryPoint!: Awaited<ReturnType<Repository["replaceWorkspace"]>>;
+    await repo.transaction(async () => {
+      recoveryPoint = await repo.replaceWorkspace(
         workspace,
         input.expectedRevision,
         user.id,
         `recovery:${recoveryId}`,
       );
-      repo.audit(
+      await repo.audit(
         user.id,
         "Workspace recovery point restored",
         `${recoveryId} · safety point ${recoveryPoint.id}`,
       );
     });
-    res.json({ ...response(res), recoveryPoint });
+    res.json({ ...(await response(res)), recoveryPoint });
   });
-  app.get("/api/export", (_req, res) => {
+  app.get("/api/export", async (_req, res) => {
     const user = requireAdmin(res);
-    const current = repo.read();
-    repo.audit(user.id, "Workspace exported", "Legacy workspace JSON export");
+    const current = await repo.read();
+    await repo.audit(user.id, "Workspace exported", "Legacy workspace JSON export");
     res.setHeader(
       "Content-Disposition",
       'attachment; filename="kit-workspace-export.json"',

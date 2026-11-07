@@ -5,20 +5,23 @@ import { enterWorkspace } from "./lib/workspace";
 import { PortalShell } from "./layouts/PortalShell";
 import { PublicLayout } from "./layouts/PublicLayout";
 import { Spinner } from "./components/PageHeader";
+import { Button } from "./components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./components/ui/card";
 import { Toaster } from "./components/ui/sonner";
-import { AuthProvider, homeFor, useAuth } from "./lib/auth";
+import { AuthProvider, useAuth } from "./lib/auth";
 import { es } from "./lib/es";
 import type { AppRole } from "./lib/supabase";
 import { AccountStatus } from "./pages/auth/AccountStatus";
 import { ForgotPassword } from "./pages/auth/ForgotPassword";
 import { Login } from "./pages/auth/Login";
 import { ResetPassword } from "./pages/auth/ResetPassword";
-import { Signup } from "./pages/auth/Signup";
-import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { AdminUsers } from "./pages/admin/AdminUsers";
-import { Book } from "./pages/Book";
-import { ClientDashboard } from "./pages/client/ClientDashboard";
-import { Profile } from "./pages/Profile";
 
 /** Signed-in, active account, optionally limited to some roles. */
 function RequireAuth({ roles }: { roles?: AppRole[] }) {
@@ -51,36 +54,98 @@ function RequireAuth({ roles }: { roles?: AppRole[] }) {
   if (account.profile.account_status !== "active")
     return <Navigate to="/portal/account-status" replace />;
   if (roles && !roles.includes(account.role))
-    return <Navigate to={homeFor(account.role)} replace />;
+    return <Navigate to="/portal" replace />;
   return <Outlet />;
 }
 
-/** An administrator is the boss of the workspace: sign them in there and open its home. */
+/** An administrator signs in once here and lands in the workspace. */
 function EnterWorkspace({ accessToken }: { accessToken: string }) {
+  const { signOut } = useAuth();
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
     void enterWorkspace(accessToken).then((ok) => {
       if (cancelled) return;
-      if (ok) {
-        window.location.assign("/");
-      } else {
-        toast.error(
-          "No se pudo abrir el espacio de trabajo. Abrimos el panel del portal.",
-        );
-        setFailed(true);
-      }
+      if (ok) window.location.assign("/");
+      else setFailed(true);
     });
     return () => {
       cancelled = true;
     };
   }, [accessToken]);
-  // If the hand-over fails the admin still gets the portal dashboard, never a dead end.
-  if (failed) return <Navigate to="/portal/admin" replace />;
+  if (failed)
+    return (
+      <PublicLayout>
+        <Notice
+          title="No se pudo abrir el espacio de trabajo"
+          description="Revisa que el servidor de la empresa esté en marcha e inténtalo de nuevo."
+        >
+          <Button onClick={() => window.location.reload()}>
+            {es.common.retry}
+          </Button>
+          <Button variant="outline" onClick={() => void signOut()}>
+            {es.nav.signOut}
+          </Button>
+        </Notice>
+      </PublicLayout>
+    );
   return <Spinner label="Entrando al espacio de trabajo…" />;
 }
 
-/** Sends visitors to the right home, or to login. */
+/** A signed-in account that is not an administrator has nothing to open yet. */
+function NoWorkspaceAccess() {
+  const { signOut } = useAuth();
+  return (
+    <PublicLayout>
+      <Notice
+        title="Sin acceso al espacio de trabajo"
+        description="Tu cuenta aún no tiene permiso para entrar. Pide a un administrador que la habilite."
+      >
+        <Button variant="outline" onClick={() => void signOut()}>
+          {es.nav.signOut}
+        </Button>
+      </Notice>
+    </PublicLayout>
+  );
+}
+
+function Notice({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xl">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">{children}</CardContent>
+    </Card>
+  );
+}
+
+/** Ends the Supabase session (the workspace sends people here when they sign out). */
+function Logout() {
+  const { loading, session, signOut } = useAuth();
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (loading || done) return;
+    if (!session) {
+      setDone(true);
+      return;
+    }
+    void signOut().finally(() => setDone(true));
+  }, [loading, session, signOut, done]);
+  if (done) return <Navigate to="/portal/login" replace />;
+  return <Spinner label={es.common.loading} />;
+}
+
+/** Sends visitors to the workspace, or to login. */
 function Home() {
   const { loading, session, account } = useAuth();
   if (loading) return <Spinner label={es.common.loading} />;
@@ -89,10 +154,10 @@ function Home() {
     return <Navigate to="/portal/account-status" replace />;
   if (account.role === "admin")
     return <EnterWorkspace accessToken={session.access_token} />;
-  return <Navigate to={homeFor(account.role)} replace />;
+  return <NoWorkspaceAccess />;
 }
 
-/** Login/signup pages bounce signed-in users to their home. */
+/** The login page bounces signed-in users onward. */
 function GuestOnly() {
   const { loading, session, account } = useAuth();
   if (!loading && session && account) return <Navigate to="/portal" replace />;
@@ -105,29 +170,17 @@ export function PortalApp() {
       <Toaster />
       <Routes>
         <Route path="/portal" element={<Home />} />
+        <Route path="/portal/logout" element={<Logout />} />
         <Route element={<PublicLayout />}>
           <Route element={<GuestOnly />}>
             <Route path="/portal/login" element={<Login />} />
-            <Route path="/portal/signup" element={<Signup />} />
           </Route>
           <Route path="/portal/forgot-password" element={<ForgotPassword />} />
           <Route path="/portal/reset-password" element={<ResetPassword />} />
           <Route path="/portal/account-status" element={<AccountStatus />} />
         </Route>
-        <Route element={<RequireAuth />}>
-          <Route element={<PortalShell />}>
-            <Route path="/portal/profile" element={<Profile />} />
-            <Route path="/portal/book" element={<Book />} />
-          </Route>
-        </Route>
-        <Route element={<RequireAuth roles={["client"]} />}>
-          <Route element={<PortalShell />}>
-            <Route path="/portal/client" element={<ClientDashboard />} />
-          </Route>
-        </Route>
         <Route element={<RequireAuth roles={["admin"]} />}>
           <Route element={<PortalShell />}>
-            <Route path="/portal/admin" element={<AdminDashboard />} />
             <Route path="/portal/admin/users" element={<AdminUsers />} />
           </Route>
         </Route>

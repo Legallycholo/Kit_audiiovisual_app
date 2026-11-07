@@ -123,22 +123,22 @@ export function syntheticWorkspace(scale = 1): Workspace {
   return workspace;
 }
 
-function time<T>(label: string, fn: () => T, runs = 3) {
+async function time<T>(label: string, fn: () => T | Promise<T>, runs = 3) {
   let result!: T;
   const samples: number[] = [];
   for (let i = 0; i < runs; i++) {
     const started = performance.now();
-    result = fn();
+    result = await fn();
     samples.push(performance.now() - started);
   }
   samples.sort((a, b) => a - b);
   return { label, medianMs: Math.round(samples[Math.floor(runs / 2)]), result };
 }
 
-export function runPerformanceCheck(scale = 1) {
+export async function runPerformanceCheck(scale = 1) {
   const workspace = syntheticWorkspace(scale);
-  const repo = new Repository(":memory:");
-  repo.db
+  const repo = await Repository.open("memory://");
+  await repo.db
     .prepare("INSERT INTO workspace VALUES (1,0,?)")
     .run(JSON.stringify(workspace));
   const admin: WorkspaceUser = {
@@ -160,12 +160,12 @@ export function runPerformanceCheck(scale = 1) {
   };
   const reservation = { ...workspace.reservations[0], quantity: 3 };
   const results = [
-    time("Repository.read (parse payload)", () => repo.read()),
-    time("JSON.stringify workspace", () => JSON.stringify(workspace)),
-    time("validateWorkspace (full)", () =>
+    await time("Repository.read (parse payload)", () => repo.read()),
+    await time("JSON.stringify workspace", () => JSON.stringify(workspace)),
+    await time("validateWorkspace (full)", () =>
       validateWorkspace(workspace, workspace),
     ),
-    time("applyChanges: one reservation", () =>
+    await time("applyChanges: one reservation", () =>
       applyChanges(
         workspace,
         [
@@ -178,14 +178,14 @@ export function runPerformanceCheck(scale = 1) {
         admin,
       ),
     ),
-    time("Repository.save (one write)", () => {
-      const current = repo.read();
-      repo.save(current.workspace, current.revision);
+    await time("Repository.save (one write)", async () => {
+      const current = await repo.read();
+      await repo.save(current.workspace, current.revision);
     }),
-    time("scopeWorkspace: Event Designer", () =>
+    await time("scopeWorkspace: Event Designer", () =>
       scopeWorkspace(workspace, designer),
     ),
-    time("availability: all equipment, one window", () =>
+    await time("availability: all equipment, one window", () =>
       workspace.equipment.map((item) =>
         availableStock(
           item,
@@ -195,8 +195,8 @@ export function runPerformanceCheck(scale = 1) {
         ),
       ),
     ),
-    time("inventoryConflicts", () => inventoryConflicts(workspace)),
-    time("diffWorkspace: one change (client)", () =>
+    await time("inventoryConflicts", () => inventoryConflicts(workspace)),
+    await time("diffWorkspace: one change (client)", () =>
       diffWorkspace(workspace, {
         ...workspace,
         tasks: workspace.tasks.map((t, i) =>
@@ -204,20 +204,20 @@ export function runPerformanceCheck(scale = 1) {
         ),
       }),
     ),
-    time("reports: pipeline + financial + workload + quality", () => [
+    await time("reports: pipeline + financial + workload + quality", () => [
       pipelineReport(workspace),
       financialReport(workspace),
       workloadReport(workspace),
       dataQualityReport(workspace),
     ]),
-    time("utilizationReport: 90 days", () =>
+    await time("utilizationReport: 90 days", () =>
       utilizationReport(workspace, "2027-01-01", "2027-03-31"),
     ),
-    time("automationCandidates", () =>
+    await time("automationCandidates", () =>
       automationCandidates(workspace, new Date("2027-01-15T12:00:00Z")),
     ),
   ];
-  repo.close();
+  await repo.close();
   return {
     scale,
     counts: {
@@ -237,7 +237,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   const scale = Number(
     process.argv.find((arg) => arg.startsWith("--scale="))?.slice(8) || 1,
   );
-  const report = runPerformanceCheck(scale);
+  const report = await runPerformanceCheck(scale);
   console.log(`Scale ${report.scale} · payload ${report.payloadMB} MB`);
   console.log(JSON.stringify(report.counts));
   console.table(report.timings);

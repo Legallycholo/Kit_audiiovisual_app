@@ -13,10 +13,10 @@ let gateway: SearchGateway;
 let provider: SearchProvider;
 const id = "a".repeat(64),
   other = "b".repeat(64);
-beforeEach(() => {
-  repo = new Repository(":memory:");
+beforeEach(async () => {
+  repo = await Repository.open("memory://");
   for (const user of ["alice", "bob"])
-    repo.db
+    await repo.db
       .prepare(
         "INSERT INTO users(id,email,name,role,password_hash) VALUES(?,?,?,?,?)",
       )
@@ -39,6 +39,7 @@ beforeEach(() => {
     embeddingCentsPerThousandCharacters: 1,
     encryptionKey: Buffer.alloc(32, 1),
   });
+  await gateway.ready;
 });
 afterEach(() => repo.close());
 const source = (gateway: SearchGateway, sourceId = id) => ({
@@ -58,7 +59,7 @@ describe("cloud search privacy boundary", () => {
       "supersecret",
     );
     expect(
-      JSON.stringify(repo.db.prepare("SELECT * FROM search_sources").all()),
+      JSON.stringify(await repo.db.prepare("SELECT * FROM search_sources").all()),
     ).not.toContain("Rolando");
     expect((await gateway.search("alice", "Rolando")).results).toHaveLength(1);
   });
@@ -69,30 +70,30 @@ describe("cloud search privacy boundary", () => {
     expect((await gateway.search("alice", "Rolando")).results).toHaveLength(1);
     const namespaces = vi.mocked(provider.replace).mock.calls.map((c) => c[0]);
     expect(namespaces[0]).not.toBe(namespaces[1]);
-    expect(gateway.source("alice", id)).toMatchObject({
+    expect(await gateway.source("alice", id)).toMatchObject({
       id,
       hash: "c".repeat(64),
       title: "Rolando proposal",
     });
-    expect(() => gateway.source("bob", id)).toThrow("unavailable");
+    await expect(gateway.source("bob", id)).rejects.toThrow("unavailable");
   });
   it("hides content immediately while deletion retries await confirmation", async () => {
     await gateway.put("alice", source(gateway));
     vi.mocked(provider.delete).mockResolvedValue(false);
     expect((await gateway.remove("alice")).confirmed).toBe(false);
     expect((await gateway.search("alice", "Rolando")).results).toEqual([]);
-    expect(repo.db.prepare("SELECT payload FROM search_sources").get()).toEqual(
+    expect(await repo.db.prepare("SELECT payload FROM search_sources").get()).toEqual(
       { payload: "" },
     );
     vi.mocked(provider.delete).mockResolvedValue(true);
     await gateway.retry();
-    expect(gateway.status("alice").sources).toHaveLength(0);
+    expect((await gateway.status("alice")).sources).toHaveLength(0);
   });
   it("blocks stale consent, guests and disabled accounts", async () => {
     await expect(
       gateway.put("alice", { ...source(gateway), policy: "0".repeat(64) }),
     ).rejects.toThrow("policy changed");
-    repo.db.prepare("UPDATE users SET active=0 WHERE id='alice'").run();
+    await repo.db.prepare("UPDATE users SET active=0 WHERE id='alice'").run();
     await expect(gateway.search("alice", "Rolando")).rejects.toThrow(
       "unavailable",
     );
@@ -105,10 +106,10 @@ describe("cloud search privacy boundary", () => {
   });
   it("revoked account sources are reconciled without another query", async () => {
     await gateway.put("alice", source(gateway));
-    repo.db.prepare("UPDATE users SET active=0 WHERE id='alice'").run();
+    await repo.db.prepare("UPDATE users SET active=0 WHERE id='alice'").run();
     await gateway.retry();
     expect(provider.delete).toHaveBeenCalled();
-    expect(repo.db.prepare("SELECT * FROM search_sources").all()).toEqual([]);
+    expect(await repo.db.prepare("SELECT * FROM search_sources").all()).toEqual([]);
   });
   it("fails closed without an approved provider and finite budget", async () => {
     gateway.config.monthlyBudgetCents = Infinity;
@@ -117,7 +118,7 @@ describe("cloud search privacy boundary", () => {
       "configured",
     );
   });
-  it("bounds chunk overlap and detects common secret formats", () => {
+  it("bounds chunk overlap and detects common secret formats", async () => {
     const parts = chunks("x".repeat(4500));
     expect(parts.map((p) => p.length)).toEqual([2000, 2000, 900]);
     expect(redactSecrets("password=foo Bearer abc123").count).toBe(2);
@@ -132,12 +133,12 @@ describe("cloud search privacy boundary", () => {
     const url = `http://127.0.0.1:${(server.address() as { port: number }).port}/api/search/device/status`;
     try {
       expect((await fetch(url)).status).toBe(401);
-      const token = gateway.issue("alice", "fixture");
+      const token = await gateway.issue("alice", "fixture");
       expect(
         (await fetch(url, { headers: { Authorization: `Bearer ${token}` } }))
           .status,
       ).toBe(200);
-      repo.db.exec("UPDATE search_devices SET revoked=1");
+      await repo.db.exec("UPDATE search_devices SET revoked=1");
       expect(
         (await fetch(url, { headers: { Authorization: `Bearer ${token}` } }))
           .status,
@@ -148,25 +149,25 @@ describe("cloud search privacy boundary", () => {
   });
   it("requires confirmed deletion before switching providers", async () => {
     await gateway.put("alice", source(gateway));
-    expect(
-      () =>
-        new SearchGateway(repo, { ...gateway.config, name: "Other provider" }),
-    ).toThrow("previous search provider");
+    await expect(
+      new SearchGateway(repo, { ...gateway.config, name: "Other provider" })
+        .ready,
+    ).rejects.toThrow("previous search provider");
     await gateway.remove("alice");
-    expect(
-      () =>
-        new SearchGateway(repo, { ...gateway.config, name: "Other provider" }),
-    ).not.toThrow();
+    await expect(
+      new SearchGateway(repo, { ...gateway.config, name: "Other provider" })
+        .ready,
+    ).resolves.toBeUndefined();
   });
   it("searches only role-scoped company records without uploading files", async () => {
-    repo.db
+    await repo.db
       .prepare("INSERT INTO workspace(id,revision,payload) VALUES(1,0,?)")
       .run(JSON.stringify(createSeed()));
     const app = createApp(repo, { origins: [], search: gateway.config });
     const server = app.listen(0, "127.0.0.1");
     await new Promise<void>((resolve) => server.once("listening", resolve));
     const url = `http://127.0.0.1:${(server.address() as { port: number }).port}/api/search/device/records`;
-    const token = gateway.issue("alice", "fixture");
+    const token = await gateway.issue("alice", "fixture");
     const query = async () => {
       const response = await fetch(url, {
         method: "POST",
@@ -181,7 +182,7 @@ describe("cloud search privacy boundary", () => {
     };
     try {
       expect((await query()).results.length).toBeGreaterThan(0);
-      repo.db
+      await repo.db
         .prepare(
           "UPDATE users SET role='Technician',event_ids='[]' WHERE id='alice'",
         )

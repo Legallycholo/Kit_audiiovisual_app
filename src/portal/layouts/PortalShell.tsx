@@ -5,6 +5,7 @@ import { Wordmark } from "../../shared/ui/Wordmark";
 import { Badge, roleTone } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../lib/auth";
+import { leaveWorkspace } from "../lib/workspace";
 import { es } from "../lib/es";
 import { cn } from "../lib/utils";
 
@@ -13,29 +14,12 @@ export function PortalShell() {
   const navigate = useNavigate();
   const role = account?.role ?? "user";
 
-  const links: {
-    to: string;
-    label: string;
-    end?: boolean;
-    external?: boolean;
-  }[] =
-    role === "admin"
-      ? [
-          { to: "/portal/admin", label: es.nav.admin, end: true },
-          { to: "/portal/admin/users", label: es.nav.users },
-          // A different app (full page load): the company workspace.
-          { to: "/", label: es.nav.workspace, external: true },
-        ]
-      : role === "client"
-        ? [
-            { to: "/portal/client", label: es.nav.client, end: true },
-            { to: "/portal/book", label: es.nav.book },
-            { to: "/portal/profile", label: es.nav.profile },
-          ]
-        : [
-            { to: "/portal/book", label: es.nav.book },
-            { to: "/portal/profile", label: es.nav.profile },
-          ];
+  // The portal is only the account-management side of the workspace.
+  const links: { to: string; label: string; external?: boolean }[] = [
+    { to: "/portal/admin/users", label: es.nav.users },
+    // A different app (full page load): the company workspace.
+    { to: "/", label: es.nav.workspace, external: true },
+  ];
 
   return (
     <div className="portal-root portal-scope">
@@ -59,7 +43,6 @@ export function PortalShell() {
                 <NavLink
                   key={link.to}
                   to={link.to}
-                  end={link.end}
                   className={({ isActive }) =>
                     cn(
                       "rounded-k-sm px-3 py-1.5 text-sm font-medium whitespace-nowrap",
@@ -83,6 +66,7 @@ export function PortalShell() {
               variant="ghost"
               size="sm"
               onClick={async () => {
+                await leaveWorkspace();
                 await signOut();
                 toast.success("Cerraste sesión.");
                 navigate("/portal/login");

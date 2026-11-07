@@ -36,7 +36,7 @@ describe("reCAPTCHA", () => {
   });
   it("blocks sign-in without a passing token, and still sets up", async () => {
     const check = vi.fn(async (token: string) => token === "good");
-    const app = createApp(new Repository(":memory:"), {
+    const app = createApp(await Repository.open("memory://"), {
       origins: [origin],
       recaptchaVerifier: check,
     });

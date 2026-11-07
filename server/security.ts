@@ -29,7 +29,7 @@ function sessionToken(req: Request) {
 }
 export const currentSessionHash = (req: Request) =>
   hashToken(sessionToken(req));
-export function createSession(
+export async function createSession(
   repo: Repository,
   userId: string,
   res: Response,
@@ -37,8 +37,10 @@ export function createSession(
 ) {
   const token = randomBytes(32).toString("hex");
   const csrf = randomBytes(32).toString("hex");
-  repo.db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
-  repo.db
+  await repo.db
+    .prepare("DELETE FROM sessions WHERE expires_at < ?")
+    .run(Date.now());
+  await repo.db
     .prepare("INSERT INTO sessions VALUES (?,?,?,?)")
     .run(hashToken(token), userId, csrf, Date.now() + SESSION_MS);
   res.cookie("kit_session", token, {
@@ -50,13 +52,13 @@ export function createSession(
   });
   return csrf;
 }
-export function destroySession(
+export async function destroySession(
   repo: Repository,
   req: Request,
   res: Response,
   secure: boolean,
 ) {
-  repo.db
+  await repo.db
     .prepare("DELETE FROM sessions WHERE token_hash=?")
     .run(hashToken(sessionToken(req)));
   res.clearCookie("kit_session", {
@@ -67,19 +69,24 @@ export function destroySession(
   });
 }
 export function sessionMiddleware(repo: Repository) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const session = repo.db
-      .prepare("SELECT * FROM sessions WHERE token_hash=? AND expires_at>?")
-      .get(hashToken(sessionToken(req)), Date.now()) as
-      { user_id: string; csrf_token: string } | undefined;
-    if (session) {
-      const row = repo.user(session.user_id);
-      if (row?.active) {
-        res.locals.user = publicUser(row);
-        res.locals.csrf = session.csrf_token;
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const session = (await repo.db
+        .prepare("SELECT * FROM sessions WHERE token_hash=? AND expires_at>?")
+        .get(hashToken(sessionToken(req)), Date.now())) as
+        | { user_id: string; csrf_token: string }
+        | undefined;
+      if (session) {
+        const row = await repo.user(session.user_id);
+        if (row?.active) {
+          res.locals.user = publicUser(row);
+          res.locals.csrf = session.csrf_token;
+        }
       }
+      next();
+    } catch (error) {
+      next(error);
     }
-    next();
   };
 }
 export function userOf(res: Response): WorkspaceUser {
@@ -112,17 +119,19 @@ export function csrfMiddleware(origins: string[]) {
     next();
   };
 }
-export function rateLimit(repo: Repository, key: string, limit = 10) {
+export async function rateLimit(repo: Repository, key: string, limit = 10) {
   const now = Date.now();
-  repo.db.prepare("DELETE FROM login_attempts WHERE reset_at < ?").run(now);
-  const row = repo.db
+  await repo.db
+    .prepare("DELETE FROM login_attempts WHERE reset_at < ?")
+    .run(now);
+  const row = (await repo.db
     .prepare("SELECT * FROM login_attempts WHERE key=?")
-    .get(key) as { count: number; reset_at: number } | undefined;
+    .get(key)) as { count: number; reset_at: number } | undefined;
   if (row && row.count >= limit)
     throw new HttpError(429, "Too many attempts. Try again in 15 minutes.");
-  repo.db
+  await repo.db
     .prepare(
-      "INSERT INTO login_attempts VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1",
+      "INSERT INTO login_attempts VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=login_attempts.count+1",
     )
     .run(key, now + 15 * 60_000);
 }

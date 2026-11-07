@@ -7,11 +7,13 @@ import { createSeed } from "../../src/shared/seed";
 export async function startCompany(config: Partial<AppConfig> = {}) {
   const origin = "http://localhost:5173";
   const password = "only-for-automated-tests-123";
-  const repo = new Repository(":memory:");
-  const server: Server = createApp(repo, {
+  const repo = await Repository.open("memory://");
+  const app = createApp(repo, {
     origins: [origin],
     ...config,
-  }).listen(0, "127.0.0.1");
+  });
+  await app.locals.ready;
+  const server: Server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));
   const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   type Session = { cookie: string; csrf: string };
@@ -20,6 +22,7 @@ export async function startCompany(config: Partial<AppConfig> = {}) {
     method = "GET",
     body?: unknown,
     session?: Session,
+    headers: Record<string, string> = {},
   ) {
     const response = await fetch(`${url}/api${path}`, {
       method,
@@ -29,6 +32,7 @@ export async function startCompany(config: Partial<AppConfig> = {}) {
         ...(session
           ? { Cookie: session.cookie, "x-csrf-token": session.csrf }
           : {}),
+        ...headers,
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -54,7 +58,7 @@ export async function startCompany(config: Partial<AppConfig> = {}) {
       m.at = new Date(m.at).toISOString();
     }),
   );
-  repo.save(seed, 0);
+  await repo.save(seed, 0);
   /** Creates another account with the given role and signs it in. */
   async function account(role: string): Promise<Session> {
     const email = `${role.replaceAll(/[^a-z]/gi, "").toLowerCase()}@example.test`;
@@ -70,7 +74,7 @@ export async function startCompany(config: Partial<AppConfig> = {}) {
   }
   async function close() {
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    repo.close();
+    await repo.close();
   }
   return { repo, call, owner, account, close };
 }

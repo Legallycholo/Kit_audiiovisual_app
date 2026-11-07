@@ -26,19 +26,19 @@ export function mountAuthRoutes(
   app: express.Express,
   { repo, config }: RouteContext,
 ) {
-  app.get("/api/health", (_req, res) =>
-    res.json({ ok: true, initialized: repo.initialized() }),
+  app.get("/api/health", async (_req, res) =>
+    res.json({ ok: true, initialized: await repo.initialized() }),
   );
-  app.get("/api/session", (_req, res) =>
+  app.get("/api/session", async (_req, res) =>
     res.json({
-      initialized: repo.initialized(),
+      initialized: await repo.initialized(),
       user: res.locals.user || null,
       csrf: res.locals.csrf || null,
     }),
   );
   app.post("/api/setup", async (req, res) => {
-    rateLimit(repo, `setup:${req.ip}`, 10);
-    if (repo.initialized())
+    await rateLimit(repo, `setup:${req.ip}`, 10);
+    if (await repo.initialized())
       throw new HttpError(
         409,
         "This workspace is already configured. Sign in instead.",
@@ -46,27 +46,27 @@ export function mountAuthRoutes(
     const input = setupSchema.parse(req.body);
     const encoded = await passwordHash(input.password);
     const id = randomUUID();
-    repo.transaction(() => {
-      if (repo.initialized())
+    await repo.transaction(async () => {
+      if (await repo.initialized())
         throw new HttpError(409, "Workspace setup was already completed.");
-      repo.db
+      await repo.db
         .prepare(
           "INSERT INTO users (id,email,name,role,owner,password_hash) VALUES (?,?,?,?,1,?)",
         )
         .run(id, input.email, input.name, "Administrator", encoded);
-      repo.db
+      await repo.db
         .prepare("INSERT INTO workspace VALUES (1,0,?)")
         .run(JSON.stringify(emptyWorkspace(input.company)));
-      repo.audit(id, "Company workspace created", input.company);
+      await repo.audit(id, "Company workspace created", input.company);
     });
-    const csrf = createSession(repo, id, res, Boolean(config.secureCookies));
-    res.status(201).json({ user: publicUser(repo.user(id)!), csrf });
+    const csrf = await createSession(repo, id, res, Boolean(config.secureCookies));
+    res.status(201).json({ user: publicUser((await repo.user(id))!), csrf });
   });
   app.post("/api/login", async (req, res) => {
     const input = loginSchema.parse(req.body);
-    rateLimit(repo, `login:${req.ip}`);
+    await rateLimit(repo, `login:${req.ip}`);
     await requireHuman(config, input.recaptchaToken);
-    const row = repo.userByEmail(input.email);
+    const row = await repo.userByEmail(input.email);
     // Unknown emails still run one full hash check so timing reveals nothing.
     const decoyHash = "f".repeat(48) + ":" + "0".repeat(128);
     const matches = await passwordMatches(
@@ -75,20 +75,20 @@ export function mountAuthRoutes(
     );
     if (!row?.active || !matches)
       throw new HttpError(401, "Email or password is incorrect.");
-    destroySession(repo, req, res, Boolean(config.secureCookies));
-    const csrf = createSession(
+    await destroySession(repo, req, res, Boolean(config.secureCookies));
+    const csrf = await createSession(
       repo,
       row.id,
       res,
       Boolean(config.secureCookies),
     );
-    repo.audit(row.id, "User signed in", row.email);
+    await repo.audit(row.id, "User signed in", row.email);
     res.json({ user: publicUser(row), csrf });
   });
   app.post("/api/login/supabase", async (req, res) => {
     if (!config.supabaseVerifier)
       throw new HttpError(404, "Portal sign-in is not configured.");
-    rateLimit(repo, `login:${req.ip}`);
+    await rateLimit(repo, `login:${req.ip}`);
     const { accessToken } = supabaseLoginSchema.parse(req.body);
     let identity;
     try {
@@ -108,16 +108,16 @@ export function mountAuthRoutes(
         "This account does not have access to the workspace.",
       );
     // The owner account is only ever created by /api/setup.
-    if (!repo.initialized())
+    if (!(await repo.initialized()))
       throw new HttpError(409, "Create the company workspace first.");
-    let row = repo.userByEmail(identity.email);
+    let row = await repo.userByEmail(identity.email);
     if (row && !row.active)
       throw new HttpError(
         401,
         "This account does not have access to the workspace.",
       );
     // An existing workspace user keeps their own role; a new one is an Administrator.
-    row ??= repo.upsertFederatedUser({
+    row ??= await repo.upsertFederatedUser({
       id: randomUUID(),
       email: identity.email,
       name: identity.name || identity.email,
@@ -126,18 +126,18 @@ export function mountAuthRoutes(
       eventIds: [],
       sharedProposalIds: [],
     });
-    destroySession(repo, req, res, Boolean(config.secureCookies));
-    const csrf = createSession(
+    await destroySession(repo, req, res, Boolean(config.secureCookies));
+    const csrf = await createSession(
       repo,
       row.id,
       res,
       Boolean(config.secureCookies),
     );
-    repo.audit(row.id, "User signed in with the portal", row.email);
+    await repo.audit(row.id, "User signed in with the portal", row.email);
     res.json({ user: publicUser(row), csrf });
   });
-  app.post("/api/logout", (req, res) => {
-    destroySession(repo, req, res, Boolean(config.secureCookies));
+  app.post("/api/logout", async (req, res) => {
+    await destroySession(repo, req, res, Boolean(config.secureCookies));
     res.json({ ok: true });
   });
 }

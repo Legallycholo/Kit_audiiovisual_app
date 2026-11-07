@@ -17,3 +17,7 @@ native/file-index/target/
 src-tauri/gen/
 src-tauri/icons/android/
 src-tauri/icons/ios/
+
+# Local development database (PGlite) and Vercel link
+.kit-local/
+.vercel/

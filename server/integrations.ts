@@ -74,17 +74,17 @@ export function monthStart(now = new Date()) {
 }
 
 /** Counts audit entries with one of the given actions in the current month. */
-export function monthlyCount(
+export async function monthlyCount(
   repo: Repository,
   actions: string[],
   now = new Date(),
 ) {
   if (!actions.length) return 0;
-  const row = repo.db
+  const row = (await repo.db
     .prepare(
       `SELECT COUNT(*) AS count FROM audit WHERE created_at >= ? AND action IN (${actions.map(() => "?").join(",")})`,
     )
-    .get(monthStart(now).toISOString(), ...actions) as { count: number };
+    .get(monthStart(now).toISOString(), ...actions)) as { count: number };
   return Number(row.count);
 }
 
@@ -99,18 +99,18 @@ export const AUDIT = {
   whatsapp: ["Outgoing message delivered to transport"],
 };
 
-function lastTest(repo: Repository, id: IntegrationId) {
-  const row = repo.db
+async function lastTest(repo: Repository, id: IntegrationId) {
+  const row = (await repo.db
     .prepare(
-      "SELECT detail, created_at FROM audit WHERE action=? AND detail LIKE ? ORDER BY rowid DESC LIMIT 1",
+      "SELECT detail, created_at FROM audit WHERE action=? AND detail LIKE ? ORDER BY seq DESC LIMIT 1",
     )
-    .get(AUDIT.test, `${id} · %`) as
+    .get(AUDIT.test, `${id} · %`)) as
     { detail: string; created_at: string } | undefined;
-  const success = repo.db
+  const success = (await repo.db
     .prepare(
-      "SELECT created_at FROM audit WHERE action=? AND detail LIKE ? ORDER BY rowid DESC LIMIT 1",
+      "SELECT created_at FROM audit WHERE action=? AND detail LIKE ? ORDER BY seq DESC LIMIT 1",
     )
-    .get(AUDIT.test, `${id} · ok%`) as { created_at: string } | undefined;
+    .get(AUDIT.test, `${id} · ok%`)) as { created_at: string } | undefined;
   return {
     lastTestedAt: row?.created_at ?? null,
     lastTestOk: row ? row.detail.startsWith(`${id} · ok`) : null,
@@ -137,12 +137,28 @@ export interface IntegrationStatus {
 }
 
 /** The status list for Settings › Integraciones. Contains no secrets. */
-export function integrationStatus(
+export async function integrationStatus(
   repo: Repository,
   config: IntegrationsConfig,
   extra: { messagingLabel?: string | null; searchName?: string | null },
-): IntegrationStatus[] {
+): Promise<IntegrationStatus[]> {
   const { ai, serpapi, whatsapp, calcom, email } = config;
+  const ids: IntegrationId[] = [
+    "ai",
+    "whatsapp",
+    "calcom",
+    "serpapi",
+    "search",
+    "email",
+  ];
+  const last = Object.fromEntries(
+    await Promise.all(ids.map(async (id) => [id, await lastTest(repo, id)])),
+  ) as Record<IntegrationId, Awaited<ReturnType<typeof lastTest>>>;
+  const used = {
+    ai: await monthlyCount(repo, AUDIT.ai),
+    whatsapp: await monthlyCount(repo, AUDIT.whatsapp),
+    lookup: await monthlyCount(repo, [AUDIT.lookup]),
+  };
   return [
     {
       id: "ai",
@@ -161,8 +177,8 @@ export function integrationStatus(
         ? { proposal: ai.proposalModel, chat: ai.chatModel, plan: ai.planModel }
         : undefined,
       keyHint: hint(ai?.key),
-      usage: { label: "requests", value: monthlyCount(repo, AUDIT.ai) },
-      ...lastTest(repo, "ai"),
+      usage: { label: "requests", value: used.ai },
+      ...last.ai,
     },
     {
       id: "whatsapp",
@@ -177,8 +193,8 @@ export function integrationStatus(
       ],
       account: extra.messagingLabel ?? null,
       keyHint: hint(whatsapp?.token),
-      usage: { label: "sent", value: monthlyCount(repo, AUDIT.whatsapp) },
-      ...lastTest(repo, "whatsapp"),
+      usage: { label: "sent", value: used.whatsapp },
+      ...last.whatsapp,
     },
     {
       id: "calcom",
@@ -189,7 +205,7 @@ export function integrationStatus(
       bookingUrl: calcom?.key ? (calcom.bookingUrl ?? null) : null,
       webhookSigned: Boolean(calcom?.webhookSecret),
       keyHint: hint(calcom?.key),
-      ...lastTest(repo, "calcom"),
+      ...last.calcom,
     },
     {
       id: "serpapi",
@@ -200,10 +216,10 @@ export function integrationStatus(
       keyHint: hint(serpapi?.key),
       usage: {
         label: "searches",
-        value: monthlyCount(repo, [AUDIT.lookup]),
+        value: used.lookup,
         cap: serpapi?.monthlyCap,
       },
-      ...lastTest(repo, "serpapi"),
+      ...last.serpapi,
     },
     {
       id: "search",
@@ -217,7 +233,7 @@ export function integrationStatus(
         "KIT_SEARCH_ENCRYPTION_KEY",
       ],
       provider: extra.searchName ?? undefined,
-      ...lastTest(repo, "search"),
+      ...last.search,
     },
     {
       id: "email",
@@ -228,7 +244,7 @@ export function integrationStatus(
       provider: email?.provider,
       account: email?.from ?? null,
       keyHint: hint(email?.key),
-      ...lastTest(repo, "email"),
+      ...last.email,
     },
   ];
 }

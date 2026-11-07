@@ -20,17 +20,17 @@ export function mountLookupRoutes(
       throw new HttpError(403, "Solo el propietario usa la búsqueda externa.");
     return user;
   };
-  const usage = () => {
+  const usage = async () => {
     const serpapi = config.integrations?.serpapi;
     return {
       configured: Boolean(serpapi),
-      used: monthlyCount(repo, [AUDIT.lookup]),
+      used: await monthlyCount(repo, [AUDIT.lookup]),
       cap: serpapi?.monthlyCap ?? 0,
     };
   };
-  app.get("/api/lookup/status", (_req, res) => {
+  app.get("/api/lookup/status", async (_req, res) => {
     owner(res);
-    res.json(usage());
+    res.json(await usage());
   });
   app.post("/api/lookup", async (req, res) => {
     const user = owner(res);
@@ -43,9 +43,9 @@ export function mountLookupRoutes(
       .parse(req.body);
     const serpapi = config.integrations?.serpapi;
     if (!serpapi) throw new HttpError(503, "Búsqueda externa no conectada.");
-    if (usage().used >= serpapi.monthlyCap)
+    if ((await usage()).used >= serpapi.monthlyCap)
       throw new HttpError(429, "Límite mensual alcanzado.");
-    rateLimit(repo, `lookup:${user.id}`, 30);
+    await rateLimit(repo, `lookup:${user.id}`, 30);
     const results = await serpLookup(
       input.kind,
       input.query,
@@ -53,7 +53,7 @@ export function mountLookupRoutes(
       config.integrations?.transport,
     );
     // The query itself is not stored; only that a search was spent.
-    repo.audit(user.id, AUDIT.lookup, `${input.kind} · ${results.length}`);
-    res.json({ kind: input.kind, results, ...usage() });
+    await repo.audit(user.id, AUDIT.lookup, `${input.kind} · ${results.length}`);
+    res.json({ kind: input.kind, results, ...(await usage()) });
   });
 }

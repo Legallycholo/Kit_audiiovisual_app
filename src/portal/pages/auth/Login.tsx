@@ -46,7 +46,7 @@ export function Login() {
       <CardHeader>
         <CardTitle className="text-xl">Te damos la bienvenida</CardTitle>
         <CardDescription>
-          Inicia sesión para reservar y administrar tus sesiones.
+          Inicia sesión para entrar al espacio de trabajo de KIT audiovisual.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -91,12 +91,6 @@ export function Login() {
             >
               ¿Olvidaste tu contraseña?
             </Link>
-          </div>
-          <div className="grid gap-3 border-t border-k-border pt-4 text-center">
-            <p className="text-sm text-k-muted">¿Aún no tienes cuenta?</p>
-            <Button asChild variant="outline">
-              <Link to="/portal/signup">Crear cuenta</Link>
-            </Button>
           </div>
         </form>
       </CardContent>

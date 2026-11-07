@@ -179,3 +179,18 @@ All items were built. Existing API routes and response shapes are unchanged; onl
 - **Half-cent rounding, the sample-seed timestamps and the performance hot spots:** documented above. Each fix changes behavior or needs a business decision.
 - **Optional typecheck step in the desktop workflow:** skipped, because its build step already type-checks.
 - Nothing was pushed or deployed, and no external service was called.
+
+## Vercel / Postgres migration (November 7, 2026)
+
+Plan and checklist: [implementationplan_vercel_migration.md](implementationplan_vercel_migration.md). Owner steps: [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md).
+
+| Check                  | Before                         | After                                                                                                   |
+| ---------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`    | OK                             | OK                                                                                                      |
+| `npm test`             | 27 files, 198 passed + 1 xfail, ~4 s | 37 files, **247 passed + 1 expected failure**, ~30-40 s (in-process Postgres per test; timeout raised to 15 s) |
+| `npm run build`        | OK                             | OK (plus `npm run build:api` for the function bundle)                                                   |
+| `npm run test:browser` | see below                      | see below                                                                                               |
+
+**Browser suite, pre-existing problem:** at commit `4982a43`, before this migration and with the SQLite backend, the browser specs fail in a clean environment because they still click "Abrir espacio de empresa", which the single-login change (`b95e656`) removed. The app now opens directly on owner setup. Verified on an untouched copy of `4982a43`. The specs need updating to the single-login flow; this migration did not change any frontend file.
+
+Existing tests changed only mechanically (`await`, `Repository.open("memory://")`, `.rejects.toThrow` for async throws); no assertion was changed.

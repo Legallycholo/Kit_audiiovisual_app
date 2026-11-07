@@ -21,12 +21,12 @@ export function mountIntegrationRoutes(
   { repo, config }: RouteContext,
 ) {
   const settings = () => config.integrations ?? {};
-  app.get("/api/integrations", (_req, res) => {
+  app.get("/api/integrations", async (_req, res) => {
     const user = requireAdmin(res);
     res.json({
       canTest: user.isOwner,
       month: new Date().toISOString().slice(0, 7),
-      integrations: integrationStatus(repo, settings(), {
+      integrations: await integrationStatus(repo, settings(), {
         messagingLabel: config.messageTransport?.label ?? null,
         searchName: config.search?.provider ? config.search.name : null,
       }),
@@ -40,7 +40,7 @@ export function mountIntegrationRoutes(
         "Solo el propietario puede probar las conexiones.",
       );
     const id = z.enum(ids).parse(req.params.id) as IntegrationId;
-    rateLimit(repo, `integration-test:${user.id}`, 10);
+    await rateLimit(repo, `integration-test:${user.id}`, 10);
     let ok = true;
     let message: string;
     try {
@@ -54,7 +54,7 @@ export function mountIntegrationRoutes(
           ? error.message
           : "La prueba de conexión falló.";
     }
-    repo.audit(user.id, AUDIT.test, `${id} · ${ok ? "ok" : "error"}`);
+    await repo.audit(user.id, AUDIT.test, `${id} · ${ok ? "ok" : "error"}`);
     res.json({ id, ok, message, testedAt: new Date().toISOString() });
   });
 }

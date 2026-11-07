@@ -48,7 +48,7 @@ acceptance checks remain required before release.
 ## Desktop design phase 5
 
 The KIT workspace and right sidebar now use the same conversation records.
-Company conversations persist in SQLite and support explicit context,
+Company conversations persist in the company database and support explicit context,
 revisioned citations, draft artifacts, stopping, retry preparation, branching,
 and Ask/Act modes. Act mode can only propose the small server allowlist of
 actions, and every mutation requires a fresh authorization check and a specific

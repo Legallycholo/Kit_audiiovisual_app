@@ -92,7 +92,7 @@ async function account(role: string, extra: Record<string, unknown> = {}) {
   };
 }
 beforeEach(async () => {
-  repo = new Repository(":memory:");
+  repo = await Repository.open("memory://");
   generate.mockReset();
   sendMessage.mockReset();
   sendMessage.mockResolvedValue({
@@ -127,13 +127,13 @@ beforeEach(async () => {
       m.at = new Date(m.at).toISOString();
     }),
   );
-  repo.save(seed, 0);
+  await repo.save(seed, 0);
 });
 afterEach(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve())),
   );
-  repo.close();
+  await repo.close();
 });
 
 describe("authenticated company workspace", () => {
@@ -153,7 +153,7 @@ describe("authenticated company workspace", () => {
         })
       ).status,
     ).toBe(403);
-    expect(repo.userByEmail("owner@example.test")?.password_hash).not.toContain(
+    expect((await repo.userByEmail("owner@example.test"))?.password_hash).not.toContain(
       password,
     );
     expect((await call("/setup", "POST", {})).status).toBe(409);
@@ -173,7 +173,7 @@ describe("authenticated company workspace", () => {
     expect(scoped.workspace.proposals).toEqual([]);
     expect(scoped.workspace.conversations).toEqual([]);
     expect(scoped.workspace.equipment.every((q) => q.rate === 0)).toBe(true);
-    const event = repo.read().workspace.events.find((e) => e.id === "e2")!;
+    const event = (await repo.read()).workspace.events.find((e) => e.id === "e2")!;
     expect(
       (
         await patch(
@@ -185,12 +185,12 @@ describe("authenticated company workspace", () => {
     ).toBe(403);
     expect((await call("/export", "GET", undefined, tech)).status).toBe(403);
     expect((await call("/backup", "GET", undefined, tech)).status).toBe(403);
-    const proposal = repo
-      .read()
-      .workspace.proposals.find((p) => p.id === "p1")!;
-    const clientId = repo
-      .read()
-      .workspace.events.find((e) => e.id === proposal.eventId)!.clientId;
+    const proposal = (await repo.read()).workspace.proposals.find(
+      (p) => p.id === "p1",
+    )!;
+    const clientId = (await repo.read()).workspace.events.find(
+      (e) => e.id === proposal.eventId,
+    )!.clientId;
     const guest = await account("Client / Guest", {
       clientId,
       sharedProposalIds: [proposal.id],
@@ -230,7 +230,7 @@ describe("authenticated company workspace", () => {
     expect(
       (await call("/backup/preview", "POST", { backup: tampered })).status,
     ).toBe(422);
-    expect(repo.read().workspace.clients[0].name).toBe("Changed after backup");
+    expect((await repo.read()).workspace.clients[0].name).toBe("Changed after backup");
 
     const preview = await call("/backup/preview", "POST", {
       backup: exported.json,
@@ -1138,9 +1138,8 @@ describe("authenticated company workspace", () => {
       { revision: saved.json.revision },
     );
     expect(result.status).toBe(502);
-    const stored = repo
-      .read()
-      .workspace.conversations.find((item) => item.id === conversation.id)!
+    const stored = (await repo.read()).workspace.conversations
+      .find((item) => item.id === conversation.id)!
       .messages.find((item) => item.id === draft.id)!;
     expect(stored).toMatchObject({
       text: draft.text,
@@ -1150,13 +1149,13 @@ describe("authenticated company workspace", () => {
     expect(stored.failureReason).not.toContain("private provider failure");
   });
   it("deduplicates inbound acceptance signals and preserves exact evidence", async () => {
-    const current = repo.read();
+    const current = await repo.read();
     const conversation = current.workspace.conversations.find(
       (item) => item.id === "m1",
     )!;
     conversation.review = "None";
     conversation.reviewMessageId = undefined;
-    repo.save(current.workspace, current.revision);
+    await repo.save(current.workspace, current.revision);
     const body = {
       externalId: "inbound-exact-1",
       channel: "Test channel",
@@ -1310,8 +1309,8 @@ describe("AI proposal drafting", () => {
   });
   it("does not return a suggestion if records change while the provider is running", async () => {
     generate.mockImplementation(async () => {
-      const current = repo.read();
-      repo.save(current.workspace, current.revision);
+      const current = await repo.read();
+      await repo.save(current.workspace, current.revision);
       return suggestion;
     });
     expect(
@@ -1324,16 +1323,16 @@ describe("AI proposal drafting", () => {
     ).toBe(409);
   });
 });
-it("persists company records across repository restarts", () => {
+it("persists company records across repository restarts", async () => {
   const dir = mkdtempSync(join(tmpdir(), "kit-persistence-"));
-  const file = join(dir, "workspace.sqlite");
+  const file = join(dir, "workspace-db");
   try {
-    const first = new Repository(file);
-    first.db
+    const first = await Repository.open(file);
+    await first.db
       .prepare("INSERT INTO workspace VALUES (1,0,?)")
       .run(JSON.stringify(createSeed()));
-    const previous = first.read();
-    first.save(
+    const previous = await first.read();
+    await first.save(
       {
         ...previous.workspace,
         settings: {
@@ -1343,11 +1342,13 @@ it("persists company records across repository restarts", () => {
       },
       0,
     );
-    first.close();
-    const second = new Repository(file);
-    expect(second.read().workspace.settings.company).toBe("Persistent company");
-    expect(second.read().revision).toBe(1);
-    second.close();
+    await first.close();
+    const second = await Repository.open(file);
+    expect((await second.read()).workspace.settings.company).toBe(
+      "Persistent company",
+    );
+    expect((await second.read()).revision).toBe(1);
+    await second.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

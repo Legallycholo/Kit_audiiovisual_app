@@ -440,9 +440,9 @@ export function App() {
           onOpenPalette={() => setPalette("")}
           onOpenHelp={() => setHelp(true)}
           pendingCount={remind ? pending : 0}
-          // Only administrators manage bookings and portal users.
-          bookingUrl={
-            user?.role === "Administrator" ? "/portal/admin" : undefined
+          // Only administrators manage who can sign in.
+          usersUrl={
+            user?.role === "Administrator" ? "/portal/admin/users" : undefined
           }
         />
         <div className="app-body">

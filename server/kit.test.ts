@@ -12,18 +12,20 @@ let provider: SearchProvider;
 let generate: ReturnType<typeof vi.fn<KitGenerator["generate"]>>;
 
 async function waitForThread(id: string) {
-  await vi.waitFor(() => expect(kit.get("owner", id).busy).toBe(false));
-  return kit.get("owner", id);
+  await vi.waitFor(async () =>
+    expect((await kit.get("owner", id)).busy).toBe(false),
+  );
+  return await kit.get("owner", id);
 }
 
 beforeEach(async () => {
-  repo = new Repository(":memory:");
-  repo.db
+  repo = await Repository.open("memory://");
+  await repo.db
     .prepare(
       "INSERT INTO users(id,email,name,role,password_hash) VALUES(?,?,?,?,?)",
     )
     .run("owner", "owner@example.test", "Owner", "Administrator", "unused");
-  repo.db
+  await repo.db
     .prepare("INSERT INTO workspace(id,revision,payload) VALUES(1,0,?)")
     .run(JSON.stringify(createSeed()));
   provider = {
@@ -41,6 +43,7 @@ beforeEach(async () => {
     embeddingCentsPerThousandCharacters: 1,
     encryptionKey: Buffer.alloc(32, 7),
   });
+  await search.ready;
   await search.put("owner", {
     id: fileId,
     hash: "b".repeat(64),
@@ -61,17 +64,18 @@ beforeEach(async () => {
     undefined,
     search,
   );
+  await kit.ready;
 });
 
 afterEach(async () => {
   await kit.drain();
-  repo.close();
+  await repo.close();
 });
 
 describe("KIT indexed-file grounding", () => {
   it("grounds an answer in an account-scoped indexed source without renderer content", async () => {
-    const thread = kit.create("owner");
-    kit.send("owner", thread.id, {
+    const thread = await kit.create("owner");
+    await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
       text: "¿Cuántos altavoces necesita Rolando?",
       mode: "ask",
@@ -105,8 +109,8 @@ describe("KIT indexed-file grounding", () => {
   });
 
   it("marks changed sources stale and blocks them immediately after revocation", async () => {
-    const thread = kit.create("owner");
-    kit.send("owner", thread.id, {
+    const thread = await kit.create("owner");
+    await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
       text: "Resume el archivo.",
       mode: "ask",
@@ -122,12 +126,12 @@ describe("KIT indexed-file grounding", () => {
       text: "The approved source changed.",
       policy: search.fingerprint,
     });
-    expect(kit.get("owner", thread.id).messages.at(-1)!.sources[0].stale).toBe(
+    expect((await kit.get("owner", thread.id)).messages.at(-1)!.sources[0].stale).toBe(
       true,
     );
     vi.mocked(provider.delete).mockResolvedValue(false);
     await search.remove("owner", fileId);
-    const revoked = kit.get("owner", thread.id).messages.at(-1)!;
+    const revoked = (await kit.get("owner", thread.id)).messages.at(-1)!;
     expect(revoked.status).toBe("blocked");
     expect(revoked.sources[0].unavailable).toBe(true);
     expect(revoked.citations).toEqual([]);
@@ -145,8 +149,8 @@ describe("KIT indexed-file grounding", () => {
         brief: "Validar dimensiones con producción.",
       },
     });
-    const thread = kit.create("owner");
-    kit.send("owner", thread.id, {
+    const thread = await kit.create("owner");
+    await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
       text: "Crea una tarea para revisar el plano.",
       mode: "act",
@@ -157,13 +161,13 @@ describe("KIT indexed-file grounding", () => {
     const message = pending.messages.at(-1)!;
     expect(message.action?.status).toBe("pending");
     expect(
-      repo.read().workspace.tasks.some((t) => t.title === "Revisar plano"),
+      (await repo.read()).workspace.tasks.some((t) => t.title === "Revisar plano"),
     ).toBe(false);
-    kit.confirm("owner", thread.id, message.id, message.action!.token);
+    await kit.confirm("owner", thread.id, message.id, message.action!.token);
     expect(
-      repo.read().workspace.tasks.some((t) => t.title === "Revisar plano"),
+      (await repo.read()).workspace.tasks.some((t) => t.title === "Revisar plano"),
     ).toBe(true);
-    expect(kit.get("owner", thread.id).messages.at(-1)!.action?.status).toBe(
+    expect((await kit.get("owner", thread.id)).messages.at(-1)!.action?.status).toBe(
       "completed",
     );
   });
@@ -180,8 +184,8 @@ describe("KIT indexed-file grounding", () => {
         brief: "No crear",
       },
     });
-    const thread = kit.create("owner");
-    kit.send("owner", thread.id, {
+    const thread = await kit.create("owner");
+    await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
       text: "Solo dime qué harías.",
       mode: "ask",
@@ -191,7 +195,7 @@ describe("KIT indexed-file grounding", () => {
     const failed = await waitForThread(thread.id);
     expect(failed.messages.at(-1)).toMatchObject({ status: "failed" });
     expect(
-      repo.read().workspace.tasks.some((t) => t.title === "No crear"),
+      (await repo.read()).workspace.tasks.some((t) => t.title === "No crear"),
     ).toBe(false);
   });
 });

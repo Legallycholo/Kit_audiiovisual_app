@@ -13,14 +13,14 @@ import { createWorkspaceBackup } from "./backup";
 const backupName = /^kit-backup-\d{8}T\d{6}Z-r\d+\.json$/;
 
 // Writes a checksummed backup in the admin export format and prunes older files.
-export function runScheduledBackup(
+export async function runScheduledBackup(
   repo: Repository,
   options: { dir: string; keep: number; now?: Date },
 ) {
   if (!Number.isInteger(options.keep) || options.keep < 1)
     throw new Error("Backup retention must keep at least one file.");
   const now = options.now || new Date();
-  const current = repo.read();
+  const current = await repo.read();
   const backup = createWorkspaceBackup(
     current.workspace,
     current.revision,
@@ -46,7 +46,7 @@ export function runScheduledBackup(
       rmSync(join(options.dir, name));
       return name;
     });
-  repo.audit(
+  await repo.audit(
     "system",
     "Scheduled workspace backup written",
     `Revision ${current.revision} · ${backup.checksum.slice(0, 12)}`,
@@ -55,11 +55,9 @@ export function runScheduledBackup(
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
-  const repo = new Repository(
-    resolve(process.env.KIT_DATABASE || "data/kit.sqlite"),
-  );
+  const repo = await Repository.open(process.env.KIT_DATABASE);
   try {
-    const result = runScheduledBackup(repo, {
+    const result = await runScheduledBackup(repo, {
       dir: resolve(process.env.KIT_BACKUP_DIR || "data/backups"),
       keep: Number(process.env.KIT_BACKUP_KEEP || 14),
     });
@@ -73,6 +71,6 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
     );
     process.exitCode = 1;
   } finally {
-    repo.close();
+    await repo.close();
   }
 }

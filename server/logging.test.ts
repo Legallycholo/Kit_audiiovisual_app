@@ -5,7 +5,7 @@ import { Repository } from "./database";
 import { jsonLogger, parseLogLevel, type LogLevel } from "./logger";
 
 describe("JSON logger", () => {
-  it("writes one JSON object per line at or above the minimum level", () => {
+  it("writes one JSON object per line at or above the minimum level", async () => {
     const lines: [string, LogLevel][] = [];
     const logger = jsonLogger("warn", (line, level) =>
       lines.push([line, level]),
@@ -21,7 +21,7 @@ describe("JSON logger", () => {
     });
   });
 
-  it("falls back to info for unknown levels and supports silent", () => {
+  it("falls back to info for unknown levels and supports silent", async () => {
     expect(parseLogLevel(undefined)).toBe("info");
     expect(parseLogLevel("verbose")).toBe("info");
     expect(parseLogLevel("toString")).toBe("info");
@@ -41,7 +41,7 @@ describe("request logging and error responses", () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
   const start = async () => {
-    repo = new Repository(":memory:");
+    repo = await Repository.open("memory://");
     server = createApp(repo, {
       origins: ["http://localhost:5173"],
       logger: jsonLogger("debug", (line) => entries.push(JSON.parse(line))),
@@ -113,7 +113,7 @@ describe("request logging and error responses", () => {
 });
 
 describe("secret redaction", () => {
-  it("never prints keys, tokens or authorization headers", () => {
+  it("never prints keys, tokens or authorization headers", async () => {
     const lines: string[] = [];
     const logger = jsonLogger("debug", (line) => lines.push(line));
     const keys = [

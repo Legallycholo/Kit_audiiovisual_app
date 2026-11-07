@@ -15,7 +15,7 @@ import {
   CircleHelp,
   ExternalLink,
   LogOut,
-  CalendarCheck,
+  UsersRound,
   PanelLeftClose,
   PanelLeftOpen,
   RefreshCw,
@@ -58,7 +58,7 @@ export function Sidebar({
   onOpenPalette,
   onOpenHelp,
   pendingCount,
-  bookingUrl,
+  usersUrl,
 }: {
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -68,7 +68,7 @@ export function Sidebar({
   onOpenPalette: () => void;
   onOpenHelp: () => void;
   pendingCount: number;
-  bookingUrl?: string;
+  usersUrl?: string;
 }) {
   const { user, mode } = useWorkspace();
   const { pathname } = useLocation();
@@ -203,20 +203,20 @@ export function Sidebar({
               </button>
             </SidebarRowTooltip>
           </li>
-          {bookingUrl && (
+          {usersUrl && (
             <li>
-              <SidebarRowTooltip compact={compact} label="Portal de reservas">
-                {/* The portal is a separate app (full page load, same tab). */}
+              <SidebarRowTooltip compact={compact} label="Usuarios y accesos">
+                {/* Account management lives in the portal bundle (full page load, same tab). */}
                 <a
                   className="sidebar-row"
-                  href={bookingUrl}
+                  href={usersUrl}
                   aria-label={
-                    compact ? uiLabel("Portal de reservas") : undefined
+                    compact ? uiLabel("Usuarios y accesos") : undefined
                   }
                 >
-                  <CalendarCheck size={18} aria-hidden="true" />
+                  <UsersRound size={18} aria-hidden="true" />
                   <span className="sidebar-label">
-                    {uiLabel("Portal de reservas")}
+                    {uiLabel("Usuarios y accesos")}
                   </span>
                 </a>
               </SidebarRowTooltip>

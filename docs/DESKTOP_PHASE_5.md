@@ -9,7 +9,7 @@ fixtures and do not send company data to a live model.
 
 - The full KIT workspace and right sidebar use one shared store and active
   thread. Moving between them preserves messages, draft context, and thread ID.
-- Company threads persist in SQLite per account. Sample-mode threads remain
+- Company threads persist in the company database per account. Sample-mode threads remain
   visibly local browser examples and never simulate a successful AI response.
 - Conversations support naming, project assignment, search/filtering, deletion,
   export, branching, stop, retry preparation, and edit-and-resend preparation.
@@ -50,7 +50,7 @@ window.
 
 Verified on this development machine: the production frontend build, all 80
 unit/API tests, and all 44 browser scenarios pass. The browser suite includes
-the real Express/session/SQLite boundary with fixture model responses. Rust was
+the real Express/session/database boundary with fixture model responses. Rust was
 not rerun in this pass because the current shell does not have `cargo` installed;
 the native change only extends the already validated company-window route
 allowlist to the `kit` and `search` modules and still requires native acceptance.

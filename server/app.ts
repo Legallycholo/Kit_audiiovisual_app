@@ -1,5 +1,5 @@
 import express from "express";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { SearchGateway } from "./search";
 import { KitService } from "./kit";
 import { resolve } from "node:path";
@@ -25,11 +25,33 @@ import { mountLookupRoutes } from "./routes/lookup";
 
 export type { AppConfig } from "./routes/context";
 
+/** Vercel rejects request bodies over 4.5 MB before they reach the function, so the API limit stays below it. */
+export const BODY_LIMIT = "4mb";
+
+/**
+ * The page security policy. Express sends it with every response; vercel.json
+ * repeats the non-API form for static files, and a test keeps the two equal.
+ */
+export function contentSecurityPolicy(isApi: boolean, supabaseOrigin: string) {
+  const supabaseConnect = supabaseOrigin
+    ? ` ${supabaseOrigin} ${supabaseOrigin.replace(/^https/, "wss")}`
+    : "";
+  return (
+    "default-src 'self' 'unsafe-inline' blob:; " +
+    (isApi ? "frame-ancestors 'none'; " : "") +
+    "base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://www.google.com https://accounts.google.com; connect-src 'self' blob: ws: wss: https://www.google.com" +
+    supabaseConnect
+  );
+}
+
+const sha = (value: string) => createHash("sha256").update(value).digest();
+
 export function createApp(repo: Repository, config: AppConfig) {
   const app = express();
   // Without a configured logger only failures are reported, as before.
   const logger = config.logger ?? jsonLogger("warn");
   app.disable("x-powered-by");
+  if (config.trustProxy !== undefined) app.set("trust proxy", config.trustProxy);
   // The portal talks to its own Supabase project from the browser (public key only).
   const supabaseOrigin = (() => {
     try {
@@ -38,9 +60,6 @@ export function createApp(repo: Repository, config: AppConfig) {
       return "";
     }
   })();
-  const supabaseConnect = supabaseOrigin
-    ? ` ${supabaseOrigin} ${supabaseOrigin.replace(/^https/, "wss")}`
-    : "";
   app.use((req, res, next) => {
     const requestId = randomUUID();
     const started = performance.now();
@@ -61,38 +80,55 @@ export function createApp(repo: Repository, config: AppConfig) {
       "X-Request-Id": requestId,
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "same-origin",
-      "Content-Security-Policy":
-        "default-src 'self' 'unsafe-inline' blob:; " +
-        (isApi ? "frame-ancestors 'none'; " : "") +
-        "base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.google.com https://www.gstatic.com https://apis.google.com; frame-src 'self' https://www.google.com https://accounts.google.com; connect-src 'self' blob: ws: wss: https://www.google.com" +
-        supabaseConnect,
+      "Content-Security-Policy": contentSecurityPolicy(isApi, supabaseOrigin),
       "Permissions-Policy":
         "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
       "Cache-Control": "no-store",
     });
     next();
   });
-  app.use(express.json({ limit: "6mb" }));
+  app.use(express.json({ limit: BODY_LIMIT }));
   const searchGateway = new SearchGateway(repo, config.search);
   app.locals.searchGateway = searchGateway;
-  // Native device requests carry revocable bearer tokens instead of browser cookies.
-  searchGateway.mountDevice(app);
-  app.use("/api", sessionMiddleware(repo), csrfMiddleware(config.origins));
-  searchGateway.mountSession(app);
   const kit = new KitService(
     repo,
     config.kitGenerator,
     config.proposalGenerator,
     searchGateway,
+    { resetBusyOnBoot: config.resetBusyOnBoot },
   );
   app.locals.kit = kit;
+  // Startup work (search tenant and policy check, interrupted AI jobs) is async
+  // now. Requests wait for it; a failure (for example a changed search provider
+  // policy) fails every request instead of hanging. Servers also await it before listening.
+  const ready = Promise.all([searchGateway.ready, kit.ready]).then(
+    () => undefined,
+  );
+  ready.catch(() => {});
+  app.locals.ready = ready;
+  app.use("/api", (_req, _res, next) => ready.then(() => next(), next));
+  // Called by Vercel Cron (and nothing else): no session, so it is mounted before
+  // the session and CSRF middleware and authenticates with a bearer secret.
+  app.get("/api/cron/search-retry", async (req, res) => {
+    if (!config.cronSecret)
+      throw new HttpError(503, "Scheduled jobs are not configured.");
+    const given = sha(req.get("authorization") ?? "");
+    if (!timingSafeEqual(given, sha(`Bearer ${config.cronSecret}`)))
+      throw new HttpError(401, "Unauthorized.");
+    await searchGateway.retry();
+    res.json({ ok: true });
+  });
+  // Native device requests carry revocable bearer tokens instead of browser cookies.
+  searchGateway.mountDevice(app);
+  app.use("/api", sessionMiddleware(repo), csrfMiddleware(config.origins));
+  searchGateway.mountSession(app);
   kit.mount(app);
   const design = new DesignService(repo, config.floorPlanExtractor);
   app.locals.design = design;
   design.mount(app);
-  const response = (res: express.Response): WorkspaceResponse => {
+  const response = async (res: express.Response): Promise<WorkspaceResponse> => {
     const user = userOf(res);
-    const { workspace, revision } = repo.read();
+    const { workspace, revision } = await repo.read();
     return { workspace: scopeWorkspace(workspace, user), revision, user };
   };
   const context: RouteContext = { repo, config, response };

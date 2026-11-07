@@ -26,7 +26,7 @@ async function start(config: IntegrationsConfig) {
 }
 
 describe("integrations status", () => {
-  it("reads every service from the environment", () => {
+  it("reads every service from the environment", async () => {
     const config = integrationsFromEnv(env);
     expect(config.ai).toMatchObject({
       provider: "anthropic",
@@ -117,7 +117,7 @@ describe("connection tests", () => {
     expect(transport.mock.calls[0][0]).toBe(
       "https://api.anthropic.com/v1/models/claude-opus-5-5",
     );
-    const audit = repo.db
+    const audit = await repo.db
       .prepare("SELECT detail FROM audit WHERE action=?")
       .all("Integration connection tested") as { detail: string }[];
     expect(audit.map((row) => row.detail)).toEqual(["ai · ok"]);

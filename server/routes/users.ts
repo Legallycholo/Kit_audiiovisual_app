@@ -39,7 +39,7 @@ function validateGrants(workspace: Workspace, input: Grants) {
 }
 
 export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
-  app.get("/api/team", (req, res) => {
+  app.get("/api/team", async (req, res) => {
     const actor = userOf(res);
     const eventId = identifier.parse(req.query.eventId);
     if (
@@ -48,8 +48,7 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
     )
       throw new HttpError(403, "No tienes acceso al equipo de este evento.");
     res.json({
-      members: repo
-        .users()
+      members: (await repo.users())
         .filter(
           (person) =>
             person.active &&
@@ -60,22 +59,22 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
         .map(({ id, name, role }) => ({ id, name, role })),
     });
   });
-  app.get("/api/users", (_req, res) => {
+  app.get("/api/users", async (_req, res) => {
     requireAdmin(res);
-    res.json({ users: repo.users() });
+    res.json({ users: await repo.users() });
   });
   app.post("/api/users", async (req, res) => {
     const actor = requireAdmin(res);
     const input = userSchema.parse(req.body);
-    validateGrants(repo.read().workspace, input);
-    if (repo.userByEmail(input.email))
+    validateGrants((await repo.read()).workspace, input);
+    if (await repo.userByEmail(input.email))
       throw new HttpError(409, "A user with this email already exists.");
     const encoded = await passwordHash(input.password);
     const id = randomUUID();
-    repo.transaction(() => {
-      if (repo.userByEmail(input.email))
+    await repo.transaction(async () => {
+      if (await repo.userByEmail(input.email))
         throw new HttpError(409, "A user with this email already exists.");
-      repo.db
+      await repo.db
         .prepare(
           "INSERT INTO users (id,email,name,role,password_hash,event_ids,client_id,shared_proposals) VALUES (?,?,?,?,?,?,?,?)",
         )
@@ -89,35 +88,35 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
           input.clientId || null,
           JSON.stringify(input.sharedProposalIds),
         );
-      repo.audit(actor.id, "User created", `${input.name} · ${input.role}`);
+      await repo.audit(actor.id, "User created", `${input.name} · ${input.role}`);
     });
-    res.status(201).json({ user: publicUser(repo.user(id)!) });
+    res.status(201).json({ user: publicUser((await repo.user(id))!) });
   });
-  app.patch("/api/users/:id", (req, res) => {
+  app.patch("/api/users/:id", async (req, res) => {
     const actor = requireAdmin(res);
     const userId = identifier.parse(req.params.id);
     const input = z.object({ active: z.boolean() }).strict().parse(req.body);
-    const row = repo.user(userId);
+    const row = await repo.user(userId);
     if (!row) throw new HttpError(404, "User not found.");
     if (row.owner || actor.id === userId)
       throw new HttpError(
         422,
         "The owner and your own account cannot be deactivated here.",
       );
-    repo.transaction(() => {
-      repo.db
+    await repo.transaction(async () => {
+      await repo.db
         .prepare("UPDATE users SET active=? WHERE id=?")
         .run(input.active ? 1 : 0, userId);
-      repo.db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
-      repo.audit(
+      await repo.db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
+      await repo.audit(
         actor.id,
         input.active ? "User reactivated" : "User deactivated",
         row.email,
       );
     });
-    res.json({ user: publicUser(repo.user(userId)!) });
+    res.json({ user: publicUser((await repo.user(userId))!) });
   });
-  app.put("/api/users/:id/access", (req, res) => {
+  app.put("/api/users/:id/access", async (req, res) => {
     const actor = requireAdmin(res);
     const userId = identifier.parse(req.params.id);
     const parsed = accessSchema.parse(req.body);
@@ -128,7 +127,7 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
       clientId: client ? parsed.clientId : undefined,
       sharedProposalIds: client ? parsed.sharedProposalIds : [],
     };
-    const row = repo.user(userId);
+    const row = await repo.user(userId);
     if (!row) throw new HttpError(404, "User not found.");
     if (row.owner)
       throw new HttpError(
@@ -140,8 +139,8 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
         422,
         "No puedes cambiar el acceso de tu propia cuenta.",
       );
-    repo.transaction(() => {
-      const { workspace } = repo.read();
+    await repo.transaction(async () => {
+      const { workspace } = await repo.read();
       validateGrants(workspace, input);
       const keepsEvent = (eventId: string) =>
         input.role === "Administrator" ||
@@ -160,7 +159,7 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
           422,
           "Reasigna sus tareas y turnos antes de quitarle acceso a esos eventos.",
         );
-      repo.db
+      await repo.db
         .prepare(
           "UPDATE users SET role=?, event_ids=?, client_id=?, shared_proposals=? WHERE id=?",
         )
@@ -172,14 +171,14 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
           userId,
         );
       // Open sessions may hold data scoped to the previous grants.
-      repo.db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
-      repo.audit(
+      await repo.db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
+      await repo.audit(
         actor.id,
         "User access changed",
         `${row.email} · ${input.role}`,
       );
     });
-    res.json({ user: publicUser(repo.user(userId)!) });
+    res.json({ user: publicUser((await repo.user(userId))!) });
   });
   app.post("/api/users/:id/reset-password", async (req, res) => {
     const actor = requireAdmin(res);
@@ -187,7 +186,7 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
     z.object({})
       .strict()
       .parse(req.body ?? {});
-    const row = repo.user(userId);
+    const row = await repo.user(userId);
     if (!row) throw new HttpError(404, "User not found.");
     if (actor.id === userId)
       throw new HttpError(
@@ -204,15 +203,15 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
         422,
         "Reactiva la cuenta antes de restablecer su contraseña.",
       );
-    rateLimit(repo, `password-reset:${actor.id}`, 10);
+    await rateLimit(repo, `password-reset:${actor.id}`, 10);
     const temporaryPassword = randomBytes(12).toString("base64url");
     const encoded = await passwordHash(temporaryPassword);
-    repo.transaction(() => {
-      repo.db
+    await repo.transaction(async () => {
+      await repo.db
         .prepare("UPDATE users SET password_hash=? WHERE id=?")
         .run(encoded, userId);
-      repo.db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
-      repo.audit(actor.id, "User password reset by administrator", row.email);
+      await repo.db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
+      await repo.audit(actor.id, "User password reset by administrator", row.email);
     });
     res.json({ temporaryPassword });
   });

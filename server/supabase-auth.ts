@@ -1,4 +1,4 @@
-export type PortalRole = "user" | "client" | "admin";
+export type PortalRole = "user" | "admin";
 export type SupabaseIdentity = {
   email: string;
   emailVerified: boolean;

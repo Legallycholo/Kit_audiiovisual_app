@@ -1,33 +1,22 @@
 import { createServer as createViteServer } from "vite";
 import type express from "express";
-import { resolve } from "node:path";
-import { aiProposalGenerator } from "./server/proposal-ai";
-import { supabaseVerifier } from "./server/supabase-auth";
-import { integrationsFromEnv } from "./server/integrations";
-import { aiFloorPlanExtractor } from "./server/design";
 import { Repository } from "./server/database";
 import { createApp } from "./server/app";
-import { httpSearchProvider, type SearchGateway } from "./server/search";
-import { aiKitGenerator, type KitService } from "./server/kit";
-import { recaptchaVerifier } from "./server/recaptcha";
-import { jsonLogger, parseLogLevel } from "./server/logger";
+import { configFromEnv } from "./server/bootstrap";
+import type { SearchGateway } from "./server/search";
+import type { KitService } from "./server/kit";
 
 const port = Number(process.env.PORT || 3000);
 const isDev = process.env.NODE_ENV !== "production";
 
-const origins = (
-  process.env.KIT_ORIGINS ||
-  "http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:5173,http://localhost:5173"
-).split(",");
-
-const repo = new Repository(
-  resolve(process.env.KIT_DATABASE || "data/kit.sqlite"),
-);
+// Local database: a PGlite directory (default .kit-local/pglite), or a postgres://
+// connection string in KIT_DATABASE. data/ is never opened.
+const repo = await Repository.open(process.env.KIT_DATABASE);
 
 // A fresh database can be seeded with a sample workspace for local work. The
 // owner password is never hardcoded: without KIT_SEED_OWNER_PASSWORD the app
 // shows its normal first-run setup screen and the owner is created there.
-if (!repo.initialized()) {
+if (!(await repo.initialized())) {
   const seedPassword = process.env.KIT_SEED_OWNER_PASSWORD;
   const email = process.env.KIT_SEED_OWNER_EMAIL || "owner@kit.local";
   if (seedPassword) {
@@ -35,21 +24,23 @@ if (!repo.initialized()) {
     const { passwordHash } = await import("./server/security");
     const adminId = "user-admin-seed";
     const hash = await passwordHash(seedPassword);
-    repo.db
-      .prepare(
-        "INSERT INTO users (id,email,name,role,owner,password_hash) VALUES (?,?,?,?,1,?)",
-      )
-      .run(
-        adminId,
-        email.toLowerCase(),
-        process.env.KIT_SEED_OWNER_NAME || "Owner",
-        "Administrator",
-        hash,
-      );
-    repo.db
-      .prepare("INSERT INTO workspace VALUES (1,0,?)")
-      .run(JSON.stringify(createSeed()));
-    repo.audit(adminId, "Espacio inicial creado", "KIT Audiovisual");
+    await repo.transaction(async () => {
+      await repo.db
+        .prepare(
+          "INSERT INTO users (id,email,name,role,owner,password_hash) VALUES (?,?,?,?,1,?)",
+        )
+        .run(
+          adminId,
+          email.toLowerCase(),
+          process.env.KIT_SEED_OWNER_NAME || "Owner",
+          "Administrator",
+          hash,
+        );
+      await repo.db
+        .prepare("INSERT INTO workspace VALUES (1,0,?)")
+        .run(JSON.stringify(createSeed()));
+      await repo.audit(adminId, "Espacio inicial creado", "KIT Audiovisual");
+    });
     console.log("Seeded initial production workspace for:", email);
   } else {
     console.log(
@@ -57,9 +48,6 @@ if (!repo.initialized()) {
     );
   }
 }
-
-const integrations = integrationsFromEnv(process.env);
-const ai = integrations.ai;
 
 let viteMiddleware: express.RequestHandler | undefined;
 if (isDev) {
@@ -71,62 +59,15 @@ if (isDev) {
 }
 
 const app = createApp(repo, {
-  logger: jsonLogger(parseLogLevel(process.env.KIT_LOG_LEVEL)),
-  integrations,
-  supabaseVerifier:
-    process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY
-      ? supabaseVerifier(
-          process.env.SUPABASE_URL,
-          process.env.SUPABASE_PUBLISHABLE_KEY,
-        )
-      : undefined,
-  recaptchaVerifier:
-    process.env.RECAPTCHA_PROJECT_ID &&
-    process.env.RECAPTCHA_API_KEY &&
-    process.env.RECAPTCHA_SITE_KEY
-      ? recaptchaVerifier(
-          process.env.RECAPTCHA_PROJECT_ID,
-          process.env.RECAPTCHA_API_KEY,
-          process.env.RECAPTCHA_SITE_KEY,
-        )
-      : undefined,
-  kitGenerator: ai?.chatModel
-    ? aiKitGenerator(ai.provider, ai.key, ai.chatModel)
-    : undefined,
-  search: {
-    name: process.env.KIT_SEARCH_PROVIDER_NAME || "No configurado",
-    providerIdentity: process.env.KIT_SEARCH_PROVIDER_URL || "",
-    region: process.env.KIT_SEARCH_REGION || "",
-    retention: process.env.KIT_SEARCH_RETENTION || "",
-    monthlyBudgetCents: Number(
-      process.env.KIT_SEARCH_MONTHLY_BUDGET_CENTS || 0,
-    ),
-    embeddingCentsPerThousandCharacters: Number(
-      process.env.KIT_SEARCH_CENTS_PER_1000_CHARS || 0,
-    ),
-    encryptionKey: process.env.KIT_SEARCH_ENCRYPTION_KEY
-      ? Buffer.from(process.env.KIT_SEARCH_ENCRYPTION_KEY, "hex")
-      : undefined,
-    provider:
-      process.env.KIT_SEARCH_PROVIDER_URL &&
-      process.env.KIT_SEARCH_PROVIDER_TOKEN
-        ? httpSearchProvider(
-            process.env.KIT_SEARCH_PROVIDER_URL,
-            process.env.KIT_SEARCH_PROVIDER_TOKEN,
-          )
-        : undefined,
-  },
-  proposalGenerator: ai?.proposalModel
-    ? aiProposalGenerator(ai.provider, ai.key, ai.proposalModel)
-    : undefined,
-  floorPlanExtractor: ai?.planModel
-    ? aiFloorPlanExtractor(ai.provider, ai.key, ai.planModel)
-    : undefined,
-  origins,
-  secureCookies: process.env.KIT_SECURE_COOKIES === "true",
+  ...configFromEnv(
+    process.env,
+    "http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:5173,http://localhost:5173",
+  ),
   serveStatic: !isDev,
   viteMiddleware,
 });
+// Fail at startup (not on the first request) if the search policy or database is wrong.
+await app.locals.ready;
 
 const server = app.listen(port, "0.0.0.0", () => {
   console.log(`KIT server ready on http://0.0.0.0:${port}`);
@@ -144,7 +85,7 @@ function shutdown() {
   server.close(async () => {
     await (app.locals.searchGateway as SearchGateway).drain();
     await (app.locals.kit as KitService).drain();
-    repo.close();
+    await repo.close();
     process.exit(0);
   });
 }

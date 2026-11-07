@@ -28,7 +28,7 @@ export default defineConfig({
     // Tests run against the local account path, with no external identity
     // provider, even when .env enables reCAPTCHA.
     command:
-      "VITE_RECAPTCHA_SITE_KEY= npm run dev",
+      "VITE_RECAPTCHA_SITE_KEY= KIT_DATABASE=memory:// npm run dev",
     url: "http://127.0.0.1:5173",
     reuseExistingServer: true,
     timeout: 30_000,

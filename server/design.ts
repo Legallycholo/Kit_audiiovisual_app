@@ -170,9 +170,9 @@ export class DesignService {
       const input = floorPlanRequestSchema.parse(req.body);
       if (!ownsEvent(user, input.eventId))
         throw new HttpError(403, "This event is outside your assigned scope.");
-      const layout = this.repo
-        .read()
-        .workspace.layouts.find((item) => item.id === input.layoutId);
+      const layout = (await this.repo.read()).workspace.layouts.find(
+        (item) => item.id === input.layoutId,
+      );
       if (!layout || layout.eventId !== input.eventId)
         throw new HttpError(404, "No se encontró el diseño solicitado.");
       if (!this.extractor)
@@ -185,7 +185,7 @@ export class DesignService {
         input,
         this.extractor,
       );
-      this.repo.audit(
+      await this.repo.audit(
         user.id,
         "Floor-plan geometry extracted",
         `${input.name} · ${this.extractor.name} · review required`,

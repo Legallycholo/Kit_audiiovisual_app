@@ -9,7 +9,7 @@ export function mountConversationRoutes(
   app: express.Express,
   { repo, response }: RouteContext,
 ) {
-  app.post("/api/conversations/:id/accept", (req, res) => {
+  app.post("/api/conversations/:id/accept", async (req, res) => {
     const user = userOf(res);
     if (!user.isOwner)
       throw new HttpError(403, "Only the owner can confirm client acceptance.");
@@ -17,8 +17,8 @@ export function mountConversationRoutes(
       .object({ revision: z.number().int().nonnegative() })
       .strict()
       .parse(req.body).revision;
-    repo.transaction(() => {
-      const current = repo.read();
+    await repo.transaction(async () => {
+      const current = await repo.read();
       if (revision !== current.revision)
         throw new HttpError(
           409,
@@ -30,17 +30,17 @@ export function mountConversationRoutes(
       );
       if (confirmed?.acceptanceEvidence)
         confirmed.acceptanceEvidence.ownerId = user.id;
-      repo.save(next, revision);
+      await repo.save(next, revision);
       const conversation = next.conversations.find(
         (c) => c.id === req.params.id,
       )!;
-      repo.audit(
+      await repo.audit(
         user.id,
         "Owner confirmed client acceptance",
         `${user.name} · ${conversation.proposalId} · revision ${conversation.proposalVersion}`,
         conversation.eventId,
       );
     });
-    res.json(response(res));
+    res.json(await response(res));
   });
 }

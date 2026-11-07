@@ -9,8 +9,8 @@ describe("seeded performance check", () => {
     expect(workspace.events).toHaveLength(150);
   });
 
-  it("times every measured operation at a small scale", () => {
-    const report = runPerformanceCheck(0.02);
+  it("times every measured operation at a small scale", async () => {
+    const report = await runPerformanceCheck(0.02);
     expect(report.timings).toHaveLength(12);
     expect(report.timings.every((t) => Number.isFinite(t.medianMs))).toBe(true);
   });

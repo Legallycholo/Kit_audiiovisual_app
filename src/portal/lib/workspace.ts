@@ -15,3 +15,24 @@ export async function enterWorkspace(accessToken: string): Promise<boolean> {
     return false;
   }
 }
+
+/** Ends the company workspace session too, so signing out here really signs out everywhere. */
+export async function leaveWorkspace(): Promise<void> {
+  try {
+    const status = (await (
+      await fetch("/api/session", { credentials: "same-origin" })
+    ).json()) as { csrf: string | null };
+    if (!status.csrf) return;
+    await fetch("/api/logout", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "x-csrf-token": status.csrf,
+      },
+      body: "{}",
+    });
+  } catch {
+    // Offline or already signed out; the workspace session expires on its own.
+  }
+}

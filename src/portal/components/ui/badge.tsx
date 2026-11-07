@@ -25,14 +25,6 @@ export function Badge({
   return <span className={cn(badgeVariants({ tone }), className)} {...props} />;
 }
 
-export const bookingTone = {
-  requested: "warning",
-  confirmed: "success",
-  rejected: "danger",
-  cancelled: "neutral",
-  completed: "info",
-  no_show: "danger",
-} as const;
 export const accountTone = {
   active: "success",
   pending: "warning",
@@ -42,6 +34,5 @@ export const accountTone = {
 } as const;
 export const roleTone = {
   user: "neutral",
-  client: "info",
   admin: "success",
 } as const;

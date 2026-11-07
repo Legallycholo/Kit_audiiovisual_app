@@ -50,7 +50,7 @@ describe("web lookup", () => {
     expect(result.text).not.toContain(key);
     const url = new URL(String(transport.mock.calls[0][0]));
     expect(url.searchParams.get("engine")).toBe("google_shopping");
-    const audit = repo.db
+    const audit = await repo.db
       .prepare("SELECT detail FROM audit WHERE action=?")
       .all("External lookup performed") as { detail: string }[];
     expect(audit).toEqual([{ detail: "equipment · 2" }]);
