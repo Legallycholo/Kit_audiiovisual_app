@@ -21,6 +21,7 @@ import { AccountStatus } from "./pages/auth/AccountStatus";
 import { ForgotPassword } from "./pages/auth/ForgotPassword";
 import { Login } from "./pages/auth/Login";
 import { ResetPassword } from "./pages/auth/ResetPassword";
+import { Signup } from "./pages/auth/Signup";
 import { AdminUsers } from "./pages/admin/AdminUsers";
 
 /** Signed-in, active account, optionally limited to some roles. */
@@ -174,6 +175,7 @@ export function PortalApp() {
         <Route element={<PublicLayout />}>
           <Route element={<GuestOnly />}>
             <Route path="/portal/login" element={<Login />} />
+            <Route path="/portal/signup" element={<Signup />} />
           </Route>
           <Route path="/portal/forgot-password" element={<ForgotPassword />} />
           <Route path="/portal/reset-password" element={<ResetPassword />} />

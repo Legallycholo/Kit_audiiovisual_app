@@ -156,7 +156,17 @@ If you see `"The company database is not configured for this deployment."`, the 
 
 ### 3.3 If you have no existing data
 
-Open the address. The first screen creates your owner account and an empty workspace. Skip to 3.5.
+Open the address: it goes to `/portal/login`. Sign in with your Supabase **administrator** account. Because the company database is empty, that first administrator becomes the owner and an empty workspace named "KIT audiovisual" is created (rename it in Configuración). Skip to 3.5.
+
+### 3.3b Let people request accounts (approval required)
+
+`/portal/login` has a **Crear cuenta** link. So that new accounts wait for your approval instead of being active at once, run this once in the Supabase SQL Editor:
+
+```sql
+update public.app_settings set value = 'true'::jsonb where key = 'require_account_approval';
+```
+
+New requests then appear as "Pendiente" in **Usuarios y accesos** (`/portal/admin/users`); click **Aprobar**. For now only administrators enter the workspace; an approved regular account sees "Sin acceso al espacio de trabajo".
 
 ### 3.4 If you have existing data to keep (import)
 

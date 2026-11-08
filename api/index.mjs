@@ -4348,6 +4348,7 @@ function jsonLogger(minimum = "info", write = (line2, level) => (level === "warn
 
 // server/routes/auth.ts
 import { randomUUID as randomUUID6 } from "node:crypto";
+var FIRST_COMPANY_NAME = "KIT audiovisual";
 async function requireHuman(config, token) {
   if (!config.recaptchaVerifier) return;
   let human = false;
@@ -4430,8 +4431,26 @@ function mountAuthRoutes(app, { repo, config }) {
         401,
         "This account does not have access to the workspace."
       );
-    if (!await repo.initialized())
-      throw new HttpError(409, "Create the company workspace first.");
+    if (!await repo.initialized()) {
+      await repo.transaction(async () => {
+        if (await repo.initialized()) return;
+        const owner = await repo.upsertFederatedUser({
+          id: randomUUID6(),
+          email: identity.email,
+          name: identity.name || identity.email,
+          role: "Administrator",
+          isOwner: true,
+          eventIds: [],
+          sharedProposalIds: []
+        });
+        await repo.db.prepare("INSERT INTO workspace VALUES (1,0,?)").run(JSON.stringify(emptyWorkspace(FIRST_COMPANY_NAME)));
+        await repo.audit(
+          owner.id,
+          "Company workspace created",
+          `${FIRST_COMPANY_NAME} \xB7 first portal administrator`
+        );
+      });
+    }
     let row = await repo.userByEmail(identity.email);
     if (row && !row.active)
       throw new HttpError(

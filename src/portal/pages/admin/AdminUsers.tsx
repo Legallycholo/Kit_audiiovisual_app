@@ -184,7 +184,9 @@ export function AdminUsers() {
                                 })
                               }
                             >
-                              Reactivar
+                              {row.account_status === "pending"
+                                ? "Aprobar"
+                                : "Reactivar"}
                             </Button>
                           )}
                         </div>

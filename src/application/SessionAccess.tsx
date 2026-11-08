@@ -32,10 +32,17 @@ export function SessionAccess({
   };
   const [busy, setBusy] = useState(false);
   const setup = initialized === false;
-  // There is exactly one login page: the portal's. A configured workspace that needs
-  // a session sends people there; this screen only handles first-time setup and
-  // "server unreachable".
-  const goToLogin = initialized === true && !desktopLocal;
+  // There is exactly one login page: the portal's. With the portal configured,
+  // every visit that needs a session goes there, including a brand-new company
+  // (the first portal administrator to sign in creates it). This screen remains
+  // for "server unreachable" and, without a portal, for local first-time setup.
+  const portalConfigured = Boolean(
+    import.meta.env.VITE_SUPABASE_URL &&
+      import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  );
+  const goToLogin =
+    !desktopLocal &&
+    (initialized === true || (initialized === false && portalConfigured));
   useEffect(() => {
     if (goToLogin) window.location.replace("/portal/login");
   }, [goToLogin]);

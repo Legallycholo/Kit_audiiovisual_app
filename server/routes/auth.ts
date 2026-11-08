@@ -11,6 +11,9 @@ import {
 import { loginSchema, setupSchema, supabaseLoginSchema } from "../schema";
 import type { AppConfig, RouteContext } from "./context";
 
+/** Name of a workspace created by the first portal login; editable in Configuración. */
+export const FIRST_COMPANY_NAME = "KIT audiovisual";
+
 async function requireHuman(config: AppConfig, token?: string) {
   if (!config.recaptchaVerifier) return;
   let human = false;
@@ -107,9 +110,32 @@ export function mountAuthRoutes(
         401,
         "This account does not have access to the workspace.",
       );
-    // The owner account is only ever created by /api/setup.
-    if (!(await repo.initialized()))
-      throw new HttpError(409, "Create the company workspace first.");
+    // On an empty company database the first verified portal administrator
+    // becomes the owner and an empty workspace is created, so /portal/login is
+    // the only entry page. The re-check inside the transaction (which holds the
+    // writer lock) makes two simultaneous first logins create one owner only.
+    if (!(await repo.initialized())) {
+      await repo.transaction(async () => {
+        if (await repo.initialized()) return;
+        const owner = await repo.upsertFederatedUser({
+          id: randomUUID(),
+          email: identity.email,
+          name: identity.name || identity.email,
+          role: "Administrator",
+          isOwner: true,
+          eventIds: [],
+          sharedProposalIds: [],
+        });
+        await repo.db
+          .prepare("INSERT INTO workspace VALUES (1,0,?)")
+          .run(JSON.stringify(emptyWorkspace(FIRST_COMPANY_NAME)));
+        await repo.audit(
+          owner.id,
+          "Company workspace created",
+          `${FIRST_COMPANY_NAME} · first portal administrator`,
+        );
+      });
+    }
     let row = await repo.userByEmail(identity.email);
     if (row && !row.active)
       throw new HttpError(
