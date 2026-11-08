@@ -26,6 +26,7 @@ import {
   CloudOff,
   FilePlus2,
   FileText,
+  LogOut,
   Menu as MenuIcon,
   MessageCircle,
   Moon,
@@ -160,6 +161,7 @@ export function App() {
     sync,
     retrySync,
     resolveSync,
+    signOut,
   } = useWorkspace();
   const kit = useKit();
   const location = useLocation();
@@ -554,6 +556,23 @@ export function App() {
                 >
                   <Sparkles size={16} aria-hidden="true" />
                   <span>{uiLabel("Ask KIT")}</span>
+                </button>
+              )}
+              {mode === "company" && (
+                <button
+                  type="button"
+                  className="icon-button sign-out-button"
+                  // Same guard as the account menu: never sign out with unsaved or unsynced changes.
+                  disabled={saving || Boolean(sync.pending)}
+                  title={
+                    saving || sync.pending
+                      ? "Espera a que se guarden los cambios para cerrar sesión"
+                      : uiLabel("Sign out")
+                  }
+                  aria-label={uiLabel("Sign out")}
+                  onClick={() => void signOut()}
+                >
+                  <LogOut size={18} aria-hidden="true" />
                 </button>
               )}
             </div>
