@@ -119,11 +119,11 @@ Add each one for the **Production** environment only. Mark every secret as **Sen
 | `RECAPTCHA_PROJECT_ID`, `RECAPTCHA_API_KEY`, `RECAPTCHA_SITE_KEY`, `VITE_RECAPTCHA_SITE_KEY` | copy from your local `.env` if you use reCAPTCHA              | If used          |
 | `SERPAPI_API_KEY`, `KIT_SERPAPI_MONTHLY_CAP` | copy from your local `.env`                                                         | If used          |
 | `KIT_SEARCH_*` (provider name/url/token, region, retention, budget, price, **`KIT_SEARCH_ENCRYPTION_KEY`**) | copy from your local `.env`. **`KIT_SEARCH_ENCRYPTION_KEY` must be the exact same value** or existing encrypted search data cannot be read. | If used |
-| `KIT_EMAIL_*`, `WHATSAPP_*`, `CALCOM_*`   | copy from your local `.env`                                                            | If used          |
+| `KIT_EMAIL_*`, `WHATSAPP_*`               | copy from your local `.env`                                                            | If used          |
 | `KIT_LOG_LEVEL`                           | `info` (or leave out)                                                                  | Optional         |
 | `KIT_DATABASE_CA`                         | Supabase's CA certificate text, to verify the database's identity. Leave out to skip.  | Optional         |
 
-**Do not set** `PORT`, `NODE_ENV`, `KIT_BACKUP_DIR`, `KIT_BACKUP_KEEP` or `KIT_SEED_OWNER_*` on Vercel. They do not apply.
+**Do not set** `PORT`, `NODE_ENV`, `KIT_BACKUP_DIR`, `KIT_BACKUP_KEEP`, `KIT_SEED_OWNER_*` or `CALCOM_*` on Vercel. They do not apply (Cal.com was removed on 2026-11-07).
 
 **Do not set `KIT_DATABASE` for Preview.** Preview deployments then answer "database not configured" instead of touching your real company data.
 

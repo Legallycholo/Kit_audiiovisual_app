@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-  CalendarClock,
   Copy,
   FileSearch,
   Globe,
@@ -14,8 +13,8 @@ import { uiLabel } from "../../shared/i18n";
 import { Badge, Button, ErrorNote, Panel, Skeleton } from "../../shared/ui";
 
 export interface IntegrationStatus {
-  id: "ai" | "whatsapp" | "calcom" | "serpapi" | "search" | "email";
-  group: "ai" | "messaging" | "scheduling" | "search" | "email";
+  id: "ai" | "whatsapp" | "serpapi" | "search" | "email";
+  group: "ai" | "messaging" | "search" | "email";
   configured: boolean;
   testable: boolean;
   env: string[];
@@ -23,7 +22,6 @@ export interface IntegrationStatus {
   models?: { proposal?: string; chat?: string; plan?: string };
   account?: string | null;
   keyHint?: string | null;
-  bookingUrl?: string | null;
   usage?: { label: string; value: number; cap?: number };
   lastTestedAt: string | null;
   lastTestOk: boolean | null;
@@ -33,7 +31,6 @@ export interface IntegrationStatus {
 const groups: { id: IntegrationStatus["group"]; title: string }[] = [
   { id: "ai", title: "IA" },
   { id: "messaging", title: "Mensajería" },
-  { id: "scheduling", title: "Agenda" },
   { id: "search", title: "Búsqueda" },
   { id: "email", title: "Correo" },
 ];
@@ -53,12 +50,6 @@ const services: Record<
     purpose:
       "Mensajes con clientes desde Mensajes, siempre con la confirmación del propietario.",
     icon: <MessageCircle size={20} />,
-  },
-  calcom: {
-    name: "Cal.com",
-    purpose:
-      "Citas con clientes y visitas al lugar desde tu página de reservas.",
-    icon: <CalendarClock size={20} />,
   },
   serpapi: {
     name: "SerpApi",
@@ -343,9 +334,7 @@ function groupOf(id: string): IntegrationStatus["group"] {
     ? "ai"
     : id === "whatsapp"
       ? "messaging"
-      : id === "calcom"
-        ? "scheduling"
-        : id === "email"
-          ? "email"
-          : "search";
+      : id === "email"
+        ? "email"
+        : "search";
 }

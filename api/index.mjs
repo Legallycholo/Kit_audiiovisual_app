@@ -5334,11 +5334,6 @@ function integrationsFromEnv(env) {
   const serpKey = clean(env.SERPAPI_API_KEY);
   const whatsappToken = clean(env.WHATSAPP_TOKEN);
   const phoneNumberId = clean(env.WHATSAPP_PHONE_NUMBER_ID);
-  const calcom = {
-    key: clean(env.CALCOM_API_KEY),
-    webhookSecret: clean(env.CALCOM_WEBHOOK_SECRET),
-    bookingUrl: clean(env.CALCOM_BOOKING_URL)
-  };
   const emailKey = clean(env.KIT_EMAIL_API_KEY);
   return {
     ai: resolveAIConfig(env),
@@ -5348,7 +5343,6 @@ function integrationsFromEnv(env) {
       monthlyCap: Number.isFinite(cap) && cap > 0 ? Math.floor(cap) : 250
     } : null,
     whatsapp: whatsappToken && phoneNumberId ? { token: whatsappToken, phoneNumberId } : null,
-    calcom: calcom.key || calcom.webhookSecret || calcom.bookingUrl ? calcom : null,
     email: emailKey && clean(env.KIT_EMAIL_PROVIDER) && clean(env.KIT_EMAIL_FROM) ? {
       provider: clean(env.KIT_EMAIL_PROVIDER),
       key: emailKey,
@@ -5391,11 +5385,10 @@ async function lastTest(repo, id3) {
   };
 }
 async function integrationStatus(repo, config, extra) {
-  const { ai, serpapi, whatsapp, calcom, email } = config;
+  const { ai, serpapi, whatsapp, email } = config;
   const ids2 = [
     "ai",
     "whatsapp",
-    "calcom",
     "serpapi",
     "search",
     "email"
@@ -5442,17 +5435,6 @@ async function integrationStatus(repo, config, extra) {
       keyHint: hint(whatsapp?.token),
       usage: { label: "sent", value: used.whatsapp },
       ...last.whatsapp
-    },
-    {
-      id: "calcom",
-      group: "scheduling",
-      configured: Boolean(calcom?.key),
-      testable: Boolean(calcom?.key),
-      env: ["CALCOM_API_KEY", "CALCOM_WEBHOOK_SECRET", "CALCOM_BOOKING_URL"],
-      bookingUrl: calcom?.key ? calcom.bookingUrl ?? null : null,
-      webhookSigned: Boolean(calcom?.webhookSecret),
-      keyHint: hint(calcom?.key),
-      ...last.calcom
     },
     {
       id: "serpapi",
@@ -5552,21 +5534,11 @@ async function testIntegration(id3, config) {
     );
     return "Meta acept\xF3 el token y el n\xFAmero de WhatsApp. No se envi\xF3 ning\xFAn mensaje.";
   }
-  if (id3 === "calcom") {
-    if (!config.calcom?.key)
-      throw new HttpError(409, "Configura CALCOM_API_KEY antes de probar.");
-    await probe(
-      "https://api.cal.com/v2/me",
-      { Authorization: `Bearer ${config.calcom.key}` },
-      transport
-    );
-    return "Cal.com acept\xF3 la clave. No se cre\xF3 ninguna reserva.";
-  }
   throw new HttpError(422, "Este servicio no tiene una prueba en vivo.");
 }
 
 // server/routes/integrations.ts
-var ids = ["ai", "whatsapp", "calcom", "serpapi", "search", "email"];
+var ids = ["ai", "whatsapp", "serpapi", "search", "email"];
 function mountIntegrationRoutes(app, { repo, config }) {
   const settings = () => config.integrations ?? {};
   app.get("/api/integrations", async (_req, res) => {

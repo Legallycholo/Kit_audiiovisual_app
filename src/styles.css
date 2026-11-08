@@ -4170,8 +4170,7 @@ td small {
   background: var(--color-brand-green-subtle);
   color: var(--color-success);
 }
-.integration-card .integration-icon.whatsapp,
-.integration-card .integration-icon.calcom {
+.integration-card .integration-icon.whatsapp {
   background: var(--color-brand-red-subtle);
   color: var(--color-danger);
 }

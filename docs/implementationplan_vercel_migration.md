@@ -228,7 +228,7 @@ Move to **Vercel → Project Settings → Environment Variables**. Mark secrets 
 | `KIT_EMAIL_*`, `WHATSAPP_*` | Move as-is | |
 | `KIT_LOG_LEVEL` | Move as-is | |
 | `KIT_JOB_STALE_MS` | New, optional | Default 330000. |
-| `CALCOM_*` | **Verify, probably drop** | The booking domain was removed; I will check whether any code still reads these. |
+| `CALCOM_*` | **Removed** | The Cal.com integration was removed at the owner's request (2026-11-07); nothing reads these any more. |
 | `KIT_BACKUP_DIR`, `KIT_BACKUP_KEEP` | **Local only** | Vercel's disk is read-only. They only affect a local `npm run backup`. Hosted backups come from Supabase. Do not set on Vercel. |
 | `PORT`, `NODE_ENV` | **No longer apply** | Vercel provides `NODE_ENV`. No port. |
 | `KIT_SEED_OWNER_*` | **No longer apply on Vercel** | Local dev seeding only. The owner is created on first run in the app. |
@@ -297,4 +297,4 @@ _(step 0.3 fills in the final answers)_
 - Exact SQL in `search.ts` beyond what I've read (expected: same dialect-safe statements; the 60 sites are handled by the compat layer).
 - How the Playwright server is started (config command) so 10.3 is exact.
 - Whether the Tauri app hardcodes the Fly URL (11.2).
-- Whether anything still reads `CALCOM_*`.
+- ~~Whether anything still reads `CALCOM_*`.~~ Cal.com removed; nothing does.

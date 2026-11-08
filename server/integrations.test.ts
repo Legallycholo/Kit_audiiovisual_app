@@ -6,6 +6,7 @@ const secrets = {
   ANTHROPIC_API_KEY: "sk-ant-test-secret-AAAA1111",
   SERPAPI_API_KEY: "serp-test-secret-BBBB2222",
   WHATSAPP_TOKEN: "wa-test-secret-CCCC3333",
+  // Cal.com was removed; its variables must now be ignored (and never echoed).
   CALCOM_API_KEY: "cal_test_secret_DDDD4444",
 };
 const env = {
@@ -37,12 +38,11 @@ describe("integrations status", () => {
       monthlyCap: 1000,
     });
     expect(config.whatsapp?.phoneNumberId).toBe("1234567890");
-    expect(config.calcom?.bookingUrl).toBe("https://cal.com/kit-audiovisual");
+    expect(config).not.toHaveProperty("calcom");
     expect(integrationsFromEnv({})).toEqual({
       ai: null,
       serpapi: null,
       whatsapp: null,
-      calcom: null,
       email: null,
     });
   });
@@ -60,7 +60,6 @@ describe("integrations status", () => {
     expect(Object.keys(byId)).toEqual([
       "ai",
       "whatsapp",
-      "calcom",
       "serpapi",
       "search",
       "email",
@@ -76,9 +75,15 @@ describe("integrations status", () => {
       value: 0,
       cap: 1000,
     });
-    expect(byId.calcom.bookingUrl).toBe("https://cal.com/kit-audiovisual");
     expect(byId.email.configured).toBe(false);
     expect(byId.email.env).toContain("KIT_EMAIL_API_KEY");
+  });
+
+  it("no longer offers Cal.com, even to the owner", async () => {
+    const { call, owner } = await start(integrationsFromEnv(env));
+    expect(
+      (await call("/integrations/calcom/test", "POST", {}, owner)).status,
+    ).toBe(422);
   });
 
   it("refuses people without administrator access", async () => {

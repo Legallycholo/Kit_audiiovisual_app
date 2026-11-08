@@ -15,14 +15,13 @@ export interface IntegrationsConfig {
   ai?: AIConfig | null;
   serpapi?: { key: string; monthlyCap: number } | null;
   whatsapp?: { token: string; phoneNumberId: string } | null;
-  calcom?: { key?: string; webhookSecret?: string; bookingUrl?: string } | null;
   email?: { provider: string; key: string; from: string } | null;
   /** Injected in tests; production uses the global fetch. */
   transport?: typeof fetch;
 }
 
 export type IntegrationId =
-  "ai" | "whatsapp" | "calcom" | "serpapi" | "search" | "email";
+  "ai" | "whatsapp" | "serpapi" | "search" | "email";
 
 const clean = (value?: string) => value?.trim() || undefined;
 
@@ -34,11 +33,6 @@ export function integrationsFromEnv(
   const serpKey = clean(env.SERPAPI_API_KEY);
   const whatsappToken = clean(env.WHATSAPP_TOKEN);
   const phoneNumberId = clean(env.WHATSAPP_PHONE_NUMBER_ID);
-  const calcom = {
-    key: clean(env.CALCOM_API_KEY),
-    webhookSecret: clean(env.CALCOM_WEBHOOK_SECRET),
-    bookingUrl: clean(env.CALCOM_BOOKING_URL),
-  };
   const emailKey = clean(env.KIT_EMAIL_API_KEY);
   return {
     ai: resolveAIConfig(env),
@@ -53,8 +47,6 @@ export function integrationsFromEnv(
       whatsappToken && phoneNumberId
         ? { token: whatsappToken, phoneNumberId }
         : null,
-    calcom:
-      calcom.key || calcom.webhookSecret || calcom.bookingUrl ? calcom : null,
     email:
       emailKey && clean(env.KIT_EMAIL_PROVIDER) && clean(env.KIT_EMAIL_FROM)
         ? {
@@ -120,7 +112,7 @@ async function lastTest(repo: Repository, id: IntegrationId) {
 
 export interface IntegrationStatus {
   id: IntegrationId;
-  group: "ai" | "messaging" | "scheduling" | "search" | "email";
+  group: "ai" | "messaging" | "search" | "email";
   configured: boolean;
   testable: boolean;
   env: string[];
@@ -128,8 +120,6 @@ export interface IntegrationStatus {
   models?: { proposal?: string; chat?: string; plan?: string };
   account?: string | null;
   keyHint?: string | null;
-  bookingUrl?: string | null;
-  webhookSigned?: boolean;
   usage?: { label: string; value: number; cap?: number };
   lastTestedAt: string | null;
   lastTestOk: boolean | null;
@@ -142,11 +132,10 @@ export async function integrationStatus(
   config: IntegrationsConfig,
   extra: { messagingLabel?: string | null; searchName?: string | null },
 ): Promise<IntegrationStatus[]> {
-  const { ai, serpapi, whatsapp, calcom, email } = config;
+  const { ai, serpapi, whatsapp, email } = config;
   const ids: IntegrationId[] = [
     "ai",
     "whatsapp",
-    "calcom",
     "serpapi",
     "search",
     "email",
@@ -195,17 +184,6 @@ export async function integrationStatus(
       keyHint: hint(whatsapp?.token),
       usage: { label: "sent", value: used.whatsapp },
       ...last.whatsapp,
-    },
-    {
-      id: "calcom",
-      group: "scheduling",
-      configured: Boolean(calcom?.key),
-      testable: Boolean(calcom?.key),
-      env: ["CALCOM_API_KEY", "CALCOM_WEBHOOK_SECRET", "CALCOM_BOOKING_URL"],
-      bookingUrl: calcom?.key ? (calcom.bookingUrl ?? null) : null,
-      webhookSigned: Boolean(calcom?.webhookSecret),
-      keyHint: hint(calcom?.key),
-      ...last.calcom,
     },
     {
       id: "serpapi",
@@ -319,16 +297,6 @@ export async function testIntegration(
       transport,
     );
     return "Meta aceptó el token y el número de WhatsApp. No se envió ningún mensaje.";
-  }
-  if (id === "calcom") {
-    if (!config.calcom?.key)
-      throw new HttpError(409, "Configura CALCOM_API_KEY antes de probar.");
-    await probe(
-      "https://api.cal.com/v2/me",
-      { Authorization: `Bearer ${config.calcom.key}` },
-      transport,
-    );
-    return "Cal.com aceptó la clave. No se creó ninguna reserva.";
   }
   throw new HttpError(422, "Este servicio no tiene una prueba en vivo.");
 }

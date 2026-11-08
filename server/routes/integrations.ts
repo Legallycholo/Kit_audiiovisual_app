@@ -10,7 +10,7 @@ import {
 } from "../integrations";
 import type { RouteContext } from "./context";
 
-const ids = ["ai", "whatsapp", "calcom", "serpapi", "search", "email"] as const;
+const ids = ["ai", "whatsapp", "serpapi", "search", "email"] as const;
 
 /**
  * Settings › Integraciones. Administrators read status; only the owner runs
