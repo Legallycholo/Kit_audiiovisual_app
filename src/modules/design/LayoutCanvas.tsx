@@ -20,6 +20,7 @@ import { id } from "../../shared/domain";
 import { uiLabel } from "../../shared/i18n";
 import type { Layout } from "../../shared/types";
 import { Scene, kinds, palette } from "./helpers";
+import { PlanDropZone } from "./PlanDropZone";
 import type { LayoutEditorView } from "./layout-editor-view";
 
 export function LayoutCanvas({ ctx }: { ctx: LayoutEditorView }) {
@@ -51,7 +52,14 @@ export function LayoutCanvas({ ctx }: { ctx: LayoutEditorView }) {
     downloadSnapshot,
     downloadGlb,
     point,
+    toast,
+    loadReference,
+    preparingReference,
+    rightsConfirmed,
+    setRightsConfirmed,
   } = ctx;
+  const placePlan = (file?: File) =>
+    void loadReference(file).catch((error) => toast((error as Error).message));
   return (
     <>
       <aside className="object-library">
@@ -235,8 +243,30 @@ export function LayoutCanvas({ ctx }: { ctx: LayoutEditorView }) {
             </Button>
           </div>
         )}
+        {view === "2D" && !layout.reference && (
+          <PlanDropZone
+            compact
+            title="Agrega el plano 2D del evento"
+            description="Suéltalo aquí o sobre el lienzo para usarlo como base del 2D y del 3D."
+            rightsConfirmed={rightsConfirmed}
+            onRightsChange={setRightsConfirmed}
+            busy={preparingReference}
+            onFile={placePlan}
+          />
+        )}
         {view === "2D" ? (
-          <div className="svg-viewport">
+          <div
+            className="svg-viewport"
+            onDragOver={(event) => {
+              if (event.dataTransfer.types.includes("Files"))
+                event.preventDefault();
+            }}
+            onDrop={(event) => {
+              if (!event.dataTransfer.files.length) return;
+              event.preventDefault();
+              placePlan(event.dataTransfer.files[0]);
+            }}
+          >
             <svg
               ref={svg}
               role="group"

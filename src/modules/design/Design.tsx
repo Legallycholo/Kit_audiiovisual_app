@@ -2,10 +2,13 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { useWorkspace } from "../../shared/store";
-import { Button, Empty, PageHeader } from "../../shared/ui";
+import { Button, PageHeader } from "../../shared/ui";
 import { id } from "../../shared/domain";
-import type { Layout } from "../../shared/types";
+import { uiLabel } from "../../shared/i18n";
+import type { Layout, LayoutReference } from "../../shared/types";
 import { LayoutEditor } from "./LayoutEditor";
+import { PlanDropZone } from "./PlanDropZone";
+import { prepareFloorPlanImage } from "./floor-plan-image";
 
 export function Design() {
   const { data, update, toast } = useWorkspace();
@@ -14,11 +17,29 @@ export function Design() {
   const existing = data.layouts.find((l) => l.eventId === eventId);
   const [view, setView] = useState("2D");
   const [templateId, setTemplateId] = useState("");
-  async function createLayout(template?: Layout) {
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  async function createFromPlan(file: File) {
+    setPreparing(true);
+    try {
+      await createLayout(undefined, await prepareFloorPlanImage(file));
+    } catch (error) {
+      toast((error as Error).message);
+    } finally {
+      setPreparing(false);
+    }
+  }
+  async function createLayout(template?: Layout, reference?: LayoutReference) {
     const event = data.events.find((e) => e.id === eventId);
     const room = data.venues.find((v) => v.id === event?.venueId)?.rooms[0];
     const width = room?.width || template?.width || 24;
-    const depth = room?.depth || template?.depth || 26;
+    // A dropped plan sets the proportions so it is not stretched: keep the
+    // room's width and follow the image for the depth until it is calibrated.
+    const depth = reference
+      ? Math.round(
+          ((width * reference.intrinsicHeight) / reference.intrinsicWidth) * 10,
+        ) / 10
+      : room?.depth || template?.depth || 26;
     const templateScale = template
       ? Math.min(width / template.width, depth / template.depth)
       : 1;
@@ -39,13 +60,16 @@ export function Design() {
         depth: Math.round(object.depth * templateScale * 10) / 10,
       })),
       history: [],
+      ...(reference ? { reference } : {}),
     };
     if (!(await update((s) => ({ ...s, layouts: [...s.layouts, next] }))))
       return;
     toast(
-      template
-        ? "Plantilla copiada y ajustada al salón. Confirma todas las medidas."
-        : "Event layout created. Confirm room dimensions before production.",
+      reference
+        ? "Plano cargado. Calibra la escala con una medida conocida antes de producción."
+        : template
+          ? "Plantilla copiada y ajustada al salón. Confirma todas las medidas."
+          : "Event layout created. Confirm room dimensions before production.",
     );
   }
   return (
@@ -74,48 +98,51 @@ export function Design() {
           setView={setView}
         />
       ) : (
-        <Empty
-          title="Start with a space"
-          description="Create a layout linked to this event's venue. You can add and position objects, then inspect them in 3D."
-          action={
-            <div className="empty-actions">
-              <Button onClick={() => void createLayout()}>
-                <Plus size={16} />
-                Create event layout
-              </Button>
-              {data.layouts.length > 0 && (
-                <>
-                  <label>
-                    <span>Usar plano guardado como plantilla</span>
-                    <select
-                      aria-label="Plano para usar como plantilla"
-                      value={templateId}
-                      onChange={(event) => setTemplateId(event.target.value)}
-                    >
-                      <option value="">Selecciona un plano</option>
-                      {data.layouts.map((layout) => (
-                        <option key={layout.id} value={layout.id}>
-                          {layout.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <Button
-                    variant="secondary"
-                    disabled={!templateId}
-                    onClick={() =>
-                      void createLayout(
-                        data.layouts.find((layout) => layout.id === templateId),
-                      )
-                    }
+        <PlanDropZone
+          title={uiLabel("Start with a space")}
+          description="Suelta aquí el plano 2D del evento o elige una imagen (PNG, JPEG o WebP). Las fotos grandes se reducen automáticamente."
+          rightsConfirmed={rightsConfirmed}
+          onRightsChange={setRightsConfirmed}
+          busy={preparing}
+          onFile={(file) => void createFromPlan(file)}
+        >
+          <div className="empty-actions plan-drop-alternatives">
+            <Button variant="ghost" onClick={() => void createLayout()}>
+              <Plus size={16} />
+              Create event layout
+            </Button>
+            {data.layouts.length > 0 && (
+              <>
+                <label>
+                  <span>Usar plano guardado como plantilla</span>
+                  <select
+                    aria-label="Plano para usar como plantilla"
+                    value={templateId}
+                    onChange={(event) => setTemplateId(event.target.value)}
                   >
-                    Copiar plantilla
-                  </Button>
-                </>
-              )}
-            </div>
-          }
-        />
+                    <option value="">Selecciona un plano</option>
+                    {data.layouts.map((layout) => (
+                      <option key={layout.id} value={layout.id}>
+                        {layout.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Button
+                  variant="secondary"
+                  disabled={!templateId}
+                  onClick={() =>
+                    void createLayout(
+                      data.layouts.find((layout) => layout.id === templateId),
+                    )
+                  }
+                >
+                  Copiar plantilla
+                </Button>
+              </>
+            )}
+          </div>
+        </PlanDropZone>
       )}
     </>
   );

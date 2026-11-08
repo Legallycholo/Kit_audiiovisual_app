@@ -757,6 +757,58 @@ test("a saved layout can seed a new event layout without copying verification", 
   ).toBeVisible();
 });
 
+test("dropping a 2D floor plan creates the event layout with the plan", async ({
+  page,
+}) => {
+  await page.goto("/design?event=e2");
+  await expect(
+    page.getByRole("heading", { name: "Comienza con un espacio" }),
+  ).toBeVisible();
+  // A 3000 px wide plan is larger than the 2400 px limit, so it is shrunk.
+  const dataTransfer = await page.evaluateHandle(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 3000;
+    canvas.height = 1600;
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, 3000, 1600);
+    context.strokeStyle = "#111";
+    context.lineWidth = 12;
+    context.strokeRect(40, 40, 2920, 1520);
+    for (let x = 200; x < 2900; x += 220) context.strokeRect(x, 200, 160, 120);
+    const blob = await new Promise<Blob>((resolve) =>
+      canvas.toBlob((value) => resolve(value!), "image/png"),
+    );
+    const transfer = new DataTransfer();
+    transfer.items.add(
+      new File([blob], "plano-cumbre.png", { type: "image/png" }),
+    );
+    return transfer;
+  });
+  const zone = page.locator(".plan-drop");
+  await zone.dispatchEvent("drop", { dataTransfer });
+  await expect(
+    page.getByText(
+      "Confirma que tienes permiso para usar el plano antes de cargarlo.",
+    ),
+  ).toBeVisible();
+  await page
+    .getByText("Confirmo que tengo permiso para usar y procesar este plano.", {
+      exact: true,
+    })
+    .click();
+  await zone.dispatchEvent("drop", { dataTransfer });
+  const plan = page.getByLabel("Plano editable del evento").locator("image");
+  await expect(plan).toHaveCount(1);
+  const href = (await plan.getAttribute("href")) || "";
+  expect(href.startsWith("data:image/jpeg;base64,")).toBe(true);
+  expect(href.length).toBeLessThan(1_500_000);
+  await page.reload();
+  await expect(
+    page.getByLabel("Plano editable del evento").locator("image"),
+  ).toHaveCount(1);
+});
+
 test("dashboard, tablet navigation, assistant and mobile layout", async ({
   page,
 }) => {

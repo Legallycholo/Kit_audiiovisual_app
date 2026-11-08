@@ -2781,6 +2781,80 @@ td small {
   flex: none;
   margin-top: 1px;
 }
+.plan-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 320px;
+  margin: var(--space-2) 0;
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+  background: var(--color-elevated);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.plan-drop.over {
+  border-color: var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+.plan-drop[aria-busy="true"] {
+  opacity: 0.75;
+}
+.plan-drop-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  color: var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+.plan-drop-text h3 {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text);
+}
+.plan-drop-text p {
+  max-width: 460px;
+  margin: 0;
+  line-height: 1.5;
+}
+.plan-drop .rights-confirmation {
+  max-width: 420px;
+  text-align: left;
+}
+.plan-drop-alternatives {
+  margin-top: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.plan-drop.compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 0;
+  margin: 0 18px 12px;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-radius: var(--radius-md);
+}
+.plan-drop.compact .plan-drop-icon {
+  width: 40px;
+  height: 40px;
+}
+.plan-drop.compact .plan-drop-text {
+  flex: 1 1 220px;
+}
+.plan-drop.compact .plan-drop-text strong {
+  color: var(--color-text);
+}
+.plan-drop.compact .plan-drop-text p {
+  font-size: var(--text-caption);
+}
 .extraction-status,
 .geometry-review-card,
 .camera-path-editor {

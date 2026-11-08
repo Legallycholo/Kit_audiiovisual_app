@@ -9,6 +9,7 @@ import type { Layout, LayoutObject, ObjectKind } from "../../shared/types";
 import type { SceneHandle } from "../Scene";
 import { useUnsavedChanges } from "../../shared/useUnsavedChanges";
 import { editableLayout, layoutDraftKey } from "./helpers";
+import { prepareFloorPlanImage } from "./floor-plan-image";
 
 export function useLayoutEditorView({
   original,
@@ -46,6 +47,7 @@ export function useLayoutEditorView({
   const [equipmentReview, setEquipmentReview] = useState(false);
   const [selectedCameraId, setSelectedCameraId] = useState("");
   const [extracting, setExtracting] = useState(false);
+  const [preparingReference, setPreparingReference] = useState(false);
   const [extractor, setExtractor] = useState<{
     configured: boolean;
     provider?: string;
@@ -253,51 +255,21 @@ export function useLayoutEditorView({
       );
       return;
     }
-    if (
-      !(["image/png", "image/jpeg", "image/webp"] as string[]).includes(
-        file.type,
-      )
-    ) {
-      toast("Usa una imagen PNG, JPEG o WebP como referencia.");
-      return;
-    }
-    if (file.size > 1_000_000) {
-      toast("La imagen de referencia debe pesar 1 MB o menos.");
-      return;
-    }
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
-      reader.readAsDataURL(file);
-    });
-    const dimensions = await new Promise<{ width: number; height: number }>(
-      (resolve, reject) => {
-        const image = new Image();
-        image.onload = () =>
-          resolve({ width: image.naturalWidth, height: image.naturalHeight });
-        image.onerror = () => reject(new Error("La imagen no es válida."));
-        image.src = dataUrl;
-      },
-    );
-    setLayout((current) => ({
-      ...current,
-      verified: false,
-      verifiedAt: undefined,
-      reference: {
-        name: file.name,
-        mimeType: file.type as "image/png" | "image/jpeg" | "image/webp",
-        dataUrl,
-        intrinsicWidth: dimensions.width,
-        intrinsicHeight: dimensions.height,
-        opacity: 0.35,
-        rightsConfirmed: true,
-        uploadedAt: new Date().toISOString(),
+    setPreparingReference(true);
+    try {
+      const reference = await prepareFloorPlanImage(file, {
         ceilingHeight: Number(ceilingHeight) || 3,
-        units: "meters",
-      },
-    }));
-    setRecovered(false);
+      });
+      setLayout((current) => ({
+        ...current,
+        verified: false,
+        verifiedAt: undefined,
+        reference,
+      }));
+      setRecovered(false);
+    } finally {
+      setPreparingReference(false);
+    }
   }
   function calibrateReference() {
     if (!layout.reference) return;
@@ -448,6 +420,7 @@ export function useLayoutEditorView({
   }
   return {
     original,
+    preparingReference,
     view,
     setView,
     data,
