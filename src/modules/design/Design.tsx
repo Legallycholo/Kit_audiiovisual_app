@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { CalendarPlus, Plus } from "lucide-react";
 import { useWorkspace } from "../../shared/store";
-import { Button, PageHeader } from "../../shared/ui";
+import { Button, Empty, PageHeader } from "../../shared/ui";
 import { id } from "../../shared/domain";
 import { uiLabel } from "../../shared/i18n";
 import type { Layout, LayoutReference } from "../../shared/types";
@@ -12,8 +12,10 @@ import { prepareFloorPlanImage } from "./floor-plan-image";
 
 export function Design() {
   const { data, update, toast } = useWorkspace();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const eventId = params.get("event") || data.events[0]?.id;
+  const selectedEvent = data.events.find((e) => e.id === eventId);
   const existing = data.layouts.find((l) => l.eventId === eventId);
   const [view, setView] = useState("2D");
   const [templateId, setTemplateId] = useState("");
@@ -30,8 +32,13 @@ export function Design() {
     }
   }
   async function createLayout(template?: Layout, reference?: LayoutReference) {
-    const event = data.events.find((e) => e.id === eventId);
-    const room = data.venues.find((v) => v.id === event?.venueId)?.rooms[0];
+    // Every layout belongs to an event; never send one without it.
+    const event = selectedEvent;
+    if (!event) {
+      toast("Selecciona un evento antes de crear el plano.");
+      return;
+    }
+    const room = data.venues.find((v) => v.id === event.venueId)?.rooms[0];
     const width = room?.width || template?.width || 24;
     // A dropped plan sets the proportions so it is not stretched: keep the
     // room's width and follow the image for the depth until it is calibrated.
@@ -45,7 +52,7 @@ export function Design() {
       : 1;
     const next: Layout = {
       id: id(),
-      eventId: eventId!,
+      eventId: event.id,
       name: `${room?.name || "Event space"} · Main layout`,
       version: 1,
       width,
@@ -79,9 +86,14 @@ export function Design() {
         actions={
           <select
             aria-label="Design event"
-            value={eventId || ""}
+            value={selectedEvent?.id || ""}
+            disabled={data.events.length === 0}
             onChange={(e) => setParams({ event: e.target.value })}
           >
+            {data.events.length === 0 && <option value="">Sin eventos</option>}
+            {!selectedEvent && data.events.length > 0 && (
+              <option value="">Selecciona un evento</option>
+            )}
             {data.events.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.name}
@@ -90,7 +102,19 @@ export function Design() {
           </select>
         }
       />
-      {existing ? (
+      {data.events.length === 0 ? (
+        <Empty
+          icon={<CalendarPlus size={26} />}
+          title="Primero crea un evento"
+          description="El plano 2D se guarda dentro del evento. Crea el evento y vuelve aquí para soltar el plano."
+          action={
+            <Button onClick={() => navigate("/events?new=1")}>
+              <CalendarPlus size={16} />
+              Crear evento
+            </Button>
+          }
+        />
+      ) : existing ? (
         <LayoutEditor
           key={existing.id}
           original={existing}
