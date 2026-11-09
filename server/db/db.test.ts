@@ -139,3 +139,28 @@ describe("Postgres-backed repository", () => {
     expect((await second.user("u1"))?.email).toBe("a@example.test");
   });
 });
+
+describe("KIT_DATABASE values left over from the SQLite setup", () => {
+  it("never opens an existing file or anything in data/ as the local database", async () => {
+    const { resolveDbTarget, DEFAULT_LOCAL_DB } = await import("./index");
+    const { writeFileSync, readFileSync } = await import("node:fs");
+    const dir = mkdtempSync(join(tmpdir(), "kit-target-"));
+    try {
+      const file = join(dir, "kit.sqlite");
+      writeFileSync(file, "SQLite format 3");
+      const old = resolveDbTarget("data/kit.sqlite", dir);
+      expect(old.target).toBe(DEFAULT_LOCAL_DB);
+      expect(old.warning).toContain("old SQLite file");
+      const existing = resolveDbTarget(file, dir);
+      expect(existing.target).toBe(DEFAULT_LOCAL_DB);
+      expect(readFileSync(file, "utf8")).toBe("SQLite format 3");
+      // Normal values are untouched.
+      expect(resolveDbTarget(undefined, dir)).toEqual({ target: DEFAULT_LOCAL_DB });
+      expect(resolveDbTarget("memory://", dir)).toEqual({ target: "memory://" });
+      expect(resolveDbTarget("postgres://u:p@h/db", dir)).toEqual({ target: "postgres://u:p@h/db" });
+      expect(resolveDbTarget(".kit-local/other", dir)).toEqual({ target: ".kit-local/other" });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

@@ -148,7 +148,8 @@ function emptyWorkspace(company) {
 
 // server/db/index.ts
 import { AsyncLocalStorage } from "node:async_hooks";
-import { resolve } from "node:path";
+import { statSync } from "node:fs";
+import { resolve, sep } from "node:path";
 
 // server/db/translate.ts
 function toPositional(sql) {
@@ -209,8 +210,31 @@ var Db = class {
     return this.driver.close();
   }
 };
+var DEFAULT_LOCAL_DB = ".kit-local/pglite";
+function resolveDbTarget(url, cwd = process.cwd()) {
+  const target = url?.trim() || DEFAULT_LOCAL_DB;
+  if (/^postgres(ql)?:\/\//i.test(target) || target === "memory://")
+    return { target };
+  const path = resolve(cwd, target.replace(/^pglite:\/\//, ""));
+  const data = resolve(cwd, "data");
+  const insideData = path === data || path.startsWith(`${data}${sep}`);
+  let isFile = false;
+  try {
+    isFile = statSync(path).isFile();
+  } catch {
+  }
+  if (!insideData && !isFile) return { target };
+  return {
+    target: DEFAULT_LOCAL_DB,
+    warning: `KIT_DATABASE=${target} is the old SQLite file, not a database KIT can open. Using the local database in ${DEFAULT_LOCAL_DB} instead; the file was not touched. Remove KIT_DATABASE from .env for local development (or set it to the Supabase postgres:// string on the server). To bring the old data across, run npm run migrate:sqlite.`
+  };
+}
 async function openDb(url) {
-  const target = url?.trim() || ".kit-local/pglite";
+  const resolved = resolveDbTarget(url);
+  if (resolved.warning) console.warn(`
+\u26A0\uFE0F  ${resolved.warning}
+`);
+  const target = resolved.target;
   if (/^postgres(ql)?:\/\//i.test(target)) {
     const { pgDriver: pgDriver2 } = await Promise.resolve().then(() => (init_pg(), pg_exports));
     return new Db(pgDriver2(target));
