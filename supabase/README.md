@@ -63,5 +63,9 @@ in-process PGlite, so the two cannot drift.
 `kit_server` policies, and creates the **private** Storage bucket `kit-design` (no public policies; only the server's
 secret key reads or writes it). Apply it after migration 12. PGlite runs both files in order.
 
+`20261110000014_kit_design_chats_and_video.sql` (migration 14) lets an event keep many designs ("chats"): `design_projects.id`
+becomes the key and the other design tables get a `design_id` (existing rows keep working: their design id is the old event
+id). It adds `design_videos` and lets the `kit-design` bucket hold mp4 files up to 50 MB. Idempotent.
+
 Why not `public`? The portal already owns `public.sessions` and `public.audit_log`, and `public` is what the Data API
 publishes; password hashes must never be reachable that way.

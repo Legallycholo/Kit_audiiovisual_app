@@ -8,6 +8,12 @@ export interface DesignStorage {
   readonly name: "database" | "supabase";
   put(path: string, bytes: Buffer, mimeType: string): Promise<void>;
   get(path: string): Promise<{ bytes: Buffer; mimeType: string }>;
+  /**
+   * A short-lived direct link to the file, for large files (videos) that would
+   * exceed Vercel's 4.5 MB response limit if streamed through a function.
+   * Absent when the bytes can only be served by the server itself.
+   */
+  signedUrl?(path: string, seconds: number): Promise<string>;
   remove(paths: string[]): Promise<void>;
 }
 
@@ -81,6 +87,21 @@ export function supabaseStorage(
           response.headers.get("content-type")?.split(";")[0] ||
           "application/octet-stream",
       };
+    },
+    async signedUrl(path, seconds) {
+      const response = await transport(`${base}/sign/${object(path)}`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresIn: seconds }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) throw fail("sign", response.status);
+      const { signedURL } = (await response.json()) as { signedURL?: string };
+      if (!signedURL) throw fail("sign", 502);
+      const root = url.replace(/\/+$/, "");
+      return signedURL.startsWith("/storage/v1")
+        ? `${root}${signedURL}`
+        : `${root}/storage/v1${signedURL}`;
     },
     async remove(paths) {
       if (!paths.length) return;

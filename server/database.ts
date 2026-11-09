@@ -57,6 +57,7 @@ const TABLES = [
   "design_renders",
   "design_messages",
   "design_files",
+  "design_videos",
 ];
 export class Repository {
   /**

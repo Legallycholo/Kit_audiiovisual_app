@@ -17,6 +17,7 @@ beforeAll(async () => {
   for (const file of [
     "20261107000012_kit_company_schema.sql",
     "20261109000013_kit_design.sql",
+    "20261110000014_kit_design_chats_and_video.sql",
   ])
     await backend.exec(
       readFileSync(

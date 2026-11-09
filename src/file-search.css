@@ -136,6 +136,50 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.kit-thread-row {
+  position: relative;
+}
+.kit-thread-row > button:first-child {
+  padding-right: 34px;
+}
+.kit-thread-list .kit-thread-delete {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  opacity: 0;
+}
+.kit-thread-row:hover .kit-thread-delete,
+.kit-thread-row:focus-within .kit-thread-delete,
+.kit-thread-list .kit-thread-delete:focus-visible {
+  opacity: 1;
+}
+.kit-thread-list .kit-thread-delete:hover {
+  color: var(--color-danger);
+}
+@media (hover: none) {
+  .kit-thread-list .kit-thread-delete {
+    opacity: 1;
+  }
+}
+.kit-stage-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.kit-stage-bar .kit-thread-settings {
+  flex: 1;
+  min-width: 0;
+}
+.kit-restart {
+  flex: none;
+}
 .kit-thread-list button:hover {
   background: var(--color-elevated);
 }

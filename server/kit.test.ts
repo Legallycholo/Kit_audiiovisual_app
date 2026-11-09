@@ -199,3 +199,48 @@ describe("KIT indexed-file grounding", () => {
     ).toBe(false);
   });
 });
+
+describe("KIT conversation history", () => {
+  it("restarts a conversation (empty again, same title, still in the history) and deletes one", async () => {
+    const thread = await kit.create("owner", "Montaje de la boda");
+    await kit.send("owner", thread.id, {
+      requestId: crypto.randomUUID(),
+      text: "¿Cuántos altavoces necesita Rolando?",
+      mode: "ask",
+      refs: [{ kind: "file", id: fileId }],
+      consent: true,
+    });
+    expect((await waitForThread(thread.id)).messages).toHaveLength(2);
+
+    const restarted = await kit.restart("owner", thread.id);
+    expect(restarted).toMatchObject({
+      id: thread.id,
+      title: "Montaje de la boda",
+      busy: false,
+      messages: [],
+    });
+    expect((await kit.list("owner")).map((t) => t.id)).toContain(thread.id);
+    // The restarted conversation works again from scratch.
+    await kit.send("owner", thread.id, {
+      requestId: crypto.randomUUID(),
+      text: "¿Y ahora cuántos?",
+      mode: "ask",
+      refs: [{ kind: "file", id: fileId }],
+      consent: true,
+    });
+    expect((await waitForThread(thread.id)).messages).toHaveLength(2);
+
+    // Other people's conversations cannot be restarted or deleted.
+    await repo.db
+      .prepare(
+        "INSERT INTO users(id,email,name,role,password_hash) VALUES(?,?,?,?,?)",
+      )
+      .run("other", "other@example.test", "Other", "Administrator", "unused");
+    await expect(kit.restart("other", thread.id)).rejects.toThrow();
+    await expect(kit.delete("other", thread.id)).rejects.toThrow();
+
+    await kit.delete("owner", thread.id);
+    expect((await kit.list("owner")).map((t) => t.id)).not.toContain(thread.id);
+    await expect(kit.restart("owner", thread.id)).rejects.toThrow();
+  });
+});

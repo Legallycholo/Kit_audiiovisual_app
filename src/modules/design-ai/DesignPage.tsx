@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   CalendarPlus,
@@ -7,6 +7,7 @@ import {
   FilePlus2,
   Printer,
   Undo2,
+  Video,
   X,
 } from "lucide-react";
 import { activity, useWorkspace } from "../../shared/store";
@@ -28,14 +29,15 @@ import {
   isFixtureRender,
   type DesignProject,
   type DesignStatus,
+  type DesignSummary,
   type DesignVersion,
 } from "../../shared/kit-design";
 import type { ProductionEvent } from "../../shared/types";
-import { BeforeAfter } from "./BeforeAfter";
 import { DesignChat } from "./DesignChat";
+import { DesignHistory } from "./DesignHistory";
 import { DropZone } from "./DropZone";
 import { prepareRoomImage } from "./prepare-image";
-import { useDesign } from "./client";
+import { uploadImages, useDesign, useDesignHistory } from "./client";
 
 export function Design() {
   const { data } = useWorkspace();
@@ -85,44 +87,112 @@ export function Design() {
 
 function workingLabel(project: DesignProject) {
   if (!project.job) return "";
+  if (project.job.kind === "video")
+    return "Creando el video: una vuelta de cámara sobre tu diseño en 3D. Puede tardar un par de minutos.";
   return project.job.kind === "create"
     ? "Leyendo el salón… diseñando el montaje… generando vistas. Puede tardar un par de minutos."
     : "Preparando el cambio y generando las vistas nuevas…";
 }
 
-/** The render allowance shown under the chat when renders cost money (plan §4: cost before rendering). */
+/** The allowance line under the chat when renders or videos cost money. */
 function allowanceNote(status: DesignStatus | null, project: DesignProject) {
-  if (!status || status.renderer === "fixture") return undefined;
+  if (!status) return undefined;
+  const liveRenders = status.renderer !== "fixture";
+  const liveVideos = status.videoRenderer !== "fixture";
+  if (!liveRenders && !liveVideos) return undefined;
   const views = project.versions.length
     ? (project.versions.find((v) => v.id === project.currentVersionId)?.renders
         .length ?? 0)
     : project.images.length;
-  return `Cada mensaje genera ${views} ${views === 1 ? "render" : "renders"} · ${status.usage.renders} de ${status.usage.cap} usados este mes`;
+  const parts = [
+    liveRenders && `${status.usage.renders} de ${status.usage.cap} renders`,
+    liveVideos &&
+      `${status.videoUsage.videos} de ${status.videoUsage.cap} videos`,
+  ].filter(Boolean);
+  return `${liveRenders ? `Cada mensaje genera ${views} ${views === 1 ? "render" : "renders"}. ` : ""}Este mes: ${parts.join(" y ")}.`;
 }
 
 function DesignWorkspace({ event }: { event: ProductionEvent }) {
-  const { toast } = useWorkspace();
-  const design = useDesign(event.id);
+  const { toast, request } = useWorkspace();
+  const [params, setParams] = useSearchParams();
+  const history = useDesignHistory(event.id);
+  const wanted = params.get("design");
+  // Open the design in the URL, else the newest one. With none yet the page is
+  // empty and a design is created the moment something is dropped.
+  const designId =
+    history.designs.find((d) => d.id === wanted)?.id ??
+    (history.loaded ? (history.designs[0]?.id ?? null) : null);
+  const design = useDesign(designId);
   const { project, status } = design;
   const [preparing, setPreparing] = useState(false);
   const [viewIndex, setViewIndex] = useState(0);
-  if (!project)
-    return design.error ? (
-      <ErrorNote>{design.error}</ErrorNote>
-    ) : (
-      <p className="muted" aria-busy="true">
-        Cargando diseño…
-      </p>
-    );
   const canEdit = status?.canEdit ?? false;
-  const current = project.versions.find(
+
+  // The history shows new titles and "trabajando" as the design changes.
+  const stamp = `${project?.messages.length ?? 0}:${project?.job?.id ?? ""}:${project?.title ?? ""}`;
+  const { refresh } = history;
+  useEffect(() => {
+    if (project) void refresh();
+  }, [stamp, project, refresh]);
+
+  const open = (id: string) => {
+    setViewIndex(0);
+    setParams({ event: event.id, design: id }, { replace: true });
+  };
+  async function startNew() {
+    try {
+      const created = await history.create();
+      open(created.id);
+    } catch (error) {
+      toast((error as Error).message);
+    }
+  }
+  async function removeDesign(target: DesignSummary) {
+    if (
+      !window.confirm(
+        `¿Eliminar «${target.title}»? Se borran sus imágenes, versiones y videos.`,
+      )
+    )
+      return;
+    try {
+      await history.remove(target.id);
+      toast("Diseño eliminado.");
+      if (target.id === designId) {
+        const next = history.designs.find((d) => d.id !== target.id);
+        setParams(
+          next ? { event: event.id, design: next.id } : { event: event.id },
+          {
+            replace: true,
+          },
+        );
+      }
+    } catch (error) {
+      toast((error as Error).message);
+    }
+  }
+  async function restartDesign() {
+    if (
+      !window.confirm(
+        "¿Reiniciar este diseño? Se borran sus versiones, videos y la conversación. Las imágenes del salón se conservan.",
+      )
+    )
+      return;
+    if (await design.restart()) {
+      setViewIndex(0);
+      toast("Diseño reiniciado.");
+    }
+  }
+
+  const waiting = designId !== null && !project && !design.error;
+  const current = project?.versions.find(
     (v) => v.id === project.currentVersionId,
   );
-  const shown: DesignVersion | undefined = project.pendingVersion || current;
-  const firstDesign = !project.versions.length;
+  const shown: DesignVersion | undefined = project?.pendingVersion || current;
+  const firstDesign = !project?.versions.length;
 
   async function takeFiles(files: File[]) {
-    const room = MAX_ROOM_IMAGES - project!.images.length;
+    const have = project?.images.length ?? 0;
+    const room = MAX_ROOM_IMAGES - have;
     if (files.length > room)
       toast(`Solo se usan ${MAX_ROOM_IMAGES} imágenes por diseño.`);
     setPreparing(true);
@@ -135,7 +205,16 @@ function DesignWorkspace({ event }: { event: ProductionEvent }) {
       const ready = results.flatMap((r) =>
         r.status === "fulfilled" ? [r.value] : [],
       );
-      if (ready.length) await design.upload(ready);
+      if (!ready.length) return;
+      if (designId) await design.upload(ready);
+      else {
+        // The first drop on an event with no designs creates one.
+        const created = await history.create();
+        await uploadImages(request, created.id, ready);
+        open(created.id);
+      }
+    } catch (error) {
+      toast((error as Error).message);
     } finally {
       setPreparing(false);
     }
@@ -143,7 +222,7 @@ function DesignWorkspace({ event }: { event: ProductionEvent }) {
 
   const blockedReason = !canEdit
     ? "Tu rol puede ver los diseños, pero no crearlos."
-    : !project.images.length
+    : !project?.images.length
       ? "Primero suelta al menos una imagen del salón."
       : project.pendingVersion
         ? "Aplica o descarta el cambio pendiente antes de pedir otro."
@@ -151,6 +230,15 @@ function DesignWorkspace({ event }: { event: ProductionEvent }) {
 
   return (
     <div className="kd-layout">
+      <DesignHistory
+        designs={history.designs}
+        activeId={designId}
+        canEdit={canEdit}
+        busy={design.busy || preparing}
+        onNew={() => void startNew()}
+        onOpen={open}
+        onDelete={(d) => void removeDesign(d)}
+      />
       <section className="kd-stage" aria-label="Imágenes del diseño">
         {design.error && (
           <ErrorNote>
@@ -164,7 +252,11 @@ function DesignWorkspace({ event }: { event: ProductionEvent }) {
             </button>
           </ErrorNote>
         )}
-        {!project.images.length ? (
+        {waiting || !history.loaded ? (
+          <p className="muted" aria-busy="true">
+            Cargando diseño…
+          </p>
+        ) : !project?.images.length ? (
           <DropZone
             onFiles={(f) => void takeFiles(f)}
             busy={preparing || design.busy}
@@ -192,9 +284,10 @@ function DesignWorkspace({ event }: { event: ProductionEvent }) {
               if (await design.apply()) toast("Cambio aplicado.");
             }}
             onDiscard={() => void design.discard()}
+            onVideo={(renderId) => void design.createVideo(renderId)}
           />
         )}
-        {project.versions.length > 0 && (
+        {project && project.versions.length > 0 && (
           <nav className="kd-versions" aria-label="Versiones">
             {project.versions.map((v) => (
               <button
@@ -218,10 +311,10 @@ function DesignWorkspace({ event }: { event: ProductionEvent }) {
         )}
       </section>
       <DesignChat
-        messages={project.messages}
+        messages={project?.messages ?? []}
         greeting={
           firstDesign
-            ? "Hola, soy KIT Design. Suelta las fotos o el plano del salón y cuéntame qué evento es: tipo, invitados, estilo y lo que no puede faltar."
+            ? "Hola, soy KIT Design. Suelta las fotos o el plano del salón y cuéntame qué evento es: tipo, invitados, estilo y lo que no puede faltar. Te devuelvo el diseño en imágenes y en un video con aspecto 3D."
             : "Dime qué quieres cambiar y preparo una nueva versión para que la revises."
         }
         placeholder={
@@ -232,8 +325,15 @@ function DesignWorkspace({ event }: { event: ProductionEvent }) {
         submitLabel={firstDesign ? "Crear diseño" : "Enviar"}
         firstDesign={firstDesign}
         blockedReason={blockedReason}
-        working={workingLabel(project)}
-        note={allowanceNote(status, project)}
+        working={project ? workingLabel(project) : ""}
+        note={project ? allowanceNote(status, project) : undefined}
+        onRestart={
+          canEdit &&
+          project &&
+          (project.versions.length || project.messages.length)
+            ? () => void restartDesign()
+            : undefined
+        }
         onSubmit={async (text) => {
           if (firstDesign && text.length < MIN_BRIEF_LENGTH) {
             toast("Describe el evento con un poco más de detalle.");
@@ -296,6 +396,52 @@ function RoomImages({
   );
 }
 
+/** The finished design: the video when there is one, otherwise the 3D-looking image. */
+function Viewer({
+  render,
+  video,
+  label,
+  making,
+}: {
+  render: DesignVersion["renders"][number];
+  video?: DesignProject["videos"][number];
+  label: string;
+  making: boolean;
+}) {
+  const sample = isFixtureRender(video ?? render);
+  return (
+    <figure className="kd-viewer">
+      <div className="kd-viewer-frame">
+        {video ? (
+          <video
+            src={video.url}
+            poster={render.url}
+            controls
+            loop
+            muted
+            playsInline
+            autoPlay
+            aria-label={`${label}: video del diseño`}
+          />
+        ) : (
+          <img src={render.url} alt={label} />
+        )}
+        {making && (
+          <span className="kd-viewer-making" role="status">
+            Creando el video…
+          </span>
+        )}
+        {sample && (
+          <span className="kd-sample-band" aria-hidden="true">
+            Muestra: sin motor de {video ? "video" : "imágenes"} conectado
+          </span>
+        )}
+      </div>
+      <figcaption className="muted">Visualización, no a escala</figcaption>
+    </figure>
+  );
+}
+
 function Result({
   event,
   project,
@@ -307,6 +453,7 @@ function Result({
   busy,
   onApply,
   onDiscard,
+  onVideo,
 }: {
   event: ProductionEvent;
   project: DesignProject;
@@ -318,12 +465,13 @@ function Result({
   busy: boolean;
   onApply: () => void;
   onDiscard: () => void;
+  onVideo: (renderId: string) => void;
 }) {
   const { data, user } = useWorkspace();
   const [proposalOpen, setProposalOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
   const render = version.renders[viewIndex];
-  const source = project.images.find((i) => i.id === render?.sourceImageId);
+  const video = project.videos.find((v) => v.renderId === render?.id);
   const stock = checkDesignInventory(
     version.spec,
     event,
@@ -354,13 +502,15 @@ function Result({
           )}
         </div>
       )}
-      {render && source && (
-        <BeforeAfter
+      {render && (
+        <Viewer
           key={render.id}
-          before={source.url}
-          after={render.url}
+          render={render}
+          video={project.videos.find((v) => v.renderId === render.id)}
           label={`Vista ${viewIndex + 1}`}
-          sample={isFixtureRender(render)}
+          making={
+            project.job?.kind === "video" && project.job.renderId === render.id
+          }
         />
       )}
       <div className="kd-result-bar">
@@ -383,14 +533,24 @@ function Result({
           <span />
         )}
         <div className="kd-result-actions">
+          {render && !video && canEdit && !pending && (
+            <Button
+              variant="secondary"
+              disabled={busy || !!project.job}
+              onClick={() => onVideo(render.id)}
+            >
+              <Video size={16} />
+              Crear video
+            </Button>
+          )}
           {render && (
             <a
               className="button ghost"
-              href={render.url}
-              download={`diseno-v${version.number}-vista-${viewIndex + 1}`}
+              href={video ? video.url : render.url}
+              download={`diseno-v${version.number}-vista-${viewIndex + 1}${video ? ".mp4" : ""}`}
             >
               <Download size={16} />
-              Descargar
+              {video ? "Descargar video" : "Descargar"}
             </a>
           )}
           <Button

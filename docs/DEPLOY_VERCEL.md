@@ -32,6 +32,7 @@ Project: `hgugkgbpsrbqusazmthb` (the same one the portal uses).
 2. Open the file `supabase/migrations/20261107000012_kit_company_schema.sql` from this repo, copy **all** of it, paste it into the editor, and click **Run**.
 3. **You should see:** "Success. No rows returned".
 4. Do the same with `supabase/migrations/20261109000013_kit_design.sql` (KIT Design: its tables and the private `kit-design` image bucket). Run it **after** the first file.
+5. Then `supabase/migrations/20261110000014_kit_design_chats_and_video.sql` (several designs per event, videos, and the bucket accepting mp4). Run it **after** the second file. It is safe to run twice.
 
 ### 1.2 Check it worked
 
@@ -121,6 +122,9 @@ Add each one for the **Production** environment only. Mark every secret as **Sen
 | `HIGGSFIELD_API_KEY` | your Higgsfield key as `KEY_ID:KEY_SECRET` (or `HIGGSFIELD_KEY_ID` + `HIGGSFIELD_KEY_SECRET`). Without it KIT Design shows sample images marked "MUESTRA". | For KIT Design renders |
 | `KIT_DESIGN_MONTHLY_RENDER_CAP` | live renders allowed per month, company-wide (default `100`). Set it once you know the real price per image. | Optional |
 | `KIT_DESIGN_RENDER_MODEL` | Higgsfield model path (default `alibaba/qwen-image-3/edit`) | Optional |
+| `KIT_DESIGN_MONTHLY_VIDEO_CAP` | live videos allowed per month, company-wide (default `10`). Videos cost more than images. | Optional |
+| `KIT_DESIGN_VIDEO_MODEL` | Higgsfield video model path (default `kling-video/v3.0/std/image-to-video`). Only models that take `prompt`, `image_url`, `duration` and `sound` fit. | Optional |
+| `KIT_DESIGN_VIDEO_SECONDS` | video length, 3 to 15 (default `5`). Longer costs more. | Optional |
 | `RECAPTCHA_PROJECT_ID`, `RECAPTCHA_API_KEY`, `RECAPTCHA_SITE_KEY`, `VITE_RECAPTCHA_SITE_KEY` | copy from your local `.env` if you use reCAPTCHA              | If used          |
 | `SERPAPI_API_KEY`, `KIT_SERPAPI_MONTHLY_CAP` | copy from your local `.env`                                                         | If used          |
 | `KIT_SEARCH_*` (provider name/url/token, region, retention, budget, price, **`KIT_SEARCH_ENCRYPTION_KEY`**) | copy from your local `.env`. **`KIT_SEARCH_ENCRYPTION_KEY` must be the exact same value** or existing encrypted search data cannot be read. | If used |

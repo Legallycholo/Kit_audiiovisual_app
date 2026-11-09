@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Sparkles, WandSparkles } from "lucide-react";
+import { RotateCcw, Send, Sparkles, WandSparkles } from "lucide-react";
 import type { DesignChatMessage } from "../../shared/kit-design";
 
 /** KIT Design's conversation panel. The parent decides what a message does. */
@@ -12,6 +12,7 @@ export function DesignChat({
   blockedReason,
   working,
   note,
+  onRestart,
   onSubmit,
 }: {
   messages: DesignChatMessage[];
@@ -24,6 +25,8 @@ export function DesignChat({
   working: string;
   /** Small print under the button, e.g. the render allowance. */
   note?: string;
+  /** Reiniciar: clears this design's versions and conversation. Absent when there is nothing to clear. */
+  onRestart?: () => void;
   onSubmit: (text: string) => Promise<boolean>;
 }) {
   const [text, setText] = useState("");
@@ -40,6 +43,17 @@ export function DesignChat({
       <header className="kd-chat-head">
         <Sparkles size={18} aria-hidden="true" />
         <strong>KIT Design</strong>
+        {onRestart && (
+          <button
+            type="button"
+            className="button ghost kd-restart"
+            disabled={!!working}
+            onClick={onRestart}
+          >
+            <RotateCcw size={14} aria-hidden="true" />
+            Reiniciar
+          </button>
+        )}
       </header>
       <ol className="kd-chat-list" ref={list}>
         <li className="kd-msg kd-msg-assistant">{greeting}</li>

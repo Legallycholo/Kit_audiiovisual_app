@@ -395,6 +395,16 @@ export class KitService {
       .run(user, tid);
     await this.repo.audit(user, "KIT thread deleted", tid);
   }
+  /** Reiniciar: empties the conversation but keeps its title and project. */
+  async restart(user: string, tid: string) {
+    const t = await this.read(user, tid);
+    this.jobs.get(tid)?.controller.abort();
+    t.busy = false;
+    t.messages = [];
+    await this.save(user, t);
+    await this.repo.audit(user, "KIT thread restarted", tid);
+    return await this.view(user, t);
+  }
   async branch(user: string, tid: string, messageId: string) {
     const original = await this.get(user, tid);
     const index = original.messages.findIndex((m) => m.id === messageId);
@@ -858,6 +868,9 @@ export class KitService {
             id.parse(req.body.messageId),
           ),
         ),
+    );
+    app.post("/api/kit/threads/:id/restart", async (req, res) =>
+      res.json(await this.restart(await actor(res), id.parse(req.params.id))),
     );
     app.post("/api/kit/threads/:id/stop", async (req, res) =>
       res.json(await this.stop(await actor(res), id.parse(req.params.id))),

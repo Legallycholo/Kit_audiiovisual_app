@@ -13,6 +13,8 @@ import {
   Sparkles,
   Square,
   X,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { ConnectNotice } from "./ConnectNotice";
 import { LightMix } from "../shared/ui";
@@ -160,6 +162,26 @@ export function KitChat({
   const go = (id: string) => {
     void kit.select(id);
     if (!sidebar) navigate(`/kit?thread=${id}`);
+  };
+  const removeThread = async (t: { id: string; title: string }) => {
+    if (
+      !window.confirm(
+        `¿Eliminar «${t.title}»? Se borra la conversación; no elimina archivos ni tareas del proyecto.`,
+      )
+    )
+      return;
+    const open = kit.thread?.id === t.id;
+    await kit.remove(t.id);
+    if (open && !sidebar) navigate("/kit");
+  };
+  const restartThread = async () => {
+    if (
+      !window.confirm(
+        "¿Reiniciar esta conversación? Se borran sus mensajes y empiezas de cero. La conversación sigue en tu historial.",
+      )
+    )
+      return;
+    await kit.restart();
   };
   const newThread = async () => {
     const t = await kit.create();
@@ -535,17 +557,15 @@ export function KitChat({
         </button>
         <button
           className="button"
+          disabled={kit.busy || !kit.thread.messages.length}
+          onClick={() => void restartThread()}
+        >
+          Reiniciar conversación
+        </button>
+        <button
+          className="button"
           disabled={kit.busy}
-          onClick={() => {
-            if (
-              window.confirm(
-                "¿Eliminar esta conversación y sus artefactos? No elimina archivos o tareas del proyecto.",
-              )
-            ) {
-              void kit.remove();
-              navigate("/kit");
-            }
-          }}
+          onClick={() => void removeThread(kit.thread!)}
         >
           Eliminar conversación
         </button>
@@ -733,16 +753,27 @@ export function KitChat({
             <section key={group}>
               <h2>{group}</h2>
               {threads.map((t) => (
-                <button
-                  key={t.id}
-                  className={kit.thread?.id === t.id ? "selected" : ""}
-                  aria-current={kit.thread?.id === t.id ? "true" : undefined}
-                  title={t.title}
-                  onClick={() => go(t.id)}
-                >
-                  {t.title}
-                  {t.busy ? " · generando" : ""}
-                </button>
+                <div className="kit-thread-row" key={t.id}>
+                  <button
+                    className={kit.thread?.id === t.id ? "selected" : ""}
+                    aria-current={kit.thread?.id === t.id ? "true" : undefined}
+                    title={t.title}
+                    onClick={() => go(t.id)}
+                  >
+                    {t.title}
+                    {t.busy ? " · generando" : ""}
+                  </button>
+                  <button
+                    type="button"
+                    className="kit-thread-delete"
+                    aria-label={`Eliminar conversación ${t.title}`}
+                    title="Eliminar conversación"
+                    disabled={kit.busy}
+                    onClick={() => void removeThread(t)}
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                  </button>
+                </div>
               ))}
             </section>
           ))}
@@ -755,7 +786,24 @@ export function KitChat({
         <footer className="kit-rail-footer">{status}</footer>
       </aside>
       <div className="kit-stage">
-        {kit.thread && <div className="kit-stage-top">{threadSettings}</div>}
+        {kit.thread && (
+          <div className="kit-stage-top">
+            <div className="kit-stage-bar">
+              {threadSettings}
+              {!empty && (
+                <button
+                  type="button"
+                  className="button ghost kit-restart"
+                  disabled={kit.busy}
+                  onClick={() => void restartThread()}
+                >
+                  <RotateCcw size={14} aria-hidden="true" />
+                  Reiniciar
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {empty ? (
           <div className="kit-stage-home">
             {home}

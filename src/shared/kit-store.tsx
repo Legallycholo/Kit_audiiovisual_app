@@ -25,7 +25,10 @@ interface KitStore {
   select: (id: string) => Promise<void>;
   send: (mode: KitMode, consent: boolean) => Promise<void>;
   stop: () => Promise<void>;
-  remove: () => Promise<void>;
+  /** Deletes a conversation (the open one when no id is given). */
+  remove: (id?: string) => Promise<void>;
+  /** Empties the open conversation but keeps it in the history. */
+  restart: () => Promise<void>;
   branch: (mid: string) => Promise<KitThread | undefined>;
   update: (title: string, projectId: string | null) => Promise<void>;
   confirm: (mid: string, token: string) => Promise<void>;
@@ -287,16 +290,37 @@ function Session({ children }: { children: ReactNode }) {
       ),
     );
   }
-  async function remove() {
+  async function restart() {
     if (!thread) return;
     const id = thread.id;
+    await run(async () => {
+      if (company)
+        accept(
+          await request<KitThread>(`/kit/threads/${id}/restart`, {
+            method: "POST",
+          }),
+        );
+      else
+        accept({
+          ...thread,
+          messages: [],
+          busy: false,
+          updatedAt: new Date().toISOString(),
+        });
+    });
+  }
+  async function remove(targetId?: string) {
+    const id = targetId ?? thread?.id;
+    if (!id) return;
     await run(async () => {
       if (company) await request(`/kit/threads/${id}`, { method: "DELETE" });
       setLocal((s) => s.filter((t) => t.id !== id));
       setThreads((s) => s.filter((t) => t.id !== id));
-      setThread(null);
-      setActive("");
-      activeRef.current = "";
+      if (activeRef.current === id) {
+        setThread(null);
+        setActive("");
+        activeRef.current = "";
+      }
       setDrafts((s) => {
         const next = { ...s };
         delete next[id];
@@ -389,6 +413,7 @@ function Session({ children }: { children: ReactNode }) {
         send,
         stop,
         remove,
+        restart,
         branch,
         update,
         confirm,

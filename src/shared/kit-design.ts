@@ -89,17 +89,39 @@ export interface DesignChatMessage {
   at: string;
 }
 
-/** Work KIT Design is doing in the background for this event. */
+/** A short mp4 of a camera move over one render, so the 2D plan reads as a 3D space. */
+export interface DesignVideo {
+  id: string;
+  renderId: string;
+  versionId: string;
+  url: string;
+  /** "fixture" videos are samples; anything else is a real generated video. */
+  provider: string;
+}
+
+/** Work KIT Design is doing in the background for one design. */
 export interface DesignJob {
   id: string;
-  kind: "create" | "refine";
+  kind: "create" | "refine" | "video";
   request: string;
+  /** Render being turned into a video (kind "video"). */
+  renderId?: string;
   startedAt: string;
 }
 
-/** Everything KIT Design keeps for one event. */
+/** One entry in an event's design history. */
+export interface DesignSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+  working: boolean;
+}
+
+/** Everything KIT Design keeps for one design (one "chat"). An event can have many. */
 export interface DesignProject {
+  id: string;
   eventId: string;
+  title: string;
   brief: string;
   images: RoomImage[];
   /** Applied versions, oldest first. */
@@ -109,6 +131,8 @@ export interface DesignProject {
   /** A refinement waiting for Aplicar / Descartar. */
   pendingVersion?: DesignVersion;
   messages: DesignChatMessage[];
+  /** Videos of renders, for any version. */
+  videos: DesignVideo[];
   job?: DesignJob;
 }
 
@@ -119,6 +143,9 @@ export interface DesignStatus {
   /** "fixture" until a live render provider is configured. */
   renderer: string;
   usage: { month: string; renders: number; cap: number };
+  /** "fixture" until a live video provider is configured. */
+  videoRenderer: string;
+  videoUsage: { month: string; videos: number; cap: number };
   canEdit: boolean;
 }
 
@@ -127,8 +154,18 @@ export const MIN_BRIEF_LENGTH = 10;
 /** Most images one design can start from. */
 export const MAX_ROOM_IMAGES = 6;
 
-export const isFixtureRender = (render: Pick<DesignRender, "provider">) =>
-  render.provider === "fixture";
+export const isFixtureRender = (
+  render: Pick<DesignRender | DesignVideo, "provider">,
+) => render.provider === "fixture";
+
+/** Title shown for a design before its first message. */
+export const NEW_DESIGN_TITLE = "Nuevo diseño";
+
+/** The history title for a design: the start of its first request. */
+export function designTitle(brief: string) {
+  const text = brief.replace(/\s+/g, " ").trim();
+  return text.length > 60 ? `${text.slice(0, 59)}…` : text || NEW_DESIGN_TITLE;
+}
 
 /* ------------------------------------------------------------------------ */
 /* Sample designer: used when no AI is configured, and by every test.        */

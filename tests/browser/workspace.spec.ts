@@ -487,7 +487,7 @@ test("reports explain their metrics and automation requires human approval", asy
   ).toBeVisible();
 });
 
-test("KIT Design turns room images into versioned sample renders", async ({
+test("KIT Design turns room images into a design and video, with history, restart and delete", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -513,6 +513,17 @@ test("KIT Design turns room images into versioned sample renders", async ({
     page.getByRole("button", { name: "Versión 1", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("Visualización, no a escala")).toBeVisible();
+  // The first design comes back as a video of the 3D-looking view (no before/after slider).
+  await expect(page.getByLabel("Vista 1: video del diseño")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText("Antes", { exact: true })).toHaveCount(0);
+  // It is in the history, named after the request.
+  await expect(
+    page
+      .getByRole("button", { name: /Boda para 120, escenario al fondo/ })
+      .first(),
+  ).toBeVisible();
 
   await message.fill("Más luz cálida");
   await page.getByRole("button", { name: "Enviar", exact: true }).click();
@@ -525,6 +536,38 @@ test("KIT Design turns room images into versioned sample renders", async ({
   await expect(
     page.getByRole("button", { name: "Versión 1", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+
+  // A new design starts empty while the old one stays in the history.
+  await page.getByRole("button", { name: "Nuevo diseño", exact: true }).click();
+  await expect(
+    page.getByText("Suelta aquí las fotos o el plano del salón"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("button", { name: /Boda para 120, escenario al fondo/ })
+      .first(),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: /Boda para 120, escenario al fondo/ })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Versión 1", exact: true }),
+  ).toBeVisible();
+
+  // Reiniciar keeps the images and clears the versions and chat.
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Reiniciar", exact: true }).click();
+  await expect(page.getByRole("img", { name: "salon.png" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Versión/ })).toHaveCount(0);
+
+  // Delete removes it from the history.
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page
+    .getByRole("button", { name: /^Eliminar diseño/ })
+    .first()
+    .click({ force: true });
+  await expect(page.getByText("Diseño eliminado.")).toBeVisible();
 
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])

@@ -4,7 +4,10 @@ import { integrationsFromEnv } from "./integrations";
 import { httpSearchProvider } from "./search";
 import { aiKitGenerator } from "./kit";
 import { aiDesigner } from "./design-ai/designer";
-import { higgsfieldRenderProvider } from "./design-ai/render-provider";
+import {
+  higgsfieldRenderProvider,
+  higgsfieldVideoProvider,
+} from "./design-ai/render-provider";
 import { supabaseStorage } from "./design-ai/storage";
 import { recaptchaVerifier } from "./recaptcha";
 import { jsonLogger, parseLogLevel } from "./logger";
@@ -79,6 +82,9 @@ export function configFromEnv(
  * - spec: the configured AI provider with KIT_PLAN_MODEL (default: the proposal model);
  * - renders: Higgsfield when HIGGSFIELD_API_KEY ("KEY_ID:KEY_SECRET") or
  *   HIGGSFIELD_KEY_ID + HIGGSFIELD_KEY_SECRET is set (model: KIT_DESIGN_RENDER_MODEL);
+ * - videos: the same Higgsfield key (model: KIT_DESIGN_VIDEO_MODEL, default Kling 3.0
+ *   Standard; seconds: KIT_DESIGN_VIDEO_SECONDS, default 5), capped by
+ *   KIT_DESIGN_MONTHLY_VIDEO_CAP (default 10);
  * - images: the private Supabase bucket when SUPABASE_URL + SUPABASE_SECRET_KEY are set,
  *   otherwise the database;
  * - KIT_DESIGN_MONTHLY_RENDER_CAP live renders per month (default 100).
@@ -93,6 +99,7 @@ export function designFromEnv(
       ? `${env.HIGGSFIELD_KEY_ID.trim()}:${env.HIGGSFIELD_KEY_SECRET.trim()}`
       : "");
   const cap = Number(env.KIT_DESIGN_MONTHLY_RENDER_CAP || 100);
+  const videoCap = Number(env.KIT_DESIGN_MONTHLY_VIDEO_CAP || 10);
   return {
     designer: ai?.planModel
       ? aiDesigner(ai.provider, ai.key, ai.planModel)
@@ -105,10 +112,22 @@ export function designFromEnv(
             : {}),
         })
       : undefined,
+    videoRenderer: higgsfieldKey
+      ? higgsfieldVideoProvider({
+          key: higgsfieldKey,
+          ...(env.KIT_DESIGN_VIDEO_MODEL?.trim()
+            ? { model: env.KIT_DESIGN_VIDEO_MODEL.trim() }
+            : {}),
+          ...(Number(env.KIT_DESIGN_VIDEO_SECONDS)
+            ? { seconds: Number(env.KIT_DESIGN_VIDEO_SECONDS) }
+            : {}),
+        })
+      : undefined,
     storage:
       env.SUPABASE_URL && env.SUPABASE_SECRET_KEY
         ? supabaseStorage(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY)
         : undefined,
     monthlyRenderCap: Number.isFinite(cap) && cap >= 0 ? cap : 100,
+    monthlyVideoCap: Number.isFinite(videoCap) && videoCap >= 0 ? videoCap : 10,
   };
 }

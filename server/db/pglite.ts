@@ -6,6 +6,7 @@ import type { Conn, SqlDriver } from "./driver";
 const migrations = [
   "20261107000012_kit_company_schema.sql",
   "20261109000013_kit_design.sql",
+  "20261110000014_kit_design_chats_and_video.sql",
 ].map((file) => new URL(`../../supabase/migrations/${file}`, import.meta.url));
 const schema = () =>
   migrations.map((file) => readFileSync(file, "utf8")).join("\n");

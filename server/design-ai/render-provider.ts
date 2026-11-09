@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { HttpError } from "../database";
+import { FIXTURE_VIDEO } from "./fixture-video";
 
 export interface RenderInput {
   /** The room photo (first render) or the current render (refinements). */
@@ -61,6 +62,48 @@ export function closestAspectRatio(width: number, height: number) {
   });
 }
 
+export interface VideoInput {
+  /** The 3D-looking render to bring to life. */
+  image: { bytes: Buffer; mimeType: string };
+  prompt: string;
+  signal?: AbortSignal;
+}
+export interface VideoOutput {
+  bytes: Buffer;
+  mimeType: "video/mp4";
+}
+
+/** Turns one render into a short video with a camera move. The scene itself must not change. */
+export interface VideoProvider {
+  /** Stored on each video; "fixture" marks sample videos in the UI. */
+  readonly name: string;
+  /** True when each video costs money and counts against the monthly video cap. */
+  readonly billable: boolean;
+  video(input: VideoInput): Promise<VideoOutput>;
+}
+
+/** Sample provider for local development and tests: a short bundled clip. */
+export const fixtureVideoProvider: VideoProvider = {
+  name: "fixture",
+  billable: false,
+  async video() {
+    return { bytes: FIXTURE_VIDEO, mimeType: "video/mp4" };
+  },
+};
+
+/**
+ * The instruction that makes a flat plan read as a 3D space: only the camera
+ * moves. Built here (not by the model) so it stays the same for every video.
+ */
+export function videoPrompt(mood = "") {
+  return (
+    "Smooth cinematic aerial camera move: a slow orbit with a gentle push-in around this 3D rendering of an event layout, " +
+    "so the space reads clearly in three dimensions. Keep every wall, table, chair, stage, screen and light exactly as shown. " +
+    "No new objects, no people appearing, no text, no cuts, steady lighting." +
+    (mood.trim() ? ` Mood: ${mood.trim().slice(0, 200)}.` : "")
+  );
+}
+
 export interface HiggsfieldOptions {
   /** "KEY_ID:KEY_SECRET", sent as `Authorization: Key …`. */
   key: string;
@@ -83,18 +126,24 @@ const defaultWait = (ms: number, signal?: AbortSignal) =>
     });
   });
 
+const API = "https://api.higgsfield.ai";
+const TERMINAL = ["completed", "failed", "nsfw", "canceled"];
+
 /**
- * Higgsfield (https://docs.higgsfield.ai): upload the source image to a
- * Higgsfield signed upload URL (our own storage stays private), submit an
- * image edit, poll the request status, then download the result.
+ * The Higgsfield request flow shared by images and videos
+ * (https://docs.higgsfield.ai): upload the input to a Higgsfield signed URL
+ * (our own storage stays private), submit with an idempotency key, poll the
+ * status, then download the result before Higgsfield deletes it.
  */
-export function higgsfieldRenderProvider(
-  options: HiggsfieldOptions,
-): RenderProvider {
-  const api = "https://api.higgsfield.ai";
+function higgsfieldClient(options: {
+  key: string;
+  transport?: typeof fetch;
+  wait?: HiggsfieldOptions["wait"];
+  timeoutMs: number;
+  what: "imagen" | "video";
+}) {
   const send = options.transport ?? fetch;
   const wait = options.wait ?? defaultWait;
-  const model = options.model ?? "alibaba/qwen-image-3/edit";
   const auth = { Authorization: `Key ${options.key}` };
 
   async function call(
@@ -118,7 +167,7 @@ export function higgsfieldRenderProvider(
               ? "El motor de imágenes está ocupado. Intenta en unos minutos."
               : response.status === 400 || response.status === 422
                 ? "El motor de imágenes rechazó la imagen o la instrucción."
-                : "El motor de imágenes no pudo generar la vista.";
+                : `El motor de imágenes no pudo generar ${options.what === "video" ? "el video" : "la vista"}.`;
       throw new HttpError(response.status === 429 ? 429 : 502, message);
     }
     const text = await response.text();
@@ -126,17 +175,20 @@ export function higgsfieldRenderProvider(
   }
 
   return {
-    name: "higgsfield",
-    billable: true,
-    async render({ image, prompt, signal }) {
-      const timeout = AbortSignal.timeout(options.timeoutMs ?? 240_000);
-      const abort = signal ? AbortSignal.any([signal, timeout]) : timeout;
-      // 1. Upload the source image to a short-lived Higgsfield URL.
-      const upload = await call(`${api}/files/generate-upload-url`, {
+    signal(external?: AbortSignal) {
+      const timeout = AbortSignal.timeout(options.timeoutMs);
+      return external ? AbortSignal.any([external, timeout]) : timeout;
+    },
+    /** Uploads the input image and returns its public URL. */
+    async upload(
+      image: { bytes: Buffer; mimeType: string },
+      signal: AbortSignal,
+    ) {
+      const upload = await call(`${API}/files/generate-upload-url`, {
         method: "POST",
         headers: { ...auth, "Content-Type": "application/json" },
         body: JSON.stringify({ content_type: image.mimeType }),
-        signal: abort,
+        signal,
       });
       if (!upload.upload_url || !upload.public_url)
         throw new HttpError(502, "El motor de imágenes no aceptó la subida.");
@@ -145,67 +197,163 @@ export function higgsfieldRenderProvider(
         method: "PUT",
         headers: upload.upload_headers ?? { "Content-Type": image.mimeType },
         body: new Uint8Array(image.bytes),
-        signal: abort,
+        signal,
       }).catch(() => null);
       if (!put?.ok)
         throw new HttpError(
           502,
           "No se pudo subir la imagen al motor de imágenes.",
         );
-      // 2. Submit the edit.
-      const submitted = await call(`${api}/${model}`, {
+      return upload.public_url as string;
+    },
+    /** Submits a job and polls (2 s rising to 10 s, with jitter) until it finishes. */
+    async run(path: string, body: unknown, signal: AbortSignal) {
+      const submitted = await call(`${API}/${path}`, {
         method: "POST",
         headers: {
           ...auth,
           "Content-Type": "application/json",
           "Idempotency-Key": randomUUID(),
         },
-        body: JSON.stringify({
+        body: JSON.stringify(body),
+        signal,
+      });
+      const statusUrl: string =
+        submitted.status_url ||
+        `${API}/requests/${encodeURIComponent(submitted.request_id)}/status`;
+      if (!statusUrl.startsWith(`${API}/`))
+        throw new HttpError(502, "Respuesta inesperada del motor de imágenes.");
+      let delay = 2_000;
+      let result: any = submitted;
+      while (!TERMINAL.includes(result.status)) {
+        await wait(delay + Math.floor(Math.random() * 500), signal);
+        delay = Math.min(10_000, Math.round(delay * 1.5));
+        result = await call(statusUrl, { headers: auth, signal });
+      }
+      if (result.status === "nsfw")
+        throw new HttpError(422, "El motor de imágenes rechazó el contenido.");
+      if (result.status !== "completed")
+        throw new HttpError(
+          502,
+          `El motor de imágenes no pudo generar ${options.what === "video" ? "el video" : "la vista"}.`,
+        );
+      return result;
+    },
+    /** Downloads a result now: Higgsfield keeps files only for a limited time. */
+    async download(url: string, signal: AbortSignal) {
+      const file = await send(url, { signal }).catch(() => null);
+      if (!file?.ok)
+        throw new HttpError(
+          502,
+          `No se pudo descargar ${options.what === "video" ? "el video" : "la vista"} generad${options.what === "video" ? "o" : "a"}.`,
+        );
+      return {
+        bytes: Buffer.from(await file.arrayBuffer()),
+        type: file.headers.get("content-type")?.split(";")[0] ?? "",
+      };
+    },
+  };
+}
+
+/** Higgsfield image editing (default: Qwen Image 3 Edit). */
+export function higgsfieldRenderProvider(
+  options: HiggsfieldOptions,
+): RenderProvider {
+  const client = higgsfieldClient({
+    ...options,
+    timeoutMs: options.timeoutMs ?? 240_000,
+    what: "imagen",
+  });
+  const model = options.model ?? "alibaba/qwen-image-3/edit";
+  return {
+    name: "higgsfield",
+    billable: true,
+    async render({ image, prompt, signal }) {
+      const abort = client.signal(signal);
+      const imageUrl = await client.upload(image, abort);
+      const result = await client.run(
+        model,
+        {
           prompt,
-          image_urls: [upload.public_url],
+          image_urls: [imageUrl],
           resolution: options.resolution ?? "2k",
           aspect_ratio: closestAspectRatio(image.width, image.height),
           negative_prompt:
             "different room, changed architecture, distorted walls, extra windows, text, watermark",
-        }),
-        signal: abort,
-      });
-      const statusUrl: string =
-        submitted.status_url ||
-        `${api}/requests/${encodeURIComponent(submitted.request_id)}/status`;
-      if (!statusUrl.startsWith(`${api}/`))
-        throw new HttpError(502, "Respuesta inesperada del motor de imágenes.");
-      // 3. Poll: 2 s, rising to 10 s, with jitter.
-      let delay = 2_000;
-      let result: any = submitted;
-      while (
-        !["completed", "failed", "nsfw", "canceled"].includes(result.status)
-      ) {
-        await wait(delay + Math.floor(Math.random() * 500), abort);
-        delay = Math.min(10_000, Math.round(delay * 1.5));
-        result = await call(statusUrl, { headers: auth, signal: abort });
-      }
-      if (result.status === "nsfw")
-        throw new HttpError(422, "El motor de imágenes rechazó el contenido.");
-      if (result.status !== "completed" || !result.images?.[0]?.url)
+        },
+        abort,
+      );
+      if (!result.images?.[0]?.url)
         throw new HttpError(
           502,
           "El motor de imágenes no pudo generar la vista.",
         );
-      // 4. Download now: Higgsfield keeps results only for a limited time.
-      const file = await send(result.images[0].url, { signal: abort }).catch(
-        () => null,
-      );
-      if (!file?.ok)
-        throw new HttpError(502, "No se pudo descargar la vista generada.");
-      const mimeType =
-        file.headers.get("content-type")?.split(";")[0] || "image/png";
+      const file = await client.download(result.images[0].url, abort);
+      const mimeType = file.type || "image/png";
       if (!/^image\/(png|jpeg|webp)$/.test(mimeType))
         throw new HttpError(
           502,
           "El motor de imágenes devolvió un archivo inesperado.",
         );
-      return { bytes: Buffer.from(await file.arrayBuffer()), mimeType };
+      return { bytes: file.bytes, mimeType };
+    },
+  };
+}
+
+export interface HiggsfieldVideoOptions {
+  key: string;
+  /** Default: Kling 3.0 Standard image-to-video, which uses the image as the first frame. */
+  model?: string;
+  /** Video length in seconds (Kling accepts 3 to 15). Longer costs more. */
+  seconds?: number;
+  transport?: typeof fetch;
+  wait?: HiggsfieldOptions["wait"];
+  timeoutMs?: number;
+}
+
+/** The largest video the private bucket accepts. */
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+
+/** Higgsfield image-to-video (default: Kling 3.0 Standard). */
+export function higgsfieldVideoProvider(
+  options: HiggsfieldVideoOptions,
+): VideoProvider {
+  const client = higgsfieldClient({
+    ...options,
+    // Vercel functions stop at 300 s; give up a little before.
+    timeoutMs: options.timeoutMs ?? 270_000,
+    what: "video",
+  });
+  const model = options.model ?? "kling-video/v3.0/std/image-to-video";
+  const seconds = Math.min(15, Math.max(3, Math.round(options.seconds ?? 5)));
+  return {
+    name: "higgsfield",
+    billable: true,
+    async video({ image, prompt, signal }) {
+      const abort = client.signal(signal);
+      const imageUrl = await client.upload(image, abort);
+      const result = await client.run(
+        model,
+        { prompt, image_url: imageUrl, duration: seconds, sound: "off" },
+        abort,
+      );
+      if (!result.video?.url)
+        throw new HttpError(
+          502,
+          "El motor de imágenes no pudo generar el video.",
+        );
+      const file = await client.download(result.video.url, abort);
+      if (file.bytes.length > MAX_VIDEO_BYTES)
+        throw new HttpError(502, "El video generado es demasiado grande.");
+      if (
+        file.type &&
+        !/^(video\/mp4|application\/octet-stream)$/.test(file.type)
+      )
+        throw new HttpError(
+          502,
+          "El motor de imágenes devolvió un archivo inesperado.",
+        );
+      return { bytes: file.bytes, mimeType: "video/mp4" };
     },
   };
 }

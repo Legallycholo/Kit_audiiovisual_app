@@ -1,6 +1,6 @@
 # KIT Design — implementation plan
 
-Status: **Phases 1–4 implemented and tested on fixtures (November 9, 2026). Phase 0 (the live trial on real venue photos) waits for the owner's keys and photos.** Prepared November 9, 2026. Revised November 9, 2026 (output is finished images, not an interactive 3D viewer; the "no external calls" rule is removed).
+Status: **Phases 1–4 implemented and tested on fixtures, plus the history/video update (November 9, 2026). Phase 0 (the live trial on real venue photos) waits for the owner's keys and photos.** Prepared November 9, 2026. Revised November 9, 2026 (output is finished images, not an interactive 3D viewer; the "no external calls" rule is removed).
 This plan **replaces** the current Design section ("Planos y 3D") and "Estudio creativo". Nothing in them is a requirement for the new one.
 
 ## 1. What we are building
@@ -282,3 +282,14 @@ Everything below runs and is tested with offline fixtures. The live providers ar
 2. Put `HIGGSFIELD_API_KEY` (`KEY_ID:KEY_SECRET`) and the AI keys (`KIT_AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `KIT_PLAN_MODEL`) in `.env`, and `KIT_DESIGN_MONTHLY_RENDER_CAP=10` for the trial.
 3. Run `npm run dev`, open Diseño, and try 3–5 real venue photos and one floor plan. Judge: is the room recognisably the same, do the items look right, and what did Higgsfield charge per image (Console)?
 4. Set the real cap, then deploy.
+
+### Update: history, a video instead of before/after, restart (November 9, 2026)
+
+Owner feedback after the first version: keep the page structure, but add a chat history with "new chat" and delete (also for KIT AI), a restart option, drop the before/after slider, and return a **video of the 2D plan that looks 3D**.
+
+- **History.** An event now keeps many designs. A left rail lists them (newest first, grouped by day) with **Nuevo diseño** and a trash button per row; the title is the start of the first request. Creating a new one reuses an empty one already waiting. Migration 14 makes this possible (see `supabase/README.md`); API routes moved under `/api/design/designs/:id/…`.
+- **Reiniciar** (KIT Design): clears the versions, videos and conversation of a design and keeps its room images. Delete removes everything, including the stored files. Both are refused while KIT Design is working on that design.
+- **KIT AI** (`/kit`): each conversation in the history has a trash button, and **Reiniciar** empties the open conversation (`POST /api/kit/threads/:id/restart`) while keeping it in the history.
+- **Video.** The before/after slider is gone. For a floor plan the designer now asks for an isometric 3D cutaway render; the image is then turned into a short mp4 with a slow orbit and push-in (Higgsfield **Kling 3.0 Standard**, image as first frame, sound off; only the camera moves). The first design gets its video automatically; later versions have a **Crear video** button per view. A monthly cap (`KIT_DESIGN_MONTHLY_VIDEO_CAP`, default 10) and the render cap are shown under the chat.
+- **Delivery.** Videos play from short-lived signed links to the private bucket (a Vercel function cannot return more than 4.5 MB); the CSP gained `media-src` for the Supabase origin. Without keys a bundled 2-second sample clip is used, marked "Muestra".
+- **Not proven.** Kling's output quality and price on a real plan, and whether a 5 s video finishes inside Vercel's 300 s function limit together with the image step, are only known after the Phase 0 trial. If the video is cut off, the design is kept and **Crear video** retries.
