@@ -14,21 +14,24 @@ const port = 54_000 + Math.floor(Math.random() * 1000);
 
 beforeAll(async () => {
   backend = await PGlite.create();
-  await backend.exec(
-    readFileSync(
-      new URL(
-        "../../supabase/migrations/20261107000012_kit_company_schema.sql",
-        import.meta.url,
+  for (const file of [
+    "20261107000012_kit_company_schema.sql",
+    "20261109000013_kit_design.sql",
+  ])
+    await backend.exec(
+      readFileSync(
+        new URL(`../../supabase/migrations/${file}`, import.meta.url),
+        "utf8",
       ),
-      "utf8",
-    ),
-  );
+    );
   await backend.exec("SET search_path = kit");
   server = new PGLiteSocketServer({ db: backend, port, host: "127.0.0.1" });
   await server.start();
   // The multiplexer serves connections one at a time, so use a single pooled connection.
   process.env.KIT_DATABASE_POOL_MAX = "1";
-  repo = await Repository.open(`postgres://kit_server@127.0.0.1:${port}/postgres`);
+  repo = await Repository.open(
+    `postgres://kit_server@127.0.0.1:${port}/postgres`,
+  );
 });
 afterAll(async () => {
   await repo?.close();

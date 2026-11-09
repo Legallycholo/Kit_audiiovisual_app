@@ -58,5 +58,10 @@ It is **not applied yet**: the owner applies it, then sets the role's password, 
 [../docs/DEPLOY_VERCEL.md](../docs/DEPLOY_VERCEL.md). The same file is what local development and the tests run on
 in-process PGlite, so the two cannot drift.
 
+`20261109000013_kit_design.sql` (migration 13) adds KIT Design's tables (`design_projects`, `design_images`,
+`design_versions`, `design_renders`, `design_messages`, `design_files`) to the same `kit` schema with the same
+`kit_server` policies, and creates the **private** Storage bucket `kit-design` (no public policies; only the server's
+secret key reads or writes it). Apply it after migration 12. PGlite runs both files in order.
+
 Why not `public`? The portal already owns `public.sessions` and `public.audit_log`, and `public` is what the Data API
 publishes; password hashes must never be reachable that way.

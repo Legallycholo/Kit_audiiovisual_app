@@ -5,10 +5,13 @@ export function BeforeAfter({
   before,
   after,
   label,
+  sample = false,
 }: {
   before: string;
   after: string;
   label: string;
+  /** A fixture render (the original photo): marked so it cannot pass for a real one. */
+  sample?: boolean;
 }) {
   const [split, setSplit] = useState(50);
   return (
@@ -27,7 +30,14 @@ export function BeforeAfter({
           aria-hidden="true"
         />
         <span className="kd-compare-tag before">Antes</span>
-        <span className="kd-compare-tag after">Después</span>
+        <span className="kd-compare-tag after">
+          {sample ? "Después · MUESTRA" : "Después"}
+        </span>
+        {sample && (
+          <span className="kd-sample-band" aria-hidden="true">
+            Vista de muestra: sin motor de imágenes conectado
+          </span>
+        )}
       </div>
       <label className="kd-compare-slider">
         <span className="visually-hidden">Comparar antes y después</span>

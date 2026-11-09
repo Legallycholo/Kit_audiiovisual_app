@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent } from "react";
 import { ImagePlus } from "lucide-react";
-import { MAX_ROOM_IMAGES } from "./prepare-image";
+import { MAX_ROOM_IMAGES } from "../../shared/kit-design";
 
 /** Drop or pick room photos / floor plans. `compact` is the small "add more" variant. */
 export function DropZone({

@@ -1,12 +1,12 @@
-import { id } from "../../shared/domain";
-import type { RoomImage, RoomImageMimeType } from "../../shared/kit-design";
+import type {
+  RoomImageMimeType,
+  RoomImageUpload,
+} from "../../shared/kit-design";
 
 /** Largest stored room image. Small enough for direct upload and AI vision input. */
 export const MAX_IMAGE_BYTES = 1_000_000;
 /** Largest file accepted before shrinking (phone photos are usually 2–8 MB). */
 export const MAX_IMAGE_INPUT_BYTES = 25_000_000;
-/** Most images one design can start from. */
-export const MAX_ROOM_IMAGES = 6;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const SIDES = [2048, 1600, 1280];
 const QUALITIES = [0.85, 0.7, 0.55];
@@ -104,7 +104,7 @@ function encodeJpeg(
  * Validates a room photo or floor plan and returns it ready to store.
  * Images over 1 MB or longer than 2048 px are shrunk to a JPEG that fits.
  */
-export async function prepareRoomImage(file: File): Promise<RoomImage> {
+export async function prepareRoomImage(file: File): Promise<RoomImageUpload> {
   if (!isRoomImageType(file.type))
     throw new Error("Usa una imagen PNG, JPEG o WebP del salón.");
   if (file.size > MAX_IMAGE_INPUT_BYTES)
@@ -140,7 +140,6 @@ export async function prepareRoomImage(file: File): Promise<RoomImage> {
   }
   if ("close" in image && typeof image.close === "function") image.close();
   return {
-    id: id(),
     name: file.name,
     mimeType,
     dataUrl: await readDataUrl(blob),

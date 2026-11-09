@@ -2,11 +2,13 @@ import { PGlite } from "@electric-sql/pglite";
 import { mkdirSync, readFileSync } from "node:fs";
 import type { Conn, SqlDriver } from "./driver";
 
-const migration = new URL(
-  "../../supabase/migrations/20261107000012_kit_company_schema.sql",
-  import.meta.url,
-);
-const schema = () => readFileSync(migration, "utf8");
+// The company schema, in order. The hosted database applies the same files.
+const migrations = [
+  "20261107000012_kit_company_schema.sql",
+  "20261109000013_kit_design.sql",
+].map((file) => new URL(`../../supabase/migrations/${file}`, import.meta.url));
+const schema = () =>
+  migrations.map((file) => readFileSync(file, "utf8")).join("\n");
 
 const conn = (db: Pick<PGlite, "query" | "exec">): Conn => ({
   query: async (sql, params) => {

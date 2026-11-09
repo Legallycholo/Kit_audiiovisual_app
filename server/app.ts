@@ -2,6 +2,7 @@ import express from "express";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { SearchGateway } from "./search";
 import { KitService } from "./kit";
+import { DesignAIService } from "./design-ai/service";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { Repository, HttpError } from "./database";
@@ -98,12 +99,18 @@ export function createApp(repo: Repository, config: AppConfig) {
     { resetBusyOnBoot: config.resetBusyOnBoot },
   );
   app.locals.kit = kit;
+  const designAI = new DesignAIService(repo, config.design, {
+    resetBusyOnBoot: config.resetBusyOnBoot,
+  });
+  app.locals.designAI = designAI;
   // Startup work (search tenant and policy check, interrupted AI jobs) is async
   // now. Requests wait for it; a failure (for example a changed search provider
   // policy) fails every request instead of hanging. Servers also await it before listening.
-  const ready = Promise.all([searchGateway.ready, kit.ready]).then(
-    () => undefined,
-  );
+  const ready = Promise.all([
+    searchGateway.ready,
+    kit.ready,
+    designAI.ready,
+  ]).then(() => undefined);
   ready.catch(() => {});
   app.locals.ready = ready;
   app.use("/api", (_req, _res, next) => ready.then(() => next(), next));
@@ -123,6 +130,7 @@ export function createApp(repo: Repository, config: AppConfig) {
   app.use("/api", sessionMiddleware(repo), csrfMiddleware(config.origins));
   searchGateway.mountSession(app);
   kit.mount(app);
+  designAI.mount(app);
   const response = async (
     res: express.Response,
   ): Promise<WorkspaceResponse> => {

@@ -3,6 +3,9 @@ import { supabaseVerifier } from "./supabase-auth";
 import { integrationsFromEnv } from "./integrations";
 import { httpSearchProvider } from "./search";
 import { aiKitGenerator } from "./kit";
+import { aiDesigner } from "./design-ai/designer";
+import { higgsfieldRenderProvider } from "./design-ai/render-provider";
+import { supabaseStorage } from "./design-ai/storage";
 import { recaptchaVerifier } from "./recaptcha";
 import { jsonLogger, parseLogLevel } from "./logger";
 import type { AppConfig } from "./routes/context";
@@ -37,6 +40,7 @@ export function configFromEnv(
             env.RECAPTCHA_SITE_KEY,
           )
         : undefined,
+    design: designFromEnv(env, ai),
     kitGenerator: ai?.chatModel
       ? aiKitGenerator(ai.provider, ai.key, ai.chatModel)
       : undefined,
@@ -66,5 +70,45 @@ export function configFromEnv(
     origins: (env.KIT_ORIGINS || defaultOrigins).split(","),
     secureCookies: env.KIT_SECURE_COOKIES === "true",
     cronSecret: env.CRON_SECRET || undefined,
+  };
+}
+
+/**
+ * KIT Design (docs/kit_design_AI.md). Each part falls back to its offline
+ * fixture when its keys are missing, so local runs without keys still work:
+ * - spec: the configured AI provider with KIT_PLAN_MODEL (default: the proposal model);
+ * - renders: Higgsfield when HIGGSFIELD_API_KEY ("KEY_ID:KEY_SECRET") or
+ *   HIGGSFIELD_KEY_ID + HIGGSFIELD_KEY_SECRET is set (model: KIT_DESIGN_RENDER_MODEL);
+ * - images: the private Supabase bucket when SUPABASE_URL + SUPABASE_SECRET_KEY are set,
+ *   otherwise the database;
+ * - KIT_DESIGN_MONTHLY_RENDER_CAP live renders per month (default 100).
+ */
+export function designFromEnv(
+  env: NodeJS.ProcessEnv,
+  ai: ReturnType<typeof integrationsFromEnv>["ai"],
+) {
+  const higgsfieldKey =
+    env.HIGGSFIELD_API_KEY?.trim() ||
+    (env.HIGGSFIELD_KEY_ID && env.HIGGSFIELD_KEY_SECRET
+      ? `${env.HIGGSFIELD_KEY_ID.trim()}:${env.HIGGSFIELD_KEY_SECRET.trim()}`
+      : "");
+  const cap = Number(env.KIT_DESIGN_MONTHLY_RENDER_CAP || 100);
+  return {
+    designer: ai?.planModel
+      ? aiDesigner(ai.provider, ai.key, ai.planModel)
+      : undefined,
+    renderer: higgsfieldKey
+      ? higgsfieldRenderProvider({
+          key: higgsfieldKey,
+          ...(env.KIT_DESIGN_RENDER_MODEL?.trim()
+            ? { model: env.KIT_DESIGN_RENDER_MODEL.trim() }
+            : {}),
+        })
+      : undefined,
+    storage:
+      env.SUPABASE_URL && env.SUPABASE_SECRET_KEY
+        ? supabaseStorage(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY)
+        : undefined,
+    monthlyRenderCap: Number.isFinite(cap) && cap >= 0 ? cap : 100,
   };
 }

@@ -76,5 +76,5 @@ export async function startCompany(config: Partial<AppConfig> = {}) {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await repo.close();
   }
-  return { repo, call, owner, account, close };
+  return { app, url, repo, call, owner, account, close };
 }

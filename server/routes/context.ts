@@ -5,6 +5,7 @@ import type { KitGenerator } from "../kit";
 import type { ProposalGenerator } from "../proposal-ai";
 import type { MessageTransport } from "../messaging";
 import type { RecaptchaVerifier } from "../recaptcha";
+import type { DesignConfig } from "../design-ai/service";
 import type { SupabaseVerifier } from "../supabase-auth";
 import type { Logger } from "../logger";
 import type { IntegrationsConfig } from "../integrations";
@@ -19,6 +20,8 @@ export type AppConfig = {
   messageTransport?: MessageTransport;
   search?: SearchConfig;
   kitGenerator?: KitGenerator;
+  /** KIT Design (Diseño): spec writer, render provider, image storage, monthly render cap. */
+  design?: DesignConfig;
   logger?: Logger;
   /** Requires a valid reCAPTCHA Enterprise token on sign-in when set. */
   recaptchaVerifier?: RecaptchaVerifier;

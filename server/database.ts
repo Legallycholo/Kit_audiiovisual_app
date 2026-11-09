@@ -38,7 +38,7 @@ export function publicUser(row: UserRow): WorkspaceUser {
   };
 }
 export { emptyWorkspace };
-/** Every table the company server needs; created by supabase/migrations/20261107000012_kit_company_schema.sql. */
+/** Every table the company server needs; created by supabase/migrations/20261107000012_kit_company_schema.sql and 20261109000013_kit_design.sql. */
 const TABLES = [
   "workspace",
   "users",
@@ -51,6 +51,12 @@ const TABLES = [
   "search_sources",
   "search_usage",
   "kit_threads",
+  "design_projects",
+  "design_images",
+  "design_versions",
+  "design_renders",
+  "design_messages",
+  "design_files",
 ];
 export class Repository {
   /**
@@ -71,9 +77,11 @@ export class Repository {
       );
       if (missing.length)
         throw new Error(
-          `The KIT database schema is missing tables (${missing.join(", ")}). Apply supabase/migrations/20261107000012_kit_company_schema.sql.`,
+          `The KIT database schema is missing tables (${missing.join(", ")}). Apply the supabase/migrations/2026110*_kit_*.sql files in order.`,
         );
-      const visible = await db.prepare("SELECT to_regclass('workspace') AS t").get();
+      const visible = await db
+        .prepare("SELECT to_regclass('workspace') AS t")
+        .get();
       if (!visible?.t)
         throw new Error(
           "The KIT tables exist but are not on this connection's search_path. Connect as the kit_server role (ALTER ROLE kit_server SET search_path = kit).",
@@ -96,8 +104,7 @@ export class Repository {
   }
   async user(id: string) {
     return (await this.db.prepare("SELECT * FROM users WHERE id=?").get(id)) as
-      | UserRow
-      | undefined;
+      UserRow | undefined;
   }
   async userByEmail(email: string) {
     return (await this.db

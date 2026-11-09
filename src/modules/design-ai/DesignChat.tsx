@@ -11,6 +11,7 @@ export function DesignChat({
   firstDesign,
   blockedReason,
   working,
+  note,
   onSubmit,
 }: {
   messages: DesignChatMessage[];
@@ -21,6 +22,8 @@ export function DesignChat({
   /** Why the person cannot send right now; shown under the box. */
   blockedReason?: string;
   working: string;
+  /** Small print under the button, e.g. the render allowance. */
+  note?: string;
   onSubmit: (text: string) => Promise<boolean>;
 }) {
   const [text, setText] = useState("");
@@ -84,6 +87,7 @@ export function DesignChat({
           {firstDesign ? <WandSparkles size={16} /> : <Send size={16} />}
           {submitLabel}
         </button>
+        {note && <small className="muted kd-chat-note">{note}</small>}
       </form>
     </aside>
   );

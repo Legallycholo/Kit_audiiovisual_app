@@ -1,6 +1,6 @@
 # KIT Design — implementation plan
 
-Status: **Phase 1 done (November 9, 2026); Phase 0 waiting for venue photos and keys.** Prepared November 9, 2026. Revised November 9, 2026 (output is finished images, not an interactive 3D viewer; the "no external calls" rule is removed).
+Status: **Phases 1–4 implemented and tested on fixtures (November 9, 2026). Phase 0 (the live trial on real venue photos) waits for the owner's keys and photos.** Prepared November 9, 2026. Revised November 9, 2026 (output is finished images, not an interactive 3D viewer; the "no external calls" rule is removed).
 This plan **replaces** the current Design section ("Planos y 3D") and "Estudio creativo". Nothing in them is a requirement for the new one.
 
 ## 1. What we are building
@@ -245,7 +245,40 @@ Storage and tables, `read_room`, `write_spec`, equipment list, estimated-measure
 
 **Known limits of Phase 1:** projects live in the browser tab's memory (lost on reload); every role that can edit layouts can use it; on phones the chat sits below the result.
 
-### Next
+### Phases 2–4: implemented (November 9, 2026)
 
-- **Phase 0** (needs the owner): 3–5 real venue photos and a floor plan, plus the Anthropic and Higgsfield keys, to judge render fidelity and cost.
-- **Phase 2**: Supabase Storage bucket + `kit` tables (needs approval of the database change), server `DesignEngine`, Claude `read_room` / `write_spec`.
+Everything below runs and is tested with offline fixtures. The live providers are wired and covered by tests against stubbed HTTP, **but have never been called for real** (that is Phase 0).
+
+**Phase 2: understand and spec, stored on the server**
+
+- Migration `supabase/migrations/20261109000013_kit_design.sql`: tables `design_projects`, `design_images`, `design_versions`, `design_renders`, `design_messages`, `design_files` in the `kit` schema, plus the private Storage bucket `kit-design`. PGlite runs migrations 12 and 13.
+- Storage (`server/design-ai/storage.ts`): the private Supabase bucket when `SUPABASE_URL` + `SUPABASE_SECRET_KEY` are set, otherwise the database. **Deviation from §6:** images upload through the API one at a time (each is at most 1 MB after browser resizing), not through signed upload URLs. That stays far below Vercel's 4.5 MB limit and keeps the bucket fully private.
+- Designer (`server/design-ai/designer.ts`): Claude (or the configured provider, `KIT_PLAN_MODEL`) reads the images, brief, event and catalog in one call and returns a zod-validated spec. Catalog IDs the catalog doesn't have become free-text décor. Every image gets a view; measurements are always "estimated". Without an AI key, the sample designer is used.
+- API (`server/design-ai/service.ts`, all behind session + CSRF): `GET /api/design/status`; `GET /api/design/events/:id`; `POST|DELETE …/images`; image and render files (auth-checked, never public); `POST …/messages` (creates the design or proposes a change); `POST …/apply`, `…/discard`, `…/select`.
+- Access: who sees **Diseño** (`canSeeModule`) and owns the event; creating needs layout-edit rights (Administrator, Event Designer, Production Manager). Uploads are checked against their real file type. Rate limits are 30 per person and 200 for the company per 15 minutes.
+- Work runs in the background (`waitUntil` on Vercel). The browser polls; a cut-off job is freed after `KIT_JOB_STALE_MS`, as for KIT.
+
+**Phase 3: live renders and refining**
+
+- `server/design-ai/render-provider.ts`: Higgsfield with **Qwen Image 3 Edit** (`alibaba/qwen-image-3/edit`, configurable through `KIT_DESIGN_RENDER_MODEL`). The flow: upload the image to a Higgsfield signed URL, submit with an idempotency key, poll (2 s rising to 10 s), download. The aspect ratio matches the photo, and errors are translated to Spanish (no balance, rejected content, busy).
+- Refining edits the **current render** with an instruction to change only what was asked, so the room stays the same. The result is a pending version with **Aplicar / Descartar**.
+- Monthly cap: `KIT_DESIGN_MONTHLY_RENDER_CAP` (default 100) counts live renders company-wide and is checked before each job. The chat shows "Cada mensaje genera N renders · X de Y usados este mes". Sample renders are free and carry a "MUESTRA" label.
+
+**Phase 4: business links and sharing**
+
+- check_inventory: each catalog item shows **Disponible** or **Faltan N** for the event dates. Other events' reservations count; this event's own don't.
+- add_to_proposal: always behind a confirmation dialog that lists each change. It updates the event's newest **Draft** proposal (lines only grow) or creates one. Décor outside the catalog is listed, not priced. The save goes through the normal workspace path, so the server re-checks permission and validity.
+- Export: **Descargar** (each render) and **Exportar PDF**, a sheet with the renders, equipment and the "Visualización, no a escala" note, printed with the browser's "Guardar como PDF".
+
+**Not done**
+
+- **Phase 0 live trial.** No real Anthropic or Higgsfield call has been made, and render quality on real venues is unproven. Higgsfield's per-image price isn't published, so the cap default (100) is a placeholder.
+- **Read-only client share link.** It needs a public, token-protected route, which is a security decision for you.
+- **Assumptions to confirm in Phase 0:** that the Supabase secret key works with the Storage REST API as sent (`apikey` + `Authorization: Bearer`), and that Qwen Image 3 Edit keeps the room faithful enough. If it doesn't, try Grok Image 2.0 or Marketing Studio Flare by changing `KIT_DESIGN_RENDER_MODEL`, after checking that its request fields match.
+
+### Phase 0: how to run it
+
+1. Apply migration 13 to Supabase (docs/DEPLOY_VERCEL.md §1.1).
+2. Put `HIGGSFIELD_API_KEY` (`KEY_ID:KEY_SECRET`) and the AI keys (`KIT_AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `KIT_PLAN_MODEL`) in `.env`, and `KIT_DESIGN_MONTHLY_RENDER_CAP=10` for the trial.
+3. Run `npm run dev`, open Diseño, and try 3–5 real venue photos and one floor plan. Judge: is the room recognisably the same, do the items look right, and what did Higgsfield charge per image (Console)?
+4. Set the real cap, then deploy.

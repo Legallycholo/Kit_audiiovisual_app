@@ -31,6 +31,7 @@ Project: `hgugkgbpsrbqusazmthb` (the same one the portal uses).
 1. Open the Supabase dashboard → your project → **SQL Editor** → **New query**.
 2. Open the file `supabase/migrations/20261107000012_kit_company_schema.sql` from this repo, copy **all** of it, paste it into the editor, and click **Run**.
 3. **You should see:** "Success. No rows returned".
+4. Do the same with `supabase/migrations/20261109000013_kit_design.sql` (KIT Design: its tables and the private `kit-design` image bucket). Run it **after** the first file.
 
 ### 1.2 Check it worked
 
@@ -116,6 +117,10 @@ Add each one for the **Production** environment only. Mark every secret as **Sen
 | `SUPABASE_PUBLISHABLE_KEY`                | copy from your local `.env`                                                            | **Yes**          |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | only the provider(s) you use; copy from your local `.env`             | For AI features  |
 | `KIT_AI_PROVIDER`, `KIT_AI_MODEL`, `KIT_CHAT_MODEL`, `KIT_PLAN_MODEL` | copy from your local `.env`                                          | For AI features  |
+| `SUPABASE_SECRET_KEY` | copy from your local `.env`. KIT Design stores images in the private `kit-design` bucket with it; without it they are stored in the database. Server only, never a `VITE_` variable. | For KIT Design images |
+| `HIGGSFIELD_API_KEY` | your Higgsfield key as `KEY_ID:KEY_SECRET` (or `HIGGSFIELD_KEY_ID` + `HIGGSFIELD_KEY_SECRET`). Without it KIT Design shows sample images marked "MUESTRA". | For KIT Design renders |
+| `KIT_DESIGN_MONTHLY_RENDER_CAP` | live renders allowed per month, company-wide (default `100`). Set it once you know the real price per image. | Optional |
+| `KIT_DESIGN_RENDER_MODEL` | Higgsfield model path (default `alibaba/qwen-image-3/edit`) | Optional |
 | `RECAPTCHA_PROJECT_ID`, `RECAPTCHA_API_KEY`, `RECAPTCHA_SITE_KEY`, `VITE_RECAPTCHA_SITE_KEY` | copy from your local `.env` if you use reCAPTCHA              | If used          |
 | `SERPAPI_API_KEY`, `KIT_SERPAPI_MONTHLY_CAP` | copy from your local `.env`                                                         | If used          |
 | `KIT_SEARCH_*` (provider name/url/token, region, retention, budget, price, **`KIT_SEARCH_ENCRYPTION_KEY`**) | copy from your local `.env`. **`KIT_SEARCH_ENCRYPTION_KEY` must be the exact same value** or existing encrypted search data cannot be read. | If used |
