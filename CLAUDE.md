@@ -24,9 +24,11 @@ Before committing, run typecheck, `npm test` and `npm run test:browser`. Compare
 
 ## Rules
 
-- **No external calls.** Never make live AI, WhatsApp, cloud or provider requests, and never add credentials. Tests use explicit fixtures at the model and messaging boundaries.
-  - **Exception (owner-approved 2026-11-06): the portal** (`src/portal/`, `supabase/`) may call the company's own Supabase project (`hgugkgbpsrbqusazmthb`) with the public publishable key only. The secret key stays in `.env` and Edge Function secrets, is never read by `vite.config.ts` and never reaches the browser. The company server may also call that same project, with the public key and the user's own token only, to verify a portal administrator on `POST /api/login/supabase` (single login for admins; added 2026-11-06 with owner approval). Everything else above still applies.
-  - **Exception (owner-approved 2026-11-07): the company database.** The company server (`api/index.ts` on Vercel) may connect to the same Supabase project's Postgres with the dedicated least-privilege role `kit_server`, over a connection string held only in the server environment (`KIT_DATABASE`). It never reaches the browser, is never committed, and is never used by tests or local development (they use PGlite). Everything else above still applies.
+- **External services are allowed** (owner decision 2026-11-09: the app integrates with many APIs). The app may call AI providers (Anthropic, Higgsfield, others), the company's Supabase project (`hgugkgbpsrbqusazmthb`), messaging and other provider APIs. Guardrails:
+  - Keys and secrets live only in server environment variables or Edge Function secrets. They are never committed, never logged, never read by `vite.config.ts` and never reach the browser. The browser may only hold public/publishable keys (for example the Supabase publishable key).
+  - Every external call goes through a provider interface on the server (for example `server/ai-provider.ts`, KIT Design's `RenderProvider`) with a fixture implementation.
+  - Tests and local development use those fixtures and PGlite, never live services, so `npm test` stays free, deterministic and offline. The company database (Supabase Postgres, role `kit_server`, `KIT_DATABASE`) is used only by the deployed server.
+  - Calls that cost money (image renders, AI generations) need a visible quota or cap.
 - **Never touch** `data/` (the original company SQLite file; it is only ever read by `npm run migrate:sqlite`, read-only, when the owner runs it), `.env*`, or `node_modules/`. The company database is Postgres in the `kit` schema of the Supabase project; tests and local development use in-process PGlite and never connect to it.
 - **No push or deploy** without explicit user approval.
 - **Refactors do not change behavior.** Moves and extractions keep exported names, API routes and response shapes identical. If a test must change, stop and explain.
@@ -39,6 +41,7 @@ Before committing, run typecheck, `npm test` and `npm run test:browser`. Compare
 
 - `src/application/` — app frame, navigation, session entry, contextual assistant.
 - `src/modules/` — business workspaces, proposal editor and AI suggestion review.
+- `src/modules/design-ai/` — KIT Design (Diseño): room images in, realistic event renders out, refined by chat. Plan: `docs/kit_design_AI.md`. Shared records in `src/shared/kit-design.ts`.
 - `src/shared/` — domain records/calculations, access policy, API/store boundary, interface labels, sample data and common UI.
 - `server/` — authenticated API, validation, Postgres persistence (`server/db/`), authorization, proposal generation adapter and tests.
 - `api/` — the Vercel Function entry (the same Express app); `vercel.json` routes `/api/*` to it and serves `dist/` statically.

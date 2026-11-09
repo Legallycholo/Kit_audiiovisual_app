@@ -62,7 +62,7 @@ import { KitChat } from "../modules/KitChat";
 import type { searchWorkspace as SearchWorkspace } from "../shared/search";
 
 // Route modules load on first visit so the first paint of Inicio stays small;
-// Diseño (Three.js) and the other heavy workspaces never load until opened.
+// Diseño and the other heavy workspaces never load until opened.
 const page = <T extends Record<string, unknown>, K extends keyof T>(
   load: () => Promise<T>,
   name: K,
@@ -87,7 +87,6 @@ const SettingsPage = page(
   () => import("../modules/Operations"),
   "SettingsPage",
 );
-const Creative = page(() => import("../modules/Operations"), "Creative");
 const Design = page(() => import("../modules/Design"), "Design");
 const SearchPage = page(
   () => import("../modules/UniversalSearch"),
@@ -322,10 +321,10 @@ export function App() {
         run: () => {},
       },
       {
-        id: "action:upload-plan",
-        label: uiLabel("Subir plano"),
+        id: "action:new-design",
+        label: uiLabel("Crear diseño"),
         icon: <Upload size={17} />,
-        to: "/design?upload=1",
+        to: "/design",
         allowed: canEditCollection(user, "layouts"),
         run: () => {},
       },
@@ -678,7 +677,10 @@ export function App() {
                   <Route path="/clients" element={<Clients />} />
                   <Route path="/venues" element={<Venues />} />
                   <Route path="/design" element={<Design />} />
-                  <Route path="/creative" element={<Creative />} />
+                  <Route
+                    path="/creative"
+                    element={<Navigate to="/design" replace />}
+                  />
                   <Route path="/proposals" element={<Proposals />} />
                   <Route
                     path="/proposals/:proposalId"

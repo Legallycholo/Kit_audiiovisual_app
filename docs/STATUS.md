@@ -4,8 +4,9 @@ Updated: November 7, 2026. One-page summary. Detailed evidence per requirement: 
 
 ## Current state
 
-- **Web/company app:** Phase 1 and the Phase 3A–9 local showcases are complete. Sales (AI-assisted proposal drafting and editing, owner-confirmed messaging and acceptance), 2D/3D design, creative studio, operations/fulfilment and reporting all run locally against sample data or a local company server.
+- **Web/company app:** Phase 1 and the Phase 3A–9 local showcases are complete. Sales (AI-assisted proposal drafting and editing, owner-confirmed messaging and acceptance), operations/fulfilment and reporting all run locally against sample data or a local company server.
 - **Desktop app (Tauri):** milestones 1–2 (shell, hubs, tabs) and 5 (shared KIT conversations) are implemented. Milestones 3–4 (local file index, search) are implemented with release gates outstanding. Milestone 6 (design pipeline) has a provider-neutral foundation. Milestone 7 (sync and recovery) has started. See [DESKTOP.md](DESKTOP.md).
+- **Diseño is being replaced by KIT Design** ([kit_design_AI.md](kit_design_AI.md)): drop room photos, get realistic renders of the event set up in that room, refine by chat. Phase 1 is done: the screen works end to end with clearly marked *sample* renders made in the browser; nothing is saved across reloads yet and no AI is connected. The old floor-plan/3D editor and Estudio creativo screens are removed; their stored records stay in the database.
 - **Nothing is deployed.** No live AI call, WhatsApp message, or cloud upload has been made.
 - **Hosting (Vercel):** the code is ready to deploy on Vercel with the company database in Supabase Postgres (private `kit` schema). The Fly.io and Docker files are removed. It has not been pushed or deployed; the owner's remaining steps (apply the schema, set environment variables, import data, deploy, smoke test) are in [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md). Local `npm run dev` / `dev:server` use an in-process PGlite database and need no account.
 

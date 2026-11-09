@@ -1,7 +1,6 @@
 import { aiProposalGenerator } from "./proposal-ai";
 import { supabaseVerifier } from "./supabase-auth";
 import { integrationsFromEnv } from "./integrations";
-import { aiFloorPlanExtractor } from "./design";
 import { httpSearchProvider } from "./search";
 import { aiKitGenerator } from "./kit";
 import { recaptchaVerifier } from "./recaptcha";
@@ -63,9 +62,6 @@ export function configFromEnv(
     },
     proposalGenerator: ai?.proposalModel
       ? aiProposalGenerator(ai.provider, ai.key, ai.proposalModel)
-      : undefined,
-    floorPlanExtractor: ai?.planModel
-      ? aiFloorPlanExtractor(ai.provider, ai.key, ai.planModel)
       : undefined,
     origins: (env.KIT_ORIGINS || defaultOrigins).split(","),
     secureCookies: env.KIT_SECURE_COOKIES === "true",

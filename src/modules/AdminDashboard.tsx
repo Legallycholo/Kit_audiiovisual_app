@@ -214,7 +214,6 @@ function sectionsFor(role: string) {
     "/clients": "Clientes",
     "/venues": "Lugares",
     "/design": "Diseño",
-    "/creative": "Creativo",
     "/inventory": "Equipos",
     "/production": "Producción",
     "/inbox": "Mensajes",

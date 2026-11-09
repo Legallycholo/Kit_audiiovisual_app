@@ -13,6 +13,7 @@ import "./desktop-modules.css";
 import "./file-search.css";
 import "./shared/ui/components.css";
 import "./application/shell.css";
+import "./modules/design-ai/design-ai.css";
 import {
   applyAppearance,
   defaultAppearance,

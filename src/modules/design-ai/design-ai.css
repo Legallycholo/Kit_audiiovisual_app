@@ -1,0 +1,318 @@
+/* KIT Design (src/modules/design-ai). Plan: docs/kit_design_AI.md */
+
+.kd-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.kd-stage {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Drop zone */
+.kd-drop {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-6);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  text-align: center;
+  min-height: 360px;
+  align-content: center;
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    background var(--dur-fast) var(--ease-standard);
+}
+.kd-drop strong {
+  color: var(--color-text);
+  font-size: var(--text-h1);
+}
+.kd-drop.over {
+  border-color: var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+.kd-drop[aria-disabled="true"] {
+  opacity: 0.6;
+}
+.kd-drop.compact {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Dropped images before the first design */
+.kd-images {
+  display: grid;
+  gap: var(--space-3);
+}
+.kd-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kd-image-grid li {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
+  aspect-ratio: 4 / 3;
+}
+.kd-image-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.kd-image-remove {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  background: var(--color-elevated);
+}
+
+/* Result */
+.kd-result {
+  display: grid;
+  gap: var(--space-3);
+}
+.kd-pending {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-subtle);
+  color: var(--color-text);
+}
+.kd-pending-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.kd-compare {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.kd-compare-frame {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-ink-surface);
+  box-shadow: var(--shadow-2);
+}
+.kd-compare-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 68vh;
+  object-fit: contain;
+}
+.kd-compare-frame .kd-compare-after {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+}
+.kd-compare-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 6px rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
+.kd-compare-tag {
+  position: absolute;
+  top: var(--space-3);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-size: var(--text-caption);
+}
+.kd-compare-tag.before {
+  left: var(--space-3);
+}
+.kd-compare-tag.after {
+  right: var(--space-3);
+}
+.kd-compare-slider input {
+  width: 100%;
+}
+
+.kd-result-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.kd-views {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+}
+.kd-view {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  width: 88px;
+  aspect-ratio: 4 / 3;
+  background: none;
+  cursor: pointer;
+}
+.kd-view img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.kd-view.active {
+  border-color: var(--color-primary);
+}
+
+.kd-equipment {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.kd-equipment summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.kd-equipment ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.kd-equipment li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.kd-qty {
+  min-width: 2.5em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.kd-versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.kd-version {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.kd-version.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-subtle);
+  font-weight: 600;
+}
+.kd-version:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Chat */
+.kd-chat {
+  position: sticky;
+  top: var(--space-4);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: calc(100vh - 140px);
+  min-height: 420px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-elevated);
+  overflow: hidden;
+}
+.kd-chat-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-primary);
+}
+.kd-chat-head strong {
+  color: var(--color-text);
+}
+.kd-chat-list {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  list-style: none;
+  overflow-y: auto;
+}
+.kd-msg {
+  max-width: 90%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  line-height: var(--leading-body);
+  white-space: pre-wrap;
+}
+.kd-msg-assistant {
+  background: var(--color-surface);
+}
+.kd-msg-user {
+  justify-self: end;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.kd-msg-working {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+.kd-chat-form {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.kd-chat-form textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+@media (max-width: 900px) {
+  .kd-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .kd-chat {
+    position: static;
+    max-height: none;
+    min-height: 0;
+  }
+  .kd-drop {
+    min-height: 240px;
+    padding: var(--space-8) var(--space-4);
+  }
+}

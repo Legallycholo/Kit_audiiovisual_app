@@ -37,9 +37,7 @@ export function DraftNavigation() {
       if (
         window.location.port !== "3001" ||
         typeof route !== "string" ||
-        !/^\/(events|clients|proposals|creative|venues|inventory)(\/|\?|$)/.test(
-          route,
-        )
+        !/^\/(events|clients|proposals|venues|inventory)(\/|\?|$)/.test(route)
       )
         return;
       const run = () => navigate(route);

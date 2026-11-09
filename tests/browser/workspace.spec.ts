@@ -13,8 +13,7 @@ test("all main destinations load without runtime errors", async ({ page }) => {
     ["/events", "Eventos"],
     ["/clients", "Clientes"],
     ["/venues", "Lugares"],
-    ["/design", "Estudio de diseño"],
-    ["/creative", "Estudio creativo de IA"],
+    ["/design", "Diseño"],
     ["/proposals", "Propuestas y cotizaciones"],
     ["/inbox", "Mensajes de clientes"],
     ["/inventory", "Equipos e inventario"],
@@ -84,104 +83,9 @@ test("create event and client edits survive a reload", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("creative references, review, revisions and proposal selection persist", async ({
-  page,
-}) => {
-  await page.goto("/creative");
-  await page
-    .getByRole("tab", { name: "Recursos de marca", exact: true })
-    .click();
-  await page.getByLabel("Evento vinculado").selectOption("e2");
-  await page
-    .getByText(
-      "Confirmo que la empresa tiene derecho a usar esta referencia.",
-      { exact: true },
-    )
-    .click();
-  await page.getByLabel("Cargar referencia de marca").setInputFiles({
-    name: "northstar-brand.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
-  await expect(
-    page.getByText("northstar-brand.png", { exact: true }),
-  ).toBeVisible();
-
-  await page
-    .getByRole("tab", { name: "Conceptos y medios", exact: true })
-    .click();
-  await page.getByLabel("Evento vinculado").selectOption("e2");
-  await page.getByLabel("northstar-brand.png").check();
-  await page.getByLabel("Dirección creativa").fill("Muy breve");
-  await page
-    .getByRole("button", { name: "Generar concepto local", exact: true })
-    .click();
-  await expect(page.getByRole("alert")).toContainText("preserved");
-  await expect(page.getByLabel("Dirección creativa")).toHaveValue("Muy breve");
-  const brief =
-    "Un escenario ejecutivo cálido con pantallas limpias, luz ámbar y presencia clara de la marca.";
-  await page.getByLabel("Dirección creativa").fill(brief);
-  await page
-    .getByRole("button", { name: "Generar concepto local", exact: true })
-    .click();
-  await expect(
-    page.getByText("CONCEPTO GENERADO · DEMOSTRACIÓN LOCAL", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("1 referencia(s) · 1 unidad", { exact: false }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Crear revisión", exact: true })
-    .click();
-  await page
-    .getByLabel("Dirección creativa")
-    .fill(`${brief} Añadir un tratamiento central para el logotipo.`);
-  await page
-    .getByRole("button", { name: "Generar concepto local", exact: true })
-    .click();
-  await expect(page.getByText(/Revisión 2 · Local showcase/)).toBeVisible();
-  await page
-    .getByRole("button", { name: "Aprobar concepto", exact: true })
-    .click();
-  await page.getByLabel("Adjuntar a propuesta borrador").selectOption("p2");
-  await expect(
-    page.getByText("Concepto adjuntado a la propuesta borrador.", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await page.reload();
-  await page.getByLabel("Evento vinculado").selectOption("e2");
-  await expect(
-    page.getByRole("button", { name: /Seleccionar .* revisión 2/ }),
-  ).toBeVisible();
-  await page
-    .getByRole("tab", { name: "Seleccionados para propuestas", exact: true })
-    .click();
-  await expect(
-    page.getByText("KIT-2026-002 · v1", { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByText("Rev. 2", { exact: true })).toBeVisible();
-});
-
 test("visual proposal revision combines reviewed media and client-safe print output", async ({
   page,
 }) => {
-  await page.goto("/creative");
-  await page
-    .getByLabel("Dirección creativa")
-    .fill(
-      "Una dirección costera elegante con luz cálida, escenario limpio y una experiencia ejecutiva premium.",
-    );
-  await page
-    .getByRole("button", { name: "Generar concepto local", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Aprobar concepto", exact: true })
-    .click();
-
   await page.goto("/proposals/p1");
   await page
     .getByRole("button", { name: "Nueva versión", exact: true })
@@ -189,7 +93,6 @@ test("visual proposal revision combines reviewed media and client-safe print out
   await expect(page.getByText(/VERSIÓN 3/)).toBeVisible();
   await page.getByRole("button", { name: "03 Imágenes", exact: true }).click();
   await page.getByLabel("Plantilla de presentación").selectOption("Spotlight");
-  await page.getByRole("button", { name: "Añadir", exact: true }).click();
   await page.getByRole("button", { name: "Añadir 2D", exact: true }).click();
   await page.getByRole("button", { name: "Añadir 3D", exact: true }).click();
   await page
@@ -216,7 +119,7 @@ test("visual proposal revision combines reviewed media and client-safe print out
     .getByRole("button", { name: "Guardar cambios", exact: true })
     .click();
   await page.getByRole("button", { name: "Vista previa", exact: true }).click();
-  await expect(page.locator(".print-visuals figure")).toHaveCount(3);
+  await expect(page.locator(".print-visuals figure")).toHaveCount(2);
   await expect(page.locator(".print-proposal")).toContainText(
     "La propuesta combina una llegada cálida",
   );
@@ -236,7 +139,7 @@ test("visual proposal revision combines reviewed media and client-safe print out
   });
   await page.emulateMedia({ media: "print" });
   await expect(page.locator(".sidebar")).not.toBeVisible();
-  await expect(page.locator(".print-visuals figure")).toHaveCount(3);
+  await expect(page.locator(".print-visuals figure")).toHaveCount(2);
   await page.screenshot({
     path: "artifacts/proposal-visual-phase7-print.png",
     fullPage: true,
@@ -253,7 +156,7 @@ test("visual proposal revision combines reviewed media and client-safe print out
   await page.getByRole("button", { name: "Cerrar ventana" }).click();
   await page.reload();
   await page.getByRole("button", { name: "03 Imágenes", exact: true }).click();
-  await expect(page.locator(".proposal-visual-card")).toHaveCount(3);
+  await expect(page.locator(".proposal-visual-card")).toHaveCount(2);
   await expect(page.getByLabel("Plantilla de presentación")).toHaveValue(
     "Spotlight",
   );
@@ -584,229 +487,50 @@ test("reports explain their metrics and automation requires human approval", asy
   ).toBeVisible();
 });
 
-test("layout object editing, revision saving, undo and 3D rendering", async ({
+test("KIT Design turns room images into versioned sample renders", async ({
   page,
 }) => {
-  test.setTimeout(60_000);
   const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/design");
-  await page.getByRole("button", { name: "Stand", exact: true }).click();
-  await page.getByLabel("Etiqueta", { exact: true }).fill("Booth 101");
-  await page.getByLabel("Color de superficie").fill("#c25b4a");
-  await page.getByLabel("Texto de marca").fill("KIT EXPO");
-  await page.getByLabel("Ancho · m", { exact: true }).fill("3");
-  await page
-    .getByRole("button", { name: "Guardar versión", exact: true })
-    .click();
-  await page.reload();
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/design?event=e2");
   await expect(
-    page.getByRole("button", { name: "Seleccionar Booth 101", exact: true }),
+    page.getByRole("heading", { name: "Diseño", exact: true, level: 1 }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Seleccionar Booth 101", exact: true })
-    .click();
-  await expect(page.getByLabel("Texto de marca")).toHaveValue("KIT EXPO");
-  await page.reload();
-  await page
-    .getByText("Confirmo que tengo permiso para usar y procesar este plano.", {
-      exact: true,
-    })
-    .click();
-  await page.getByLabel("Cargar plano de referencia").setInputFiles({
-    name: "salon-reference.png",
+  await page.getByLabel("Imágenes del salón").setInputFiles({
+    name: "salon.png",
     mimeType: "image/png",
     buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
       "base64",
     ),
   });
-  await page.getByLabel("Ancho conocido de la imagen · m").fill("30");
-  await page
-    .getByRole("button", { name: "Calibrar escala", exact: true })
-    .click();
-  await page
-    .getByLabel("Fuente de las medidas")
-    .fill("Plano del salón confirmado por el lugar.");
-  await page
-    .getByRole("button", {
-      name: "Confirmar medidas verificadas",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", { name: "Revisar equipos", exact: true })
-    .click();
-  await expect(page.getByRole("dialog")).toContainText("Moving Head Wash");
-  await expect(page.getByRole("dialog")).toContainText("-12");
-  await page.getByRole("button", { name: "Cerrar ventana" }).click();
-  const downloadPromise = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Exportar plano", exact: true })
-    .click();
-  expect((await downloadPromise).suggestedFilename()).toMatch(
-    /layout-v\d+\.svg/,
-  );
-  await page
-    .getByRole("button", { name: "Guardar versión", exact: true })
-    .click();
-  await page.reload();
-  await expect(page.getByText("Medidas verificadas").first()).toBeVisible();
-  await page
-    .getByRole("button", { name: "Seleccionar Booth 101", exact: true })
-    .click();
-  await page.getByLabel("Etiqueta", { exact: true }).fill("Booth recovered");
-  await page.waitForTimeout(500);
-  await page.reload();
+  await expect(page.getByRole("img", { name: "salon.png" })).toBeVisible();
+  const message = page.getByLabel("Mensaje para KIT Design");
+  await message.fill("Boda para 120, escenario al fondo y tonos dorados");
+  await page.getByRole("button", { name: "Crear diseño", exact: true }).click();
+  await expect(page.getByText(/Vista de muestra/).first()).toBeVisible();
   await expect(
-    page.getByText("Borrador recuperado", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Versión 1", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Visualización, no a escala")).toBeVisible();
+
+  await message.fill("Más luz cálida");
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(page.getByText(/Cambio pendiente/)).toBeVisible();
+  await page.getByRole("button", { name: "Aplicar", exact: true }).click();
   await expect(
-    page.getByRole("button", {
-      name: "Seleccionar Booth recovered",
-      exact: true,
-    }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Descartar borrador", exact: true })
-    .click();
+    page.getByRole("button", { name: "Versión 2", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Versión 1", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Seleccionar Booth 101", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Seleccionar Booth 101", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Vista 3D", exact: true }).click();
-  await expect(page.getByLabel("Diseño 3D interactivo del evento")).toBeVisible(
-    {
-      timeout: 15_000,
-    },
-  );
-  await expect(
-    page.getByText("Seleccionado: Booth 101", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Modelos detallados no asignados", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Guardar cámara", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Exportar imagen", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByRole("button", { name: "Guardar versión", exact: true })
-    .click();
-  const sceneDownload = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Exportar imagen", exact: true })
-    .click();
-  expect((await sceneDownload).suggestedFilename()).toMatch(
-    /scene-layout1-v\d+-vista-1\.png/,
-  );
-  await page
-    .getByRole("button", { name: "Guardar cámara", exact: true })
-    .click();
-  await page.getByLabel("Duración de la ruta de cámara").selectOption("15");
-  await expect(
-    page.getByRole("button", { name: "Vista previa", exact: true }),
-  ).toBeEnabled();
-  await page
-    .getByRole("button", { name: "Guardar versión", exact: true })
-    .click();
-  const glbDownload = page.waitForEvent("download");
-  await page.getByRole("button", { name: "GLB", exact: true }).click();
-  expect((await glbDownload).suggestedFilename()).toMatch(
-    /scene-layout1-v\d+\.glb/,
-  );
-  await page.reload();
-  await page.getByRole("button", { name: "Vista 3D", exact: true }).click();
-  await expect(page.getByLabel("Diseño 3D interactivo del evento")).toBeVisible(
-    {
-      timeout: 15_000,
-    },
-  );
-  await page
-    .getByLabel("Vista de cámara guardada")
-    .selectOption({ label: "Vista 1" });
-  await expect(page.getByLabel("Vista de cámara guardada")).toHaveValue(/.+/);
+    page.getByRole("button", { name: "Versión 1", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
   expect(errors).toEqual([]);
-  await page.screenshot({
-    path: "artifacts/design-desktop.png",
-    fullPage: true,
-  });
-});
-
-test("a saved layout can seed a new event layout without copying verification", async ({
-  page,
-}) => {
-  await page.goto("/design?event=e2");
-  await expect(
-    page.getByRole("heading", { name: "Comienza con un espacio" }),
-  ).toBeVisible();
-  await page
-    .getByLabel("Plano para usar como plantilla")
-    .selectOption("layout1");
-  await page
-    .getByRole("button", { name: "Copiar plantilla", exact: true })
-    .click();
-  await expect(page.getByLabel("Plano editable del evento")).toBeVisible();
-  await expect(page.getByText("Sin verificar", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Seleccionar Main stage", exact: true }),
-  ).toBeVisible();
-});
-
-test("dropping a 2D floor plan creates the event layout with the plan", async ({
-  page,
-}) => {
-  await page.goto("/design?event=e2");
-  await expect(
-    page.getByRole("heading", { name: "Comienza con un espacio" }),
-  ).toBeVisible();
-  // A 3000 px wide plan is larger than the 2400 px limit, so it is shrunk.
-  const dataTransfer = await page.evaluateHandle(async () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 3000;
-    canvas.height = 1600;
-    const context = canvas.getContext("2d")!;
-    context.fillStyle = "#fff";
-    context.fillRect(0, 0, 3000, 1600);
-    context.strokeStyle = "#111";
-    context.lineWidth = 12;
-    context.strokeRect(40, 40, 2920, 1520);
-    for (let x = 200; x < 2900; x += 220) context.strokeRect(x, 200, 160, 120);
-    const blob = await new Promise<Blob>((resolve) =>
-      canvas.toBlob((value) => resolve(value!), "image/png"),
-    );
-    const transfer = new DataTransfer();
-    transfer.items.add(
-      new File([blob], "plano-cumbre.png", { type: "image/png" }),
-    );
-    return transfer;
-  });
-  const zone = page.locator(".plan-drop");
-  await zone.dispatchEvent("drop", { dataTransfer });
-  await expect(
-    page.getByText(
-      "Confirma que tienes permiso para usar el plano antes de cargarlo.",
-    ),
-  ).toBeVisible();
-  await page
-    .getByText("Confirmo que tengo permiso para usar y procesar este plano.", {
-      exact: true,
-    })
-    .click();
-  await zone.dispatchEvent("drop", { dataTransfer });
-  const plan = page.getByLabel("Plano editable del evento").locator("image");
-  await expect(plan).toHaveCount(1);
-  const href = (await plan.getAttribute("href")) || "";
-  expect(href.startsWith("data:image/jpeg;base64,")).toBe(true);
-  expect(href.length).toBeLessThan(1_500_000);
-  await page.reload();
-  await expect(
-    page.getByLabel("Plano editable del evento").locator("image"),
-  ).toHaveCount(1);
 });
 
 test("dashboard, tablet navigation, assistant and mobile layout", async ({

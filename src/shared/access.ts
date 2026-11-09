@@ -77,7 +77,6 @@ export function canSeeModule(user: WorkspaceUser | null, path: string) {
       "clients",
       "venues",
       "design",
-      "creative",
       "inventory",
       "production",
       "settings",

@@ -27,7 +27,6 @@ const routes = [
   "/clients",
   "/venues",
   "/design",
-  "/creative",
   "/proposals",
   "/inbox",
   "/inventory",
@@ -81,7 +80,7 @@ describe("navigation config", () => {
     const home = technician.find((d) => d.id === "home")!;
     expect(home.children).toBeUndefined();
     expect(home.to).toBe("/");
-    // Creative studio is not available to technicians.
+    // Diseño is a single page (KIT Design), so it has no submenu.
     expect(technician.find((d) => d.id === "design")!.children).toBeUndefined();
   });
 

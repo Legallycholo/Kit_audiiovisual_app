@@ -1,1 +1,1 @@
-export { Design } from "./design/Design";
+export { Design } from "./design-ai/DesignPage";

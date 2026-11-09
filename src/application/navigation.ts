@@ -71,10 +71,6 @@ export const destinations: NavDestination[] = [
     label: "Diseño",
     to: "/design",
     icon: Layers3,
-    children: [
-      { id: "layouts", label: "Planos y 3D", to: "/design" },
-      { id: "creative", label: "Estudio creativo", to: "/creative" },
-    ],
   },
   {
     id: "resources",

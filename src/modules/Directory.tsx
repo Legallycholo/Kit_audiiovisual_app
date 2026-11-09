@@ -474,12 +474,7 @@ export function Venues() {
               <Empty
                 compact
                 title="No rooms recorded"
-                description="Room sizes for each event are set in the floor plan editor in Design."
-                action={
-                  <Link className="button secondary" to="/design">
-                    {uiLabel("Open Design")}
-                  </Link>
-                }
+                description="This venue has no room sizes recorded yet."
               />
             )}
             {selected.rooms.map((r) => (

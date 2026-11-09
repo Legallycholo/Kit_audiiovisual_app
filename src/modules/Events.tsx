@@ -19,7 +19,6 @@ import {
   Calendar,
   FileText,
   Layers3,
-  WandSparkles,
 } from "lucide-react";
 import { activity, useWorkspace } from "../shared/store";
 import {
@@ -444,7 +443,6 @@ export function EventDetail() {
           "Equipment",
           "Commercial",
           "Team & Production",
-          "Creative Assets",
           "Messages",
           "Documents",
           "Activity",
@@ -547,8 +545,10 @@ export function EventDetail() {
               <Link to={`/design?event=${event.id}`}>
                 <Layers3 size={20} />
                 <span>
-                  {uiLabel("Open event layout")}
-                  <small>{uiLabel("Design your space in 2D and 3D")}</small>
+                  Ver el evento en el salón
+                  <small>
+                    KIT Design lo visualiza a partir de fotos del salón
+                  </small>
                 </span>
                 <ArrowUpRight size={17} />
               </Link>
@@ -632,7 +632,7 @@ export function EventDetail() {
             ))}
             <Link className="button primary" to={`/design?event=${event.id}`}>
               <Layers3 size={17} />
-              Open Design Studio
+              Abrir KIT Design
             </Link>
           </div>
         </Panel>
@@ -757,20 +757,6 @@ export function EventDetail() {
           </div>
         </Panel>
       )}
-      {tab === "Creative Assets" && (
-        <Empty
-          title="Build the visual story"
-          description="Creative concepts and approved brand assets will stay linked to this event."
-          action={
-            <Link
-              className="button secondary"
-              to={`/creative?event=${event.id}`}
-            >
-              Open Creative Studio
-            </Link>
-          }
-        />
-      )}
       {tab === "Documents" && (
         <EventDocuments eventId={event.id} canCreateProposal={commercial} />
       )}
@@ -797,7 +783,7 @@ export function EventDetail() {
   );
 }
 
-/** Every document KIT keeps for one event: proposals, layouts and creative work. */
+/** Every document KIT keeps for one event. */
 function EventDocuments({
   eventId,
   canCreateProposal,
@@ -807,14 +793,12 @@ function EventDocuments({
 }) {
   const { data } = useWorkspace();
   const proposals = data.proposals.filter((p) => p.eventId === eventId);
-  const layouts = data.layouts.filter((l) => l.eventId === eventId);
-  const creative = data.creativeAssets.filter((a) => a.eventId === eventId);
-  if (!proposals.length && !layouts.length && !creative.length)
+  if (!proposals.length)
     return (
       <Empty
         icon={<FileText size={26} />}
         title="No documents for this event yet"
-        description="Proposals, floor plans and creative concepts created for this event appear here."
+        description="Proposals created for this event appear here."
         action={
           canCreateProposal ? (
             <Link className="button primary" to={`/proposals?event=${eventId}`}>
@@ -837,32 +821,6 @@ function EventDocuments({
                   {p.number} · {p.title}
                 </Link>
                 <Badge>{p.status}</Badge>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-      {layouts.length > 0 && (
-        <Panel title="Floor plans and 3D">
-          <ul className="document-list">
-            {layouts.map((l) => (
-              <li key={l.id}>
-                <Layers3 size={18} aria-hidden="true" />
-                <Link to={`/design?event=${eventId}`}>{l.name}</Link>
-                <span className="muted">v{l.version}</span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-      {creative.length > 0 && (
-        <Panel title="Creative concepts">
-          <ul className="document-list">
-            {creative.map((a) => (
-              <li key={a.id}>
-                <WandSparkles size={18} aria-hidden="true" />
-                <Link to={`/creative?event=${eventId}`}>{a.title}</Link>
-                <Badge>{a.status}</Badge>
               </li>
             ))}
           </ul>

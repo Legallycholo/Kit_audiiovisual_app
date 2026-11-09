@@ -8,7 +8,6 @@ import { Repository, HttpError } from "./database";
 import { csrfMiddleware, sessionMiddleware, userOf } from "./security";
 import { scopeWorkspace } from "./permissions";
 import type { WorkspaceResponse } from "../src/shared/access";
-import { DesignService } from "./design";
 import { jsonLogger } from "./logger";
 import type { AppConfig, RouteContext } from "./routes/context";
 import { mountAuthRoutes } from "./routes/auth";
@@ -51,7 +50,8 @@ export function createApp(repo: Repository, config: AppConfig) {
   // Without a configured logger only failures are reported, as before.
   const logger = config.logger ?? jsonLogger("warn");
   app.disable("x-powered-by");
-  if (config.trustProxy !== undefined) app.set("trust proxy", config.trustProxy);
+  if (config.trustProxy !== undefined)
+    app.set("trust proxy", config.trustProxy);
   // The portal talks to its own Supabase project from the browser (public key only).
   const supabaseOrigin = (() => {
     try {
@@ -123,10 +123,9 @@ export function createApp(repo: Repository, config: AppConfig) {
   app.use("/api", sessionMiddleware(repo), csrfMiddleware(config.origins));
   searchGateway.mountSession(app);
   kit.mount(app);
-  const design = new DesignService(repo, config.floorPlanExtractor);
-  app.locals.design = design;
-  design.mount(app);
-  const response = async (res: express.Response): Promise<WorkspaceResponse> => {
+  const response = async (
+    res: express.Response,
+  ): Promise<WorkspaceResponse> => {
     const user = userOf(res);
     const { workspace, revision } = await repo.read();
     return { workspace: scopeWorkspace(workspace, user), revision, user };

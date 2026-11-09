@@ -615,13 +615,13 @@ export const spanish: Record<string, string> = {
   "Crew shifts": "Turnos del equipo",
   "Run-of-show cues": "Cues del guion técnico",
   "No documents for this event yet": "Este evento aún no tiene documentos",
-  "Proposals, floor plans and creative concepts created for this event appear here.":
-    "Aquí aparecen las propuestas, los planos y los conceptos creativos de este evento.",
+  "Proposals created for this event appear here.":
+    "Aquí aparecen las propuestas de este evento.",
   "Floor plans and 3D": "Planos y 3D",
   "Creative concepts": "Conceptos creativos",
   "No rooms recorded": "Sin salas registradas",
-  "Room sizes for each event are set in the floor plan editor in Design.":
-    "Las medidas de cada sala se definen en el editor de planos de Diseño.",
+  "This venue has no room sizes recorded yet.":
+    "Este lugar todavía no tiene medidas de salas.",
   "Open Design": "Abrir Diseño",
   "Owner confirms every client acceptance":
     "El propietario confirma cada aceptación del cliente",

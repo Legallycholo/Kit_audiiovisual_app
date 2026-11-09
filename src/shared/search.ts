@@ -88,16 +88,6 @@ export function searchWorkspace(
       events.has(p.eventId),
     ),
   );
-  data.creativeAssets.forEach((a) =>
-    add(
-      a.id,
-      a.title,
-      `/creative?event=${a.eventId}&asset=${a.id}`,
-      "Imágenes",
-      a.brief,
-      events.has(a.eventId),
-    ),
-  );
   data.venues.forEach((v) =>
     add(
       v.id,

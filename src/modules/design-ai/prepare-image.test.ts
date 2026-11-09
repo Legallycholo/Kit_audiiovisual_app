@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_PLAN_BYTES,
+  MAX_IMAGE_BYTES,
   fitWithin,
-  isPlanImageType,
+  isRoomImageType,
   pickEncoding,
-} from "./floor-plan-image";
+} from "./prepare-image";
 
-describe("floor-plan image preparation", () => {
+describe("room image preparation", () => {
   it("scales the longest side down and keeps the aspect ratio", () => {
     expect(fitWithin(4000, 2000, 2400)).toEqual({ width: 2400, height: 1200 });
     expect(fitWithin(1500, 3000, 1800)).toEqual({ width: 900, height: 1800 });
@@ -26,8 +26,8 @@ describe("floor-plan image preparation", () => {
         return {
           size:
             side === 1800 && quality === 0.85
-              ? MAX_PLAN_BYTES
-              : MAX_PLAN_BYTES + 1,
+              ? MAX_IMAGE_BYTES
+              : MAX_IMAGE_BYTES + 1,
           side,
         };
       },
@@ -38,13 +38,13 @@ describe("floor-plan image preparation", () => {
 
   it("fails when no encoding fits", async () => {
     await expect(
-      pickEncoding([1400], [0.55], async () => ({ size: MAX_PLAN_BYTES + 1 })),
-    ).rejects.toThrow("No se pudo reducir el plano a 1 MB.");
+      pickEncoding([1400], [0.55], async () => ({ size: MAX_IMAGE_BYTES + 1 })),
+    ).rejects.toThrow("No se pudo reducir la imagen a 1 MB.");
   });
 
   it("accepts only PNG, JPEG and WebP", () => {
-    expect(isPlanImageType("image/jpeg")).toBe(true);
-    expect(isPlanImageType("image/heic")).toBe(false);
-    expect(isPlanImageType("application/pdf")).toBe(false);
+    expect(isRoomImageType("image/jpeg")).toBe(true);
+    expect(isRoomImageType("image/heic")).toBe(false);
+    expect(isRoomImageType("application/pdf")).toBe(false);
   });
 });

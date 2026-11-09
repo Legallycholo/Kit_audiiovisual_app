@@ -153,9 +153,9 @@ describe("authenticated company workspace", () => {
         })
       ).status,
     ).toBe(403);
-    expect((await repo.userByEmail("owner@example.test"))?.password_hash).not.toContain(
-      password,
-    );
+    expect(
+      (await repo.userByEmail("owner@example.test"))?.password_hash,
+    ).not.toContain(password);
     expect((await call("/setup", "POST", {})).status).toBe(409);
     const headers = (await call("/health")).headers;
     expect(headers.get("content-security-policy")).toContain(
@@ -173,7 +173,9 @@ describe("authenticated company workspace", () => {
     expect(scoped.workspace.proposals).toEqual([]);
     expect(scoped.workspace.conversations).toEqual([]);
     expect(scoped.workspace.equipment.every((q) => q.rate === 0)).toBe(true);
-    const event = (await repo.read()).workspace.events.find((e) => e.id === "e2")!;
+    const event = (await repo.read()).workspace.events.find(
+      (e) => e.id === "e2",
+    )!;
     expect(
       (
         await patch(
@@ -230,7 +232,9 @@ describe("authenticated company workspace", () => {
     expect(
       (await call("/backup/preview", "POST", { backup: tampered })).status,
     ).toBe(422);
-    expect((await repo.read()).workspace.clients[0].name).toBe("Changed after backup");
+    expect((await repo.read()).workspace.clients[0].name).toBe(
+      "Changed after backup",
+    );
 
     const preview = await call("/backup/preview", "POST", {
       backup: exported.json,
@@ -609,32 +613,6 @@ describe("authenticated company workspace", () => {
     );
     expect(rewrittenEvidence.status).toBe(422);
     expect(rewrittenEvidence.json.error).toContain("exact snapshot");
-  });
-
-  it("keeps floor-plan extraction provider-gated and leaves the layout unchanged", async () => {
-    const initial = await workspace();
-    const layout = initial.workspace.layouts[0];
-    const status = await call("/design/status");
-    expect(status.status).toBe(200);
-    expect(status.json).toEqual({ configured: false });
-    const extraction = await call("/design/extract", "POST", {
-      eventId: layout.eventId,
-      layoutId: layout.id,
-      name: "floor-plan.png",
-      mimeType: "image/png",
-      dataUrl: "data:image/png;base64,YQ==",
-      intrinsicWidth: 1200,
-      intrinsicHeight: 800,
-      roomWidth: layout.width,
-      roomDepth: layout.depth,
-      knownMeasurement: layout.width,
-      ceilingHeight: 3,
-      units: "meters",
-      rightsConfirmed: true,
-    });
-    expect(extraction.status).toBe(503);
-    expect(extraction.json.error).toContain("proveedor configurado");
-    expect((await workspace()).workspace.layouts[0]).toEqual(layout);
   });
 
   it("preserves creative provenance and only attaches an approved same-event asset", async () => {

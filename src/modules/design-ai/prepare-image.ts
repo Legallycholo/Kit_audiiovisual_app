@@ -1,16 +1,18 @@
-import type { LayoutReference } from "../../shared/types";
+import { id } from "../../shared/domain";
+import type { RoomImage, RoomImageMimeType } from "../../shared/kit-design";
 
-/** Largest stored plan image. Keeps the data URL under the server's 1.5M-character cap. */
-export const MAX_PLAN_BYTES = 1_000_000;
+/** Largest stored room image. Small enough for direct upload and AI vision input. */
+export const MAX_IMAGE_BYTES = 1_000_000;
 /** Largest file accepted before shrinking (phone photos are usually 2–8 MB). */
-export const MAX_PLAN_INPUT_BYTES = 25_000_000;
-const PLAN_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
-type PlanMimeType = (typeof PLAN_TYPES)[number];
-const SIDES = [2400, 1800, 1400];
+export const MAX_IMAGE_INPUT_BYTES = 25_000_000;
+/** Most images one design can start from. */
+export const MAX_ROOM_IMAGES = 6;
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+const SIDES = [2048, 1600, 1280];
 const QUALITIES = [0.85, 0.7, 0.55];
 
-export const isPlanImageType = (type: string): type is PlanMimeType =>
-  (PLAN_TYPES as readonly string[]).includes(type);
+export const isRoomImageType = (type: string): type is RoomImageMimeType =>
+  (IMAGE_TYPES as readonly string[]).includes(type);
 
 /** Scales (width, height) so the longest side is at most maxSide, keeping the aspect ratio. */
 export function fitWithin(width: number, height: number, maxSide: number) {
@@ -26,14 +28,14 @@ export async function pickEncoding<T extends { size: number }>(
   sides: number[],
   qualities: number[],
   encode: (side: number, quality: number) => Promise<T>,
-  maxBytes = MAX_PLAN_BYTES,
+  maxBytes = MAX_IMAGE_BYTES,
 ): Promise<T> {
   for (const side of sides)
     for (const quality of qualities) {
       const result = await encode(side, quality);
       if (result.size <= maxBytes) return result;
     }
-  throw new Error("No se pudo reducir el plano a 1 MB.");
+  throw new Error("No se pudo reducir la imagen a 1 MB.");
 }
 
 function readDataUrl(blob: Blob) {
@@ -99,26 +101,23 @@ function encodeJpeg(
 }
 
 /**
- * Validates a floor-plan image and returns it as a layout reference.
- * Images over 1 MB or wider than 2400 px are shrunk to a JPEG that fits.
+ * Validates a room photo or floor plan and returns it ready to store.
+ * Images over 1 MB or longer than 2048 px are shrunk to a JPEG that fits.
  */
-export async function prepareFloorPlanImage(
-  file: File,
-  options: { ceilingHeight?: number } = {},
-): Promise<LayoutReference> {
-  if (!isPlanImageType(file.type))
-    throw new Error("Usa una imagen PNG, JPEG o WebP del plano.");
-  if (file.size > MAX_PLAN_INPUT_BYTES)
-    throw new Error("El plano debe pesar 25 MB o menos.");
+export async function prepareRoomImage(file: File): Promise<RoomImage> {
+  if (!isRoomImageType(file.type))
+    throw new Error("Usa una imagen PNG, JPEG o WebP del salón.");
+  if (file.size > MAX_IMAGE_INPUT_BYTES)
+    throw new Error("Cada imagen debe pesar 25 MB o menos.");
   const image = await decode(file);
   const intrinsic = { width: image.width, height: image.height };
   if (!intrinsic.width || !intrinsic.height)
     throw new Error("La imagen no es válida.");
   let blob: Blob = file;
-  let mimeType: PlanMimeType = file.type;
+  let mimeType: RoomImageMimeType = file.type;
   let size = intrinsic;
   if (
-    file.size > MAX_PLAN_BYTES ||
+    file.size > MAX_IMAGE_BYTES ||
     Math.max(size.width, size.height) > SIDES[0]
   ) {
     const encoded = await pickEncoding(
@@ -141,15 +140,11 @@ export async function prepareFloorPlanImage(
   }
   if ("close" in image && typeof image.close === "function") image.close();
   return {
+    id: id(),
     name: file.name,
     mimeType,
     dataUrl: await readDataUrl(blob),
-    intrinsicWidth: size.width,
-    intrinsicHeight: size.height,
-    opacity: 0.35,
-    rightsConfirmed: true,
-    uploadedAt: new Date().toISOString(),
-    ceilingHeight: options.ceilingHeight || 3,
-    units: "meters",
+    width: size.width,
+    height: size.height,
   };
 }
