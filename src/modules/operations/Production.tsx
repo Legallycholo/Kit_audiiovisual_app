@@ -1,3 +1,4 @@
+import { uiLabel } from "../../shared/i18n";
 import { Plus } from "lucide-react";
 import { Button, PageHeader, Tabs } from "../../shared/ui";
 import { id } from "../../shared/domain";
@@ -55,11 +56,11 @@ export function Production() {
           onChange={setTab}
         />
         <select
-          aria-label="Filter production by event"
+          aria-label={uiLabel("Filter production by event")}
           value={eventFilter}
           onChange={(e) => setEventFilter(e.target.value)}
         >
-          <option value="all">All events</option>
+          <option value="all">{uiLabel("All events")}</option>
           {data.events.map((e) => (
             <option value={e.id} key={e.id}>
               {e.name}

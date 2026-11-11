@@ -948,7 +948,108 @@ export const spanish: Record<string, string> = {
   Accessories: "Accesorios",
   Other: "Otros",
   "Design units": "Unidades de diseño",
+  "List view": "Vista de lista",
+  "Calendar view": "Vista de calendario",
+  events: "eventos",
+  "Times shown in": "Horas en",
+  "Prepare a proposal": "Preparar una propuesta",
+  "proposal revisions": "versiones de propuesta",
+  "Coordinate production": "Coordinar la producción",
+  "tasks remaining": "tareas pendientes",
+  "Filter production by event": "Filtrar producción por evento",
+  "Starting status": "Estado inicial",
+  Meters: "Metros",
+  "AI proposal suggestion generated": "Sugerencia de propuesta generada por IA",
+  "Automation action failed": "Falló una acción automática",
+  "Automation rules evaluated": "Reglas automáticas evaluadas",
+  "Client directory imported": "Directorio de clientes importado",
+  "Client profile saved": "Perfil de cliente guardado",
+  "Company workspace created": "Espacio de la empresa creado",
+  "Crew shift scheduled": "Turno de personal programado",
+  "Equipment catalog imported": "Catálogo de equipos importado",
+  "Equipment custody updated": "Custodia de equipos actualizada",
+  "Equipment package reserved": "Paquete de equipos reservado",
+  "Equipment reserved": "Equipos reservados",
+  "Event status updated": "Estado del evento actualizado",
+  "Inbound response needs linking": "Respuesta recibida pendiente de vincular",
+  "KIT Design change applied": "Cambio de KIT Design aplicado",
+  "KIT Design created a design": "KIT Design creó un diseño",
+  "KIT Design created a video": "KIT Design creó un video",
+  "KIT Design deleted a design": "KIT Design eliminó un diseño",
+  "KIT Design restarted a design": "KIT Design reinició un diseño",
+  "KIT action confirmed": "Acción de KIT confirmada",
+  "KIT generation completed": "Generación de KIT completada",
+  "KIT proposal draft confirmed": "Borrador de propuesta de KIT confirmado",
+  "KIT thread deleted": "Conversación de KIT eliminada",
+  "KIT thread restarted": "Conversación de KIT reiniciada",
+  "Onsite change recorded": "Cambio en sitio registrado",
+  "Outgoing message delivered to transport":
+    "Mensaje saliente entregado al canal",
+  "Outgoing message failed": "Falló el mensaje saliente",
+  "Outgoing proposal message prepared": "Mensaje de propuesta preparado",
+  "Owner approved outgoing message":
+    "Mensaje saliente aprobado por el propietario",
+  "Owner confirmed client acceptance":
+    "Aceptación del cliente confirmada por el propietario",
+  "Owner reviewed client response":
+    "Respuesta del cliente revisada por el propietario",
+  "Password changed": "Contraseña cambiada",
+  "Production task added": "Tarea de producción añadida",
+  "Proposal draft created": "Borrador de propuesta creado",
+  "Proposal draft opened": "Nueva versión de propuesta abierta",
+  "Proposal saved": "Propuesta guardada",
+  "Scheduled workspace backup written": "Copia de seguridad programada creada",
+  "User access changed": "Acceso de usuario cambiado",
+  "User created": "Usuario creado",
+  "User password reset by administrator":
+    "Contraseña restablecida por un administrador",
+  "User reactivated": "Usuario reactivado",
+  "User signed in": "Inicio de sesión",
+  "User signed in with the portal": "Inicio de sesión por el portal",
+  "Workspace backup exported": "Copia de seguridad exportada",
+  "Workspace backup restored": "Copia de seguridad restaurada",
+  "Workspace exported": "Espacio exportado",
+  "Workspace recovery point restored": "Punto de recuperación restaurado",
+  "Workspace maintenance": "Mantenimiento del espacio",
+  "Integration connection tested": "Conexión de integración probada",
+  "External lookup performed": "Búsqueda externa realizada",
+  "search-device-created": "Dispositivo de búsqueda conectado",
+  "search-access-revoked": "Acceso de búsqueda revocado",
+  "search-query": "Consulta de búsqueda",
+  "search-source-deleted": "Fuente de búsqueda eliminada",
+  "search-source-indexed": "Fuente de búsqueda indexada",
+  "search-source-queued": "Fuente de búsqueda en cola",
 };
 export function uiLabel(value: string): string {
   return spanish[value] ?? value;
+}
+
+const collectionNames: Record<string, string> = {
+  clients: "clientes",
+  venues: "lugares",
+  events: "eventos",
+  equipment: "equipos",
+  proposals: "propuestas",
+  conversations: "conversaciones",
+  tasks: "tareas",
+  reservations: "reservas",
+  packages: "paquetes",
+  maintenanceRecords: "mantenimiento",
+  operations: "operaciones",
+  automations: "automatizaciones",
+  layouts: "diseños",
+  brandAssets: "recursos de marca",
+  creativeAssets: "recursos creativos",
+  settings: "configuración",
+};
+
+/**
+ * Activity titles are stored in English (audit actions); this shows them in
+ * Spanish, including the generic "<collection> record saved" entries.
+ */
+export function activityLabel(title: string): string {
+  const record = /^(\w+) record saved$/.exec(title);
+  if (record)
+    return `Registro de ${collectionNames[record[1]] ?? record[1]} guardado`;
+  return uiLabel(title);
 }

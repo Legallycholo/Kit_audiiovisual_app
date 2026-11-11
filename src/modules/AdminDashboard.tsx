@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useWorkspace } from "../shared/store";
 import { canSeeModule, roles, type WorkspaceUser } from "../shared/access";
-import { uiLabel } from "../shared/i18n";
+import { activityLabel, uiLabel } from "../shared/i18n";
 import {
   Badge,
   Empty,
@@ -168,7 +168,7 @@ export function AdminDashboard() {
               <div className="role-row" key={entry.id}>
                 <History size={21} />
                 <div>
-                  <strong>{entry.title}</strong>
+                  <strong>{activityLabel(entry.title)}</strong>
                   <p>{entry.detail}</p>
                 </div>
                 <small>

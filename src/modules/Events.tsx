@@ -1,5 +1,5 @@
 import { canEditCollection } from "../shared/access";
-import { uiLabel } from "../shared/i18n";
+import { activityLabel, uiLabel } from "../shared/i18n";
 import { WebLookup } from "./WebLookup";
 import { useState } from "react";
 import {
@@ -77,14 +77,14 @@ export function Events() {
             <SearchField value={search} onChange={setSearch} />
             <button
               className={`icon-button ${view === "List" ? "selected" : ""}`}
-              aria-label="List view"
+              aria-label={uiLabel("List view")}
               onClick={() => setView("List")}
             >
               <List size={18} />
             </button>
             <button
               className={`icon-button ${view === "Calendar" ? "selected" : ""}`}
-              aria-label="Calendar view"
+              aria-label={uiLabel("Calendar view")}
               onClick={() => setView("Calendar")}
             >
               <Calendar size={18} />
@@ -185,8 +185,10 @@ export function Events() {
           </div>
         )}
         <div className="table-footer">
-          {events.length} events{" "}
-          <span>Times shown in {data.settings.timezone}</span>
+          {events.length} {uiLabel("events")}{" "}
+          <span>
+            {uiLabel("Times shown in")} {data.settings.timezone}
+          </span>
         </div>
       </Panel>
       {params.has("new") && <EventForm onClose={() => setParams({})} />}
@@ -524,6 +526,7 @@ export function EventDetail() {
                     ].map((status) => (
                       <option
                         key={status}
+                        value={status}
                         disabled={
                           [
                             "Preparation",
@@ -532,7 +535,7 @@ export function EventDetail() {
                           ].includes(status) && status !== event.status
                         }
                       >
-                        {status}
+                        {uiLabel(status)}
                       </option>
                     ))}
                   </select>
@@ -555,17 +558,20 @@ export function EventDetail() {
               <Link to={`/proposals?event=${event.id}`}>
                 <FileText size={20} />
                 <span>
-                  Prepare a proposal
-                  <small>{proposals.length} proposal revisions</small>
+                  {uiLabel("Prepare a proposal")}
+                  <small>
+                    {proposals.length} {uiLabel("proposal revisions")}
+                  </small>
                 </span>
                 <ArrowUpRight size={17} />
               </Link>
               <Link to={`/production?event=${event.id}`}>
                 <Users size={20} />
                 <span>
-                  Coordinate production
+                  {uiLabel("Coordinate production")}
                   <small>
-                    {tasks.filter((t) => !t.done).length} tasks remaining
+                    {tasks.filter((t) => !t.done).length}{" "}
+                    {uiLabel("tasks remaining")}
                   </small>
                 </span>
                 <ArrowUpRight size={17} />
@@ -769,7 +775,7 @@ export function EventDetail() {
                 <div className="activity-row" key={a.id}>
                   <span className="activity-dot" />
                   <div>
-                    <strong>{a.title}</strong>
+                    <strong>{activityLabel(a.title)}</strong>
                     <p>{a.detail}</p>
                     <small>{new Date(a.at).toLocaleString()}</small>
                   </div>

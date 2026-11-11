@@ -184,7 +184,7 @@ export function EditorWorkspace({ ctx }: { ctx: EditorView }) {
                       {!locked && (
                         <button
                           className="icon-button"
-                          aria-label={`Remove ${line.description}`}
+                          aria-label={`Quitar ${line.description}`}
                           onClick={() =>
                             setDraft({
                               ...draft,

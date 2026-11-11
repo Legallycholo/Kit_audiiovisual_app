@@ -244,10 +244,10 @@ export function SettingsPage() {
                   </div>
                   <div>
                     <span>{uiLabel("Design units")}</span>
-                    <strong>Meters · initial workspace</strong>
+                    <strong>{uiLabel("Meters")}</strong>
                   </div>
                   <div>
-                    <span>Starting status</span>
+                    <span>{uiLabel("Starting status")}</span>
                     <strong>{uiLabel("Planning")}</strong>
                   </div>
                 </div>

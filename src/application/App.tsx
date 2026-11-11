@@ -527,13 +527,13 @@ export function App() {
                 className="icon-button theme-toggle-btn"
                 title={
                   appearance.theme === "dark"
-                    ? "Cambiar a modo claro (Liquid Glass)"
-                    : "Cambiar a modo oscuro (Obsidian Glass)"
+                    ? "Cambiar a modo claro"
+                    : "Cambiar a modo oscuro"
                 }
                 aria-label={
                   appearance.theme === "dark"
-                    ? "Cambiar a modo claro (Liquid Glass)"
-                    : "Cambiar a modo oscuro (Obsidian Glass)"
+                    ? "Cambiar a modo claro"
+                    : "Cambiar a modo oscuro"
                 }
                 onClick={() =>
                   setAppearance({
@@ -803,7 +803,7 @@ function HelpGuide({ onClose }: { onClose: () => void }) {
     ["Inicio", "Resumen del día e informes."],
     ["Eventos", "Cada evento con su calendario, lugar, equipos y producción."],
     ["Ventas", "Propuestas, mensajes de clientes y clientes."],
-    ["Diseño", "Planos 2D, vista 3D y estudio creativo."],
+    ["Diseño", "KIT Design: fotos del salón y renders del evento montado."],
     ["Recursos", "Equipos, lugares y archivos."],
     [
       "KIT",

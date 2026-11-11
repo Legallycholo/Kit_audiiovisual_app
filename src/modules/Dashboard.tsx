@@ -15,7 +15,7 @@ import { useWorkspace } from "../shared/store";
 import { Avatar, Badge, PageHeader, Panel, Stat, TextLink } from "../shared/ui";
 import { canSeeModule } from "../shared/access";
 import { shortDate } from "../shared/domain";
-import { uiLabel } from "../shared/i18n";
+import { activityLabel, uiLabel } from "../shared/i18n";
 /**
  * The role the signed-in account holds and the sections it opens. Shown so a
  * person can see their own scope without opening Settings; administrators get
@@ -193,8 +193,8 @@ export function Dashboard() {
               </>
             ) : (
               <>
-                All clear. <br />
-                Keep creating.
+                Todo al día. <br />
+                Sigue creando.
               </>
             )}
           </h2>
@@ -203,7 +203,7 @@ export function Dashboard() {
               ? uiLabel(
                   "A proposal response is waiting for your review. You have the final say.",
                 )
-              : "There are no client acceptance requests waiting for review."}
+              : "No hay respuestas de clientes pendientes de revisión."}
           </p>
           <Link className="attention-link" to="/inbox">
             {uiLabel("Review client responses")}
@@ -309,7 +309,7 @@ export function Dashboard() {
             <div className="activity-row" key={item.id}>
               <span className={`activity-dot dot-${i}`} />
               <div>
-                <strong>{item.title}</strong>
+                <strong>{activityLabel(item.title)}</strong>
                 <p>{item.detail}</p>
               </div>
               {item.eventId && (
