@@ -25,10 +25,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // Tests run against the local account path, with no external identity
-    // provider, even when .env enables reCAPTCHA.
+    // Only the frontend: every journey starts its own isolated API server
+    // (tests/browser/harness.ts) and proxies /api to it. The portal and
+    // reCAPTCHA stay off so the app shows its own sign-in path, even when
+    // .env configures them.
     command:
-      "VITE_RECAPTCHA_SITE_KEY= KIT_DATABASE=memory:// npm run dev",
+      "SUPABASE_URL= SUPABASE_PUBLISHABLE_KEY= VITE_RECAPTCHA_SITE_KEY= npx vite --port 5173 --strictPort",
     url: "http://127.0.0.1:5173",
     reuseExistingServer: true,
     timeout: 30_000,

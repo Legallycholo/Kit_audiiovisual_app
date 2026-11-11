@@ -103,7 +103,10 @@ export function DraftNavigation() {
               setError("");
               try {
                 await draftGuard.save?.();
-                await new Promise((resolve) => setTimeout(resolve, 0));
+                // The editor reports the saved state on its next render, which
+                // React schedules after the server round trip; wait briefly for it.
+                for (let i = 0; i < 20 && draftGuard.dirty; i++)
+                  await new Promise((resolve) => setTimeout(resolve, 50));
                 if (draftGuard.dirty) {
                   setError(
                     "No se guardaron los cambios. Revisa los errores del editor.",

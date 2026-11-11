@@ -1694,6 +1694,10 @@ td small {
   border-left: 3px solid var(--color-primary);
   padding-left: 13px;
 }
+/* The tinted row sits under the avatar's translucent tint; keep its initials readable. */
+.conversation-item.active .avatar {
+  color: var(--color-text);
+}
 .conversation-item > span:last-child {
   min-width: 0;
   flex: 1;

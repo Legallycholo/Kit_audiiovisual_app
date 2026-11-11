@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, headerMenuAction } from "./harness";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 
@@ -54,7 +54,6 @@ test("create event and client edits survive a reload", async ({ page }) => {
     "Equipos",
     "Comercial",
     "Equipo y producción",
-    "Recursos creativos",
     "Mensajes",
     "Documentos",
     "Actividad",
@@ -112,13 +111,15 @@ test("visual proposal revision combines reviewed media and client-safe print out
   await page
     .getByLabel("Pie de imagen · 1")
     .fill("Concepto visual aprobado para la experiencia del cliente.");
+  await page.getByRole("button", { name: "Más acciones", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Vista previa", exact: true }),
-  ).toBeDisabled();
+    page.getByRole("menuitem", { name: /^Vista previa/ }),
+  ).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Escape");
   await page
     .getByRole("button", { name: "Guardar cambios", exact: true })
     .click();
-  await page.getByRole("button", { name: "Vista previa", exact: true }).click();
+  await headerMenuAction(page, "Vista previa");
   await expect(page.locator(".print-visuals figure")).toHaveCount(2);
   await expect(page.locator(".print-proposal")).toContainText(
     "La propuesta combina una llegada cálida",
@@ -147,9 +148,7 @@ test("visual proposal revision combines reviewed media and client-safe print out
   });
   await page.emulateMedia({ media: "screen" });
   await page.getByRole("button", { name: "Cerrar ventana" }).click();
-  await page
-    .getByRole("button", { name: "Comparar versiones", exact: true })
-    .click();
+  await headerMenuAction(page, "Comparar versiones");
   await expect(page.getByRole("dialog")).toContainText("Versión 2");
   await expect(page.getByRole("dialog")).toContainText("Recursos visuales");
   await expect(page.getByRole("dialog")).toContainText("VISTA 3D");
@@ -199,6 +198,7 @@ test("owner acceptance requires review and does not send an acknowledgment", asy
 
 test("production readiness remains blocked until accepted scope and allocations are confirmed", async ({
   page,
+  company,
 }) => {
   await page.goto("/inbox?conversation=m1");
   await page
@@ -218,17 +218,12 @@ test("production readiness remains blocked until accepted scope and allocations 
     page.getByText(/Confirma 24 más × LED Wall Panel/),
   ).toBeVisible();
 
-  await page.evaluate(() => {
-    const key = "kit.workspace.v1";
-    const workspace = JSON.parse(localStorage.getItem(key) || "{}");
-    const event = workspace.events.find(
-      (item: { id: string }) => item.id === "e1",
-    );
-    workspace.reservations = workspace.reservations.map(
-      (reservation: { id: string; status: string }) =>
-        reservation.id === "res2"
-          ? { ...reservation, status: "Confirmed" }
-          : reservation,
+  await company.update((workspace) => {
+    const event = workspace.events.find((item) => item.id === "e1")!;
+    workspace.reservations = workspace.reservations.map((reservation) =>
+      reservation.id === "res2"
+        ? { ...reservation, status: "Confirmed" }
+        : reservation,
     );
     workspace.reservations.push({
       id: "res3",
@@ -239,7 +234,6 @@ test("production readiness remains blocked until accepted scope and allocations 
       end: event.endDate,
       status: "Confirmed",
     });
-    localStorage.setItem(key, JSON.stringify(workspace));
   });
   await page.reload();
   await page
@@ -262,7 +256,9 @@ test("proposal line edits calculate and persist a revised total", async ({
     .getByRole("button", { name: "Guardar cambios", exact: true })
     .click();
   await expect(
-    page.getByText("Propuesta guardada en este dispositivo.", { exact: true }),
+    page.getByText("Propuesta guardada en el espacio de empresa.", {
+      exact: true,
+    }),
   ).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "02 Equipos y servicios" }).click();
@@ -287,9 +283,7 @@ test("reservation conflicts are explained without overbooking", async ({
   page,
 }) => {
   await page.goto("/inventory");
-  await page
-    .getByRole("button", { name: "Reservar equipos", exact: true })
-    .click();
+  await headerMenuAction(page, "Reservar equipos");
   await page
     .getByRole("dialog")
     .getByLabel("Cantidad", { exact: true })
@@ -341,7 +335,7 @@ test("advanced fulfillment packages, crew conflicts, cues, and actual costs pers
     .getByRole("button", { name: /Check and reserve|Verificar y reservar/ })
     .click();
   await expect(
-    page.getByText("Package reserved on hold.", { exact: true }),
+    page.getByText("Paquete reservado en espera.", { exact: true }),
   ).toBeVisible();
   await page.getByRole("tab", { name: "Reservas", exact: true }).click();
   const handoffRow = page
@@ -585,11 +579,9 @@ test("dashboard, tablet navigation, assistant and mobile layout", async ({
     fullPage: true,
   });
   await page
-    .getByRole("button", { name: "Consultar a KIT", exact: true })
+    .getByRole("button", { name: "Preguntar a KIT", exact: true })
     .click();
-  await expect(
-    page.getByText("Modo de ejemplo: mensajes guardados", { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByLabel("Mensaje para KIT")).toBeVisible();
   await page
     .getByRole("button", { name: "Cerrar asistente", exact: true })
     .click();
@@ -600,7 +592,8 @@ test("dashboard, tablet navigation, assistant and mobile layout", async ({
     .click();
   await page
     .getByRole("navigation", { name: "Navegación principal" })
-    .getByRole("link", { name: "Proyectos", exact: true })
+    .getByRole("link", { name: "Eventos", exact: true })
+    .first()
     .click();
   await expect(
     page.getByRole("heading", { name: "Eventos", level: 1 }),
@@ -628,13 +621,13 @@ test("dashboard, tablet navigation, assistant and mobile layout", async ({
 test("equipment CSV export and validated import", async ({ page }) => {
   await page.goto("/inventory");
   const downloading = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Exportar CSV", exact: true }).click();
+  await headerMenuAction(page, "Exportar CSV");
   const exported = await readFile((await (await downloading).path())!, "utf8");
   expect(exported).toContain(
     "sku,nombre,categoría,cantidad,mantenimiento,tarifa,descripción",
   );
 
-  await page.getByRole("button", { name: "Importar CSV", exact: true }).click();
+  await headerMenuAction(page, "Importar CSV");
   const dialog = page.getByRole("dialog", {
     name: "Importar equipos desde CSV",
   });

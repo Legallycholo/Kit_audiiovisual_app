@@ -1,4 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, storageKey } from "./harness";
+
+test.use({ desktopTabs: true });
 import AxeBuilder from "@axe-core/playwright";
 
 test("unsaved proposal blocks tab close until cancelled, saved or discarded", async ({
@@ -21,8 +23,11 @@ test("unsaved proposal blocks tab close until cancelled, saved or discarded", as
 
 test("unclean snapshot requires explicit recovery", async ({ page }) => {
   await page.goto("/events");
+  await expect(
+    page.getByRole("tablist", { name: "Pestañas abiertas" }),
+  ).toBeVisible();
   await page.evaluate(() => {
-    const key = "kit.desktop.session.v1:sample:sample";
+    const key = `kit.desktop.session.v1:company:user-admin-seed`;
     const state = JSON.parse(localStorage.getItem(key)!);
     state.clean = false;
     sessionStorage.setItem("crash-fixture", JSON.stringify(state));
@@ -30,7 +35,10 @@ test("unclean snapshot requires explicit recovery", async ({ page }) => {
   await page.addInitScript(() => {
     const saved = sessionStorage.getItem("crash-fixture");
     if (saved) {
-      localStorage.setItem("kit.desktop.session.v1:sample:sample", saved);
+      localStorage.setItem(
+        "kit.desktop.session.v1:company:user-admin-seed",
+        saved,
+      );
       sessionStorage.removeItem("crash-fixture");
     }
   });
@@ -47,8 +55,12 @@ test("unclean snapshot requires explicit recovery", async ({ page }) => {
 });
 
 test("dark shell and library meet accessibility checks", async ({ page }) => {
-  await page.goto("/library");
-  await page.getByLabel("Apariencia").selectOption("dark");
+  await page.addInitScript(
+    (key) => localStorage.setItem(key, JSON.stringify({ theme: "dark" })),
+    storageKey("kit.appearance"),
+  );
+  await page.goto("/library/files");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
@@ -65,7 +77,10 @@ test("dark shell and library meet accessibility checks", async ({ page }) => {
 });
 
 test("dark theme preserves readable existing workspaces", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("kit.theme", "dark"));
+  await page.addInitScript(
+    (key) => localStorage.setItem(key, JSON.stringify({ theme: "dark" })),
+    storageKey("kit.appearance"),
+  );
   for (const path of ["/", "/events", "/proposals/p2", "/design"]) {
     await page.goto(path);
     const result = await new AxeBuilder({ page })
@@ -83,25 +98,30 @@ test("dark theme preserves readable existing workspaces", async ({ page }) => {
     ).toEqual([]);
   }
 });
-test("five hubs preserve navigation, tabs restore and history can be cleared", async ({
+test("primary destinations preserve navigation, tabs restore and history can be cleared", async ({
   page,
 }) => {
   await page.goto("/");
   const nav = page.getByRole("navigation", { name: "Navegación principal" });
-  await expect(nav.getByRole("link")).toHaveCount(5);
-  await nav.getByRole("link", { name: "Proyectos", exact: true }).click();
-  await page
-    .getByRole("navigation", { name: "Secciones del área" })
-    .getByRole("link", { name: "Propuestas", exact: true })
-    .click();
+  for (const label of [
+    "Inicio",
+    "Eventos",
+    "Ventas",
+    "Diseño",
+    "Recursos",
+    "KIT",
+  ])
+    await expect(
+      nav.getByRole("link", { name: new RegExp(`^${label}`) }).first(),
+    ).toBeVisible();
+  await nav.getByRole("link", { name: /^Ventas/ }).click();
+  await nav.getByRole("link", { name: "Propuestas", exact: true }).click();
   const tabs = page.getByRole("tablist", { name: "Pestañas abiertas" });
-  await expect(tabs.getByRole("tab")).toHaveCount(3);
-  await tabs.getByRole("tab", { name: "Eventos", exact: true }).click();
-  await expect(tabs.getByRole("tab")).toHaveCount(3);
+  await expect(tabs.getByRole("tab")).toHaveCount(2);
+  await tabs.getByRole("tab", { name: "Inicio", exact: true }).click();
+  await expect(tabs.getByRole("tab")).toHaveCount(2);
   await page.reload();
-  await expect(tabs.getByRole("tab")).toHaveCount(3);
-  await page.getByLabel("Apariencia").selectOption("dark");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(tabs.getByRole("tab")).toHaveCount(2);
   await page.getByRole("button", { name: "Historial", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog

@@ -1,46 +1,53 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./harness";
 import AxeBuilder from "@axe-core/playwright";
 import { createSeed } from "../../src/shared/seed";
-test("Rolando relationships, saved searches and automatic tabs", async ({
-  page,
-}) => {
-  const data = createSeed();
-  const event = data.events[0];
-  data.clients.find((c) => c.id === event.clientId)!.contact = "Rolando Pérez";
-  await page.addInitScript((data) => {
-    if (!localStorage.getItem("kit.workspace.v1"))
-      localStorage.setItem("kit.workspace.v1", JSON.stringify(data));
-  }, data);
-  await page.goto("/search?q=Rolando");
-  await expect(
-    page.getByRole("heading", { name: "Búsqueda: Rolando", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page
+test.describe("search with a related contact", () => {
+  test.use({
+    desktopTabs: true,
+    seed: {
+      prepare: (data) => {
+        const event = data.events[0];
+        data.clients.find((c) => c.id === event.clientId)!.contact =
+          "Rolando Pérez";
+      },
+    },
+  });
+  test("Rolando relationships, saved searches and automatic tabs", async ({
+    page,
+  }) => {
+    const data = createSeed();
+    const event = data.events[0];
+    await page.goto("/search?q=Rolando");
+    await expect(
+      page.getByRole("heading", { name: "Búsqueda: Rolando", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(".search-results")
+        .getByRole("button", { name: new RegExp(`^${event.name} Eventos`) }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByText("Relacionado con el cliente o proyecto", { exact: false })
+        .first(),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Guardar búsqueda", exact: true })
+      .click();
+    await page.reload();
+    await page.getByText("Búsquedas guardadas (1)").click();
+    await expect(
+      page.getByRole("link", { name: "Rolando", exact: true }),
+    ).toBeVisible();
+    await page
       .locator(".search-results")
-      .getByRole("button", { name: new RegExp(`^${event.name} Proyectos`) }),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByText("Relacionado con el cliente o proyecto", { exact: false })
-      .first(),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Guardar búsqueda", exact: true })
-    .click();
-  await page.reload();
-  await page.getByText("Búsquedas guardadas (1)").click();
-  await expect(
-    page.getByRole("link", { name: "Rolando", exact: true }),
-  ).toBeVisible();
-  await page
-    .locator(".search-results")
-    .getByRole("button", { name: new RegExp(`^${event.name} Proyectos`) })
-    .click();
-  await expect(page).toHaveURL(new RegExp(`/events/${event.id}`));
-  await expect(
-    page.getByRole("tab", { name: new RegExp(event.name) }).first(),
-  ).toBeVisible();
+      .getByRole("button", { name: new RegExp(`^${event.name} Eventos`) })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/events/${event.id}`));
+    await expect(
+      page.getByRole("tab", { name: new RegExp(event.name) }).first(),
+    ).toBeVisible();
+  });
 });
 test("browser file permissions fail closed and search remains accessible", async ({
   page,
@@ -75,9 +82,7 @@ test("KIT full workspace and sidebar share the active conversation", async ({
   await page
     .getByLabel("Mensaje para KIT")
     .fill("Resume las tareas de producción de ejemplo.");
-  await page
-    .getByRole("button", { name: "Guardar mensaje de ejemplo" })
-    .click();
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
   await expect(
     page
       .getByLabel("Mensajes de KIT")
@@ -86,11 +91,9 @@ test("KIT full workspace and sidebar share the active conversation", async ({
       }),
   ).toBeVisible();
   await expect(
-    page.getByText("La IA no está conectada en modo de ejemplo", {
-      exact: false,
-    }),
+    page.getByText("El proyecto tiene contexto verificado", { exact: false }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Consultar a KIT" }).click();
+  await page.getByRole("button", { name: "Preguntar a KIT" }).click();
   const sidebar = page.locator(".kit-chat-sidebar");
   await expect(sidebar).toBeVisible();
   await expect(

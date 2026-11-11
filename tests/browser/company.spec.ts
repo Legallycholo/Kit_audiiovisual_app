@@ -79,10 +79,8 @@ test.afterEach(async ({ page }) => {
   await repo.close();
 });
 async function setup(page: import("@playwright/test").Page) {
+  // Without a configured portal the entry screen is the local owner setup.
   await page.goto("/");
-  await page
-    .getByRole("button", { name: "Abrir espacio de empresa", exact: true })
-    .click();
   await page
     .getByLabel("Tu nombre", { exact: true })
     .fill("Propietario de prueba");
@@ -119,9 +117,7 @@ test("encrypted offline save requires explicit conflict resolution", async ({
     .getByRole("button", { name: "Guardar cliente", exact: true })
     .click();
   await expect(
-    page.getByText("Sin conexión · 1 guardado cifrado pendiente", {
-      exact: true,
-    }),
+    page.getByText("Cambio protegido en este dispositivo", { exact: true }),
   ).toBeVisible();
   expect((await repo.read()).workspace.clients).toEqual([]);
   const encrypted = await page.evaluate(() =>
@@ -131,9 +127,7 @@ test("encrypted offline save requires explicit conflict resolution", async ({
   expect(encrypted).not.toContain("Cliente pendiente cifrado");
   await page.reload();
   await expect(
-    page.getByText("Sin conexión · 1 guardado cifrado pendiente", {
-      exact: true,
-    }),
+    page.getByText("Cambio protegido en este dispositivo", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("Cliente pendiente cifrado", { exact: true }),
@@ -142,12 +136,10 @@ test("encrypted offline save requires explicit conflict resolution", async ({
   await repo.save(createSeed(), 0);
   offlinePatches = false;
   await page
-    .getByRole("button", { name: "Reintentar sincronización", exact: true })
+    .getByRole("button", { name: "Reintentar ahora", exact: true })
     .click();
   await expect(
-    page.getByText("Conflicto de sincronización · requiere revisión", {
-      exact: true,
-    }),
+    page.getByText("Revisa el guardado pendiente", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Estado de sincronización" }),
@@ -163,10 +155,8 @@ test("encrypted offline save requires explicit conflict resolution", async ({
     })
     .click();
   await expect(
-    page.getByText("Espacio de empresa · datos en el servidor", {
-      exact: true,
-    }),
-  ).toBeVisible();
+    page.getByRole("region", { name: "Estado de sincronización" }),
+  ).toHaveCount(0);
   expect((await repo.read()).workspace.clients).toContainEqual(
     expect.objectContaining({ name: "Cliente pendiente cifrado" }),
   );
@@ -196,7 +186,8 @@ test("administrator previews, restores and rolls back a verified backup", async 
 
   await page.goto("/settings");
   await page
-    .getByRole("button", { name: "Workspace data", exact: true })
+    .locator(".settings-nav")
+    .getByRole("link", { name: "Datos", exact: true })
     .click();
   await page.locator('input[type="file"][accept*="json"]').setInputFiles({
     name: "kit-company-backup.json",
@@ -268,7 +259,10 @@ test("company setup separates sample data, durable records survive sign-out and 
   await expect(
     page.getByRole("button", { name: "Iniciar sesión", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Crear cuenta", { exact: false })).toHaveCount(0);
+  // Account requests are made on the portal too.
+  await expect(
+    page.getByText("Crear cuenta", { exact: false }).first(),
+  ).toBeVisible();
   // The record is durable on the server.
   expect((await repo.read()).workspace.clients[0].name).toBe("Empresa nueva");
 });
@@ -277,9 +271,9 @@ test("company KIT keeps one cited thread between the sidebar and full workspace"
 }) => {
   await setup(page);
   await repo.save(createSeed(), 0);
-  await page.getByRole("button", { name: "Actualizar", exact: true }).click();
+  await page.reload();
   await page.goto("/events/e1");
-  await page.getByRole("button", { name: "Consultar a KIT" }).click();
+  await page.getByRole("button", { name: "Preguntar a KIT" }).click();
   const sidebar = page.locator(".kit-chat-sidebar");
   await sidebar
     .getByRole("button", { name: "Adjuntar contexto de esta página" })
@@ -316,10 +310,11 @@ test("owner reviews AI suggestion, edits, saves, reopens and preserves manual ed
     c.messages.forEach((m) => (m.at = new Date(m.at).toISOString())),
   );
   await repo.save(seed, 0);
-  await page.getByRole("button", { name: "Actualizar", exact: true }).click();
+  await page.reload();
   await page.goto("/proposals");
+  await page.getByRole("button", { name: "Más acciones", exact: true }).click();
   await page
-    .getByRole("button", { name: "Redactar con IA", exact: true })
+    .getByRole("menuitem", { name: "Redactar con IA", exact: true })
     .click();
   await page
     .getByLabel("¿Qué debe incluir la propuesta?")
@@ -388,7 +383,8 @@ test("owner reviews AI suggestion, edits, saves, reopens and preserves manual ed
   await page
     .getByRole("button", { name: "Guardar cambios", exact: true })
     .click();
-  await page.getByRole("button", { name: "Vista previa", exact: true }).click();
+  await page.getByRole("button", { name: "Más acciones", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Vista previa/ }).click();
   await expect(page.locator(".print-proposal")).toContainText(
     "Alcance editado",
   );
@@ -447,7 +443,8 @@ test("provider failure preserves the brief and unsaved manual proposal edits", a
     page.getByText("Versión guardada", { exact: true }),
   ).toBeVisible();
   expect(
-    (await repo.read()).workspace.proposals.find((p) => p.id === "p2")?.introduction,
+    (await repo.read()).workspace.proposals.find((p) => p.id === "p2")
+      ?.introduction,
   ).toBe("Conservar este cambio manual sin guardar.");
 });
 
@@ -462,7 +459,7 @@ test("owner reviews an exact outgoing message and sees its delivery state", asyn
     ),
   );
   await repo.save(seed, 0);
-  await page.getByRole("button", { name: "Actualizar", exact: true }).click();
+  await page.reload();
   await page.goto("/inbox?conversation=m2");
   await expect(
     page.getByText("Canal de demostración", { exact: true }),
@@ -495,7 +492,7 @@ test("proposal review creates an exact message and issues only after delivery", 
     ),
   );
   await repo.save(seed, 0);
-  await page.getByRole("button", { name: "Actualizar", exact: true }).click();
+  await page.reload();
   await page.goto("/proposals/p2");
   await page
     .getByRole("button", { name: "Revisar y enviar", exact: true })
@@ -515,8 +512,9 @@ test("proposal review creates an exact message and issues only after delivery", 
       }),
   ).toBeVisible();
   expect(
-    (await repo.read()).workspace.proposals.find((proposal) => proposal.id === "p2")
-      ?.status,
+    (await repo.read()).workspace.proposals.find(
+      (proposal) => proposal.id === "p2",
+    )?.status,
   ).toBe("Ready to send");
   await page
     .getByRole("button", { name: "Revisar envío", exact: true })
@@ -526,8 +524,9 @@ test("proposal review creates an exact message and issues only after delivery", 
     .click();
   await expect(page.getByText("Entregado", { exact: false })).toBeVisible();
   expect(
-    (await repo.read()).workspace.proposals.find((proposal) => proposal.id === "p2")
-      ?.status,
+    (await repo.read()).workspace.proposals.find(
+      (proposal) => proposal.id === "p2",
+    )?.status,
   ).toBe("Issued");
 });
 
@@ -561,7 +560,7 @@ test("ambiguous inbound acceptance is deduplicated into a linking review", async
   });
   expect(duplicate.duplicate).toBe(true);
   await repo.save(first.workspace, current.revision);
-  await page.getByRole("button", { name: "Actualizar", exact: true }).click();
+  await page.reload();
   await page
     .getByRole("button", { name: /Notificaciones: 2 pendientes/ })
     .click();
@@ -591,7 +590,8 @@ test("administrator manages account access and passwords without email", async (
   await repo.save(createSeed(), 0);
   await page.goto("/settings");
   await page
-    .getByRole("button", { name: "Users & roles", exact: true })
+    .locator(".settings-nav")
+    .getByRole("link", { name: "Usuarios y roles", exact: true })
     .click();
 
   await page

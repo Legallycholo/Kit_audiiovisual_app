@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, storageKey, headerMenuAction } from "./harness";
 import AxeBuilder from "@axe-core/playwright";
 
 for (const route of [
@@ -36,7 +36,7 @@ test("proposal print preview contains only the client review document", async ({
   page,
 }) => {
   await page.goto("/proposals/p2");
-  await page.getByRole("button", { name: "Vista previa", exact: true }).click();
+  await headerMenuAction(page, "Vista previa");
   await page.emulateMedia({ media: "print" });
   await expect(page.locator(".print-proposal")).toBeVisible();
   await expect(page.locator(".sidebar")).not.toBeVisible();
@@ -81,9 +81,8 @@ test.describe("stage 2 accessibility", () => {
       for (const theme of ["light", "dark"])
         for (const density of ["comfortable", "compact"]) {
           await page.addInitScript(
-            (value) =>
-              localStorage.setItem("kit.appearance:sample:sample", value),
-            appearance(theme, density),
+            ([key, value]) => localStorage.setItem(key, value),
+            [storageKey("kit.appearance"), appearance(theme, density)],
           );
           await page.goto(route);
           await expect(page.locator("main h1").first()).toBeVisible();
@@ -112,6 +111,7 @@ test.describe("stage 2 accessibility", () => {
     page,
   }) => {
     await page.goto("/events");
+    await expect(page.locator("main h1").first()).toBeVisible();
     const nav = page.getByRole("navigation", { name: "Navegación principal" });
     // Skip link first, then the brand, then navigation rows.
     await page.keyboard.press("Tab");
@@ -206,11 +206,11 @@ test.describe("stage 2 accessibility", () => {
     for (const theme of ["light", "dark"])
       for (const accent of ["blue", "red", "green"]) {
         await page.addInitScript(
-          (value) =>
-            localStorage.setItem("kit.appearance:sample:sample", value),
-          JSON.stringify({ theme, accent }),
+          ([key, value]) => localStorage.setItem(key, value),
+          [storageKey("kit.appearance"), JSON.stringify({ theme, accent })],
         );
         await page.goto("/settings/appearance");
+        await expect(page.locator("main h1").first()).toBeVisible();
         const ratios = await page.evaluate(() => {
           const probe = document.createElement("span");
           document.body.append(probe);
