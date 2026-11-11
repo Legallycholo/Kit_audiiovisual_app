@@ -59,7 +59,9 @@ describe("cloud search privacy boundary", () => {
       "supersecret",
     );
     expect(
-      JSON.stringify(await repo.db.prepare("SELECT * FROM search_sources").all()),
+      JSON.stringify(
+        await repo.db.prepare("SELECT * FROM search_sources").all(),
+      ),
     ).not.toContain("Rolando");
     expect((await gateway.search("alice", "Rolando")).results).toHaveLength(1);
   });
@@ -82,9 +84,9 @@ describe("cloud search privacy boundary", () => {
     vi.mocked(provider.delete).mockResolvedValue(false);
     expect((await gateway.remove("alice")).confirmed).toBe(false);
     expect((await gateway.search("alice", "Rolando")).results).toEqual([]);
-    expect(await repo.db.prepare("SELECT payload FROM search_sources").get()).toEqual(
-      { payload: "" },
-    );
+    expect(
+      await repo.db.prepare("SELECT payload FROM search_sources").get(),
+    ).toEqual({ payload: "" });
     vi.mocked(provider.delete).mockResolvedValue(true);
     await gateway.retry();
     expect((await gateway.status("alice")).sources).toHaveLength(0);
@@ -109,7 +111,9 @@ describe("cloud search privacy boundary", () => {
     await repo.db.prepare("UPDATE users SET active=0 WHERE id='alice'").run();
     await gateway.retry();
     expect(provider.delete).toHaveBeenCalled();
-    expect(await repo.db.prepare("SELECT * FROM search_sources").all()).toEqual([]);
+    expect(await repo.db.prepare("SELECT * FROM search_sources").all()).toEqual(
+      [],
+    );
   });
   it("fails closed without an approved provider and finite budget", async () => {
     gateway.config.monthlyBudgetCents = Infinity;

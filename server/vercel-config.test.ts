@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import { BODY_LIMIT, contentSecurityPolicy } from "./app";
 
 const root = new URL("../", import.meta.url);
-const config = JSON.parse(readFileSync(new URL("vercel.json", root), "utf8")) as {
+const config = JSON.parse(
+  readFileSync(new URL("vercel.json", root), "utf8"),
+) as {
   buildCommand: string;
   outputDirectory: string;
   crons: { path: string; schedule: string }[];
@@ -23,8 +25,14 @@ describe("vercel.json", () => {
 
   it("sends /api to the one function, then falls back to the SPA", () => {
     expect(existsSync(new URL("api/index.mjs", root))).toBe(true);
-    expect(config.rewrites[0]).toEqual({ source: "/api/(.*)", destination: "/api" });
-    expect(config.rewrites.at(-1)).toEqual({ source: "/(.*)", destination: "/index.html" });
+    expect(config.rewrites[0]).toEqual({
+      source: "/api/(.*)",
+      destination: "/api",
+    });
+    expect(config.rewrites.at(-1)).toEqual({
+      source: "/(.*)",
+      destination: "/index.html",
+    });
   });
 
   it("schedules the search retry at the real cron route", () => {

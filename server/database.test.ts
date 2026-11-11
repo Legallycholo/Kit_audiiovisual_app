@@ -73,9 +73,9 @@ describe("workspace repository revisions", () => {
       },
       current.revision,
     );
-    const stored = await repo.db
+    const stored = (await repo.db
       .prepare("SELECT payload FROM workspace WHERE id=1")
-      .get() as {
+      .get()) as {
       payload: string;
     };
     expect(JSON.parse(stored.payload).activity).toEqual([]);

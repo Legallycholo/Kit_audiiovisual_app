@@ -200,11 +200,11 @@ export class SearchGateway {
       ),
     );
     await this.repo.transaction(async () => {
-      const spent = await this.repo.db
+      const spent = (await this.repo.db
         .prepare(
           "SELECT COALESCE(SUM(cents),0) total FROM search_usage WHERE month=?",
         )
-        .get(month) as { total: number };
+        .get(month)) as { total: number };
       if (spent.total + cents > this.config.monthlyBudgetCents)
         throw new HttpError(
           429,
@@ -228,11 +228,11 @@ export class SearchGateway {
     const token = req.get("authorization")?.replace(/^Bearer /, "") || "";
     if (!/^[a-f0-9]{64}$/.test(token))
       throw new HttpError(401, "Device authorization required.");
-    const row = await this.repo.db
+    const row = (await this.repo.db
       .prepare(
         "SELECT * FROM search_devices WHERE token_hash=? AND revoked=0 AND expires>?",
       )
-      .get(sha(token), Date.now()) as { user_id: string } | undefined;
+      .get(sha(token), Date.now())) as { user_id: string } | undefined;
     if (!row)
       throw new HttpError(401, "Device authorization expired or revoked.");
     await this.checkUser(row.user_id);
@@ -265,11 +265,11 @@ export class SearchGateway {
     const title = redactSecrets(item.title).text;
     return this.serial(async () => {
       await this.checkUser(user);
-      const old = await this.repo.db
+      const old = (await this.repo.db
         .prepare(
           "SELECT state,hash FROM search_sources WHERE user_id=? AND id=?",
         )
-        .get(user, item.id) as { state: string; hash: string } | undefined;
+        .get(user, item.id)) as { state: string; hash: string } | undefined;
       if (old?.hash === item.hash && old.state === "ready")
         return { state: "ready" };
       const payload = this.encrypt({
@@ -306,9 +306,9 @@ export class SearchGateway {
       .get(user, id);
   }
   private async process(user: string, id: string) {
-    const row = await this.repo.db
+    const row = (await this.repo.db
       .prepare("SELECT * FROM search_sources WHERE user_id=? AND id=?")
-      .get(user, id) as
+      .get(user, id)) as
       { state: string; payload: string; attempts: number } | undefined;
     if (!row) return;
     try {
@@ -389,17 +389,17 @@ export class SearchGateway {
             "UPDATE search_sources SET state='deletion_pending',payload='' WHERE user_id=?",
           )
           .run(user);
-      const rows = await this.repo.db
+      const rows = (await this.repo.db
         .prepare(
           "SELECT id FROM search_sources WHERE user_id=? AND state='deletion_pending'",
         )
-        .all(user) as { id: string }[];
+        .all(user)) as { id: string }[];
       for (const r of rows) await this.process(user, r.id);
-      const pending = await this.repo.db
+      const pending = (await this.repo.db
         .prepare(
           "SELECT count(*) count FROM search_sources WHERE user_id=? AND state='deletion_pending'",
         )
-        .get(user) as { count: number };
+        .get(user)) as { count: number };
       await this.audit(
         user,
         "search-access-revoked",
@@ -413,11 +413,11 @@ export class SearchGateway {
       await this.repo.db.exec(
         "UPDATE search_sources SET state='deletion_pending',payload='' WHERE user_id NOT IN (SELECT id FROM users WHERE active=1 AND role<>'Client / Guest')",
       );
-      const rows = await this.repo.db
+      const rows = (await this.repo.db
         .prepare(
           "SELECT user_id,id FROM search_sources WHERE state='deletion_pending' OR (state IN ('pending','failed') AND attempts<3) ORDER BY updated LIMIT 20",
         )
-        .all() as { user_id: string; id: string }[];
+        .all()) as { user_id: string; id: string }[];
       for (const row of rows) await this.process(row.user_id, row.id);
     });
   }
@@ -463,11 +463,11 @@ export class SearchGateway {
       const unique = new Map<string, unknown>();
       for (const match of matches.slice(0, 100)) {
         if (!Number.isFinite(match.score)) continue;
-        const row = await this.repo.db
+        const row = (await this.repo.db
           .prepare(
             "SELECT payload,updated FROM search_sources WHERE user_id=? AND id=? AND state='ready'",
           )
-          .get(user, match.source) as
+          .get(user, match.source)) as
           { payload: string; updated: string } | undefined;
         if (!row) continue;
         const data = this.decrypt(row.payload);
@@ -494,11 +494,11 @@ export class SearchGateway {
     await this.checkUser(user);
     if (!/^[a-f0-9]{64}$/.test(id))
       throw new HttpError(422, "Invalid indexed source identifier.");
-    const row = await this.repo.db
+    const row = (await this.repo.db
       .prepare(
         "SELECT hash,payload,updated FROM search_sources WHERE user_id=? AND id=? AND state='ready'",
       )
-      .get(user, id) as
+      .get(user, id)) as
       { hash: string; payload: string; updated: string } | undefined;
     if (!row?.payload)
       throw new HttpError(404, "Indexed file source is unavailable.");

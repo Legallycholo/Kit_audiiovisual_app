@@ -122,9 +122,9 @@ describe("connection tests", () => {
     expect(transport.mock.calls[0][0]).toBe(
       "https://api.anthropic.com/v1/models/claude-opus-5-5",
     );
-    const audit = await repo.db
+    const audit = (await repo.db
       .prepare("SELECT detail FROM audit WHERE action=?")
-      .all("Integration connection tested") as { detail: string }[];
+      .all("Integration connection tested")) as { detail: string }[];
     expect(audit.map((row) => row.detail)).toEqual(["ai · ok"]);
     const status = await call("/integrations", "GET", undefined, owner);
     const ai = status.json.integrations.find(

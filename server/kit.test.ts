@@ -126,9 +126,9 @@ describe("KIT indexed-file grounding", () => {
       text: "The approved source changed.",
       policy: search.fingerprint,
     });
-    expect((await kit.get("owner", thread.id)).messages.at(-1)!.sources[0].stale).toBe(
-      true,
-    );
+    expect(
+      (await kit.get("owner", thread.id)).messages.at(-1)!.sources[0].stale,
+    ).toBe(true);
     vi.mocked(provider.delete).mockResolvedValue(false);
     await search.remove("owner", fileId);
     const revoked = (await kit.get("owner", thread.id)).messages.at(-1)!;
@@ -161,15 +161,19 @@ describe("KIT indexed-file grounding", () => {
     const message = pending.messages.at(-1)!;
     expect(message.action?.status).toBe("pending");
     expect(
-      (await repo.read()).workspace.tasks.some((t) => t.title === "Revisar plano"),
+      (await repo.read()).workspace.tasks.some(
+        (t) => t.title === "Revisar plano",
+      ),
     ).toBe(false);
     await kit.confirm("owner", thread.id, message.id, message.action!.token);
     expect(
-      (await repo.read()).workspace.tasks.some((t) => t.title === "Revisar plano"),
+      (await repo.read()).workspace.tasks.some(
+        (t) => t.title === "Revisar plano",
+      ),
     ).toBe(true);
-    expect((await kit.get("owner", thread.id)).messages.at(-1)!.action?.status).toBe(
-      "completed",
-    );
+    expect(
+      (await kit.get("owner", thread.id)).messages.at(-1)!.action?.status,
+    ).toBe("completed");
   });
 
   it("rejects provider actions in Ask mode", async () => {

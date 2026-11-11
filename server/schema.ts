@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { kitCompanyProfile } from "../src/shared/company";
 import { roles } from "../src/shared/access";
 
 export const identifier = z
@@ -323,11 +324,41 @@ export const schemas = {
     .object({
       id: identifier,
       number: name,
-      eventId: identifier,
+      // "" until the proposal is linked to an event (visible to administrators and sales only).
+      eventId: identifier.or(z.literal("")),
       version: z.number().int().positive(),
       title: name,
       introduction: text,
       terms: text,
+      documentType: z.enum(["PROPUESTA", "COTIZACIÓN", "FACTURA"]).optional(),
+      scope: text.optional(),
+      notes: text.optional(),
+      paymentTerms: z.string().trim().max(500).optional(),
+      salesperson: z.string().trim().max(200).optional(),
+      completionDate: z.union([date, z.literal("")]).optional(),
+      clientSnapshot: z
+        .object({
+          name: z.string().trim().max(200),
+          contact: z.string().trim().max(200),
+          email: z.string().trim().max(200),
+          phone: z.string().trim().max(60),
+          company: z.string().trim().max(200).optional(),
+          address: z.string().trim().max(400).optional(),
+        })
+        .strict()
+        .optional(),
+      eventSnapshot: z
+        .object({
+          name: z.string().trim().max(200),
+          type: z.string().trim().max(120),
+          venue: z.string().trim().max(200),
+          start: z.union([date, z.literal("")]),
+          end: z.union([date, z.literal("")]),
+          attendees: z.number().int().nonnegative().max(1_000_000),
+        })
+        .strict()
+        .optional(),
+      updatedAt: z.string().datetime().optional(),
       lines: z.array(line).max(1000),
       discount: z.number().min(0).max(100),
       tax: z.number().min(0).max(100),
@@ -344,7 +375,7 @@ export const schemas = {
       acceptedAt: z.string().datetime().optional(),
       creativeAssetIds: z.array(identifier).max(50).optional(),
       presentationTemplate: z
-        .enum(["Minimal", "Editorial", "Spotlight"])
+        .enum(["Classic", "Minimal", "Editorial", "Spotlight"])
         .optional(),
       visualNarrative: text.optional(),
       visuals: z.array(proposalVisual).max(12).optional(),
@@ -640,6 +671,11 @@ export const schemas = {
       timezone: name,
       email: z.union([z.email(), z.literal("")]),
       notifications: z.boolean(),
+      // Brand fields printed on proposals; older payloads get KIT's defaults.
+      slogan: z.string().trim().max(200).default(kitCompanyProfile.slogan),
+      address: z.string().trim().max(400).default(kitCompanyProfile.address),
+      phone: z.string().trim().max(60).default(kitCompanyProfile.phone),
+      website: z.string().trim().max(200).default(kitCompanyProfile.website),
     })
     .strict(),
 };

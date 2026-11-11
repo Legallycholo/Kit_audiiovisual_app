@@ -74,8 +74,7 @@ export function sessionMiddleware(repo: Repository) {
       const session = (await repo.db
         .prepare("SELECT * FROM sessions WHERE token_hash=? AND expires_at>?")
         .get(hashToken(sessionToken(req)), Date.now())) as
-        | { user_id: string; csrf_token: string }
-        | undefined;
+        { user_id: string; csrf_token: string } | undefined;
       if (session) {
         const row = await repo.user(session.user_id);
         if (row?.active) {
@@ -106,8 +105,15 @@ export function csrfMiddleware(origins: string[]) {
     const origin = req.get("origin");
     const host = req.get("host");
     const isSameOrigin =
-      origin && host && (origin === `http://${host}` || origin === `https://${host}`);
-    if (origin && !isSameOrigin && origins.length > 0 && !origins.includes(origin))
+      origin &&
+      host &&
+      (origin === `http://${host}` || origin === `https://${host}`);
+    if (
+      origin &&
+      !isSameOrigin &&
+      origins.length > 0 &&
+      !origins.includes(origin)
+    )
       return next(new HttpError(403, "Request origin is not allowed."));
     if (res.locals.user && req.get("x-csrf-token") !== res.locals.csrf)
       return next(

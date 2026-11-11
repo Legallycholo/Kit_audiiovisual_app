@@ -59,7 +59,10 @@ describe("retry after search activity (replaces the 30 s timer)", () => {
   });
 
   it("two instances starting together share one tenant", async () => {
-    const [a, b] = [new SearchGateway(repo, enabled), new SearchGateway(repo, enabled)];
+    const [a, b] = [
+      new SearchGateway(repo, enabled),
+      new SearchGateway(repo, enabled),
+    ];
     await Promise.all([a.ready, b.ready]);
     expect(a.tenant).toBe(b.tenant);
     expect(

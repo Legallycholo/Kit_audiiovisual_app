@@ -26,6 +26,10 @@ export const createSeed = (): Workspace => ({
     timezone: "America/Puerto_Rico",
     email: "",
     notifications: true,
+    slogan: "La gente de los eventos",
+    address: "Calle 3 SE Urb. La Riviera #982, San Juan, PR 00921",
+    phone: "787-436-8556",
+    website: "",
   },
   clients: [
     {

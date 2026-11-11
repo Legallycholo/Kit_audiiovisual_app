@@ -1,4 +1,5 @@
 import type { Workspace } from "./types";
+import { withCompanyDefaults } from "./company";
 
 /** A workspace with no records; what a new company starts from. */
 export function emptyWorkspace(company: string): Workspace {
@@ -20,12 +21,6 @@ export function emptyWorkspace(company: string): Workspace {
     brandAssets: [],
     creativeAssets: [],
     activity: [],
-    settings: {
-      company,
-      currency: "USD",
-      timezone: "America/Puerto_Rico",
-      email: "",
-      notifications: true,
-    },
+    settings: withCompanyDefaults({ company }),
   };
 }

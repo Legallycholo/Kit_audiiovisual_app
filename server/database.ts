@@ -2,6 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Workspace } from "../src/shared/types";
 import type { Role, WorkspaceUser } from "../src/shared/access";
 import { emptyWorkspace } from "../src/shared/empty";
+import { withCompanyDefaults } from "../src/shared/company";
 import { Db, openDb } from "./db";
 
 export class HttpError extends Error {
@@ -173,6 +174,7 @@ export class Repository {
     workspace.maintenanceRecords ||= [];
     workspace.operations ||= [];
     workspace.automations ||= [];
+    workspace.settings = withCompanyDefaults(workspace.settings);
     workspace.activity = (
       (await this.db
         .prepare("SELECT * FROM audit ORDER BY seq DESC LIMIT 1000")

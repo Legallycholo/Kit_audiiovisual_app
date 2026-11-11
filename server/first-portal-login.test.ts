@@ -49,7 +49,9 @@ describe("first portal administrator on an empty company database", () => {
   it("becomes the owner and gets an empty workspace", async () => {
     const call = await start({ [token("a")]: admin });
     expect((await call("/session")).json.initialized).toBe(false);
-    const res = await call("/login/supabase", "POST", { accessToken: token("a") });
+    const res = await call("/login/supabase", "POST", {
+      accessToken: token("a"),
+    });
     expect(res.status).toBe(200);
     expect(res.json.user).toMatchObject({
       email: "First@Example.test",
@@ -80,7 +82,8 @@ describe("first portal administrator on an empty company database", () => {
       .all()) as { email: string }[];
     expect(owners).toHaveLength(1);
     expect(
-      (await repo.db.prepare("SELECT count(*) count FROM workspace").get()).count,
+      (await repo.db.prepare("SELECT count(*) count FROM workspace").get())
+        .count,
     ).toBe(1);
   });
 
@@ -92,7 +95,8 @@ describe("first portal administrator on an empty company database", () => {
     });
     for (const c of ["a", "b", "c"])
       expect(
-        (await call("/login/supabase", "POST", { accessToken: token(c) })).status,
+        (await call("/login/supabase", "POST", { accessToken: token(c) }))
+          .status,
       ).toBe(401);
     expect(await repo.initialized()).toBe(false);
   });

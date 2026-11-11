@@ -247,7 +247,8 @@ export function validateWorkspace(next: Workspace, before: Workspace) {
   }
   const revisions = new Set<string>();
   for (const p of next.proposals) {
-    requireEvent(p.eventId);
+    // An unlinked proposal ("" event) is allowed until it is linked.
+    if (p.eventId) requireEvent(p.eventId);
     const key = `${p.number}:${p.version}`;
     invalid(revisions.has(key), "Proposal revision already exists.");
     revisions.add(key);

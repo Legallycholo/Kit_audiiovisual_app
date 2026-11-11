@@ -38,7 +38,11 @@ function buildSource(corruptRecovery = false) {
     "INSERT INTO users (id,email,name,role,owner,password_hash) VALUES (?,?,?,?,1,?)",
   ).run("u1", "Owner@Example.test", "Dueña", "Administrator", "salt:hash");
   db.prepare("INSERT INTO sessions VALUES (?,?,?,?)").run("t", "u1", "c", 9e12);
-  db.prepare("INSERT INTO login_attempts VALUES (?,?,?)").run("login:1", 3, 9e12);
+  db.prepare("INSERT INTO login_attempts VALUES (?,?,?)").run(
+    "login:1",
+    3,
+    9e12,
+  );
   for (const n of [1, 2, 3])
     db.prepare("INSERT INTO audit VALUES (?,?,?,?,?,?)").run(
       `a${n}`,
@@ -59,10 +63,22 @@ function buildSource(corruptRecovery = false) {
     "2026-11-01T00:00:00.000Z",
   );
   db.prepare("INSERT INTO search_tenant VALUES (?)").run("tenant-1");
-  db.prepare("INSERT INTO search_devices VALUES (?,?,?,?,0)").run("d", "u1", "Mac", 9e12);
-  db.prepare(
-    "INSERT INTO search_sources VALUES (?,?,?,?,?,?,?,?)",
-  ).run("u1", "s1", "h", "enc", "ready", 0, "", "2026-11-01T00:00:00.000Z");
+  db.prepare("INSERT INTO search_devices VALUES (?,?,?,?,0)").run(
+    "d",
+    "u1",
+    "Mac",
+    9e12,
+  );
+  db.prepare("INSERT INTO search_sources VALUES (?,?,?,?,?,?,?,?)").run(
+    "u1",
+    "s1",
+    "h",
+    "enc",
+    "ready",
+    0,
+    "",
+    "2026-11-01T00:00:00.000Z",
+  );
   db.prepare("INSERT INTO search_usage VALUES (?,?,?)").run("2026-11", "u1", 5);
   db.prepare("INSERT INTO kit_threads VALUES (?,?,?,?)").run(
     "k1",
@@ -89,45 +105,95 @@ describe("SQLite → Postgres import", () => {
     const report = await importSqlite({ from: file, repo: target });
     expect(report.applied).toBe(false);
     expect(report.revision).toBe(7);
-    expect(report.source).toMatchObject({ users: 1, audit: 3, workspace_recovery: 1, search_sources: 1 });
+    expect(report.source).toMatchObject({
+      users: 1,
+      audit: 3,
+      workspace_recovery: 1,
+      search_sources: 1,
+    });
     expect(await target.initialized()).toBe(false);
-    expect(await target.db.prepare("SELECT 1 FROM workspace").get()).toBeUndefined();
+    expect(
+      await target.db.prepare("SELECT 1 FROM workspace").get(),
+    ).toBeUndefined();
   });
 
   it("copies everything that matters, keeps the revision and payload byte-identical, and skips sessions", async () => {
     buildSource();
-    const report = await importSqlite({ from: file, repo: target, apply: true });
+    const report = await importSqlite({
+      from: file,
+      repo: target,
+      apply: true,
+    });
     expect(report.applied).toBe(true);
-    expect(report.target).toMatchObject({ workspace: 1, users: 1, audit: 3, workspace_recovery: 1, search_tenant: 1, search_devices: 1, search_sources: 1, search_usage: 1, kit_threads: 1 });
+    expect(report.target).toMatchObject({
+      workspace: 1,
+      users: 1,
+      audit: 3,
+      workspace_recovery: 1,
+      search_tenant: 1,
+      search_devices: 1,
+      search_sources: 1,
+      search_usage: 1,
+      kit_threads: 1,
+    });
     const { workspace, revision } = await target.read();
     expect(revision).toBe(7);
     expect(workspace.settings.company).toBe("Empresa de prueba");
-    const stored = (await target.db.prepare("SELECT payload FROM workspace").get()) as { payload: string };
+    const stored = (await target.db
+      .prepare("SELECT payload FROM workspace")
+      .get()) as { payload: string };
     expect(sha(stored.payload)).toBe(sha(payload));
     // Audit keeps its original order (newest first on read).
-    expect(workspace.activity.map((a) => a.title)).toEqual(["acción 3", "acción 2", "acción 1"]);
+    expect(workspace.activity.map((a) => a.title)).toEqual([
+      "acción 3",
+      "acción 2",
+      "acción 1",
+    ]);
     // Case-insensitive email lookup still works, and a recovery point is still verifiable.
-    expect((await target.userByEmail("owner@example.test"))?.name).toBe("Dueña");
-    expect((await target.recoveryWorkspace("r1")).settings.company).toBe("Antes de restaurar");
+    expect((await target.userByEmail("owner@example.test"))?.name).toBe(
+      "Dueña",
+    );
+    expect((await target.recoveryWorkspace("r1")).settings.company).toBe(
+      "Antes de restaurar",
+    );
     // Old files without a policy column get the empty default.
-    expect(((await target.db.prepare("SELECT policy FROM search_sources").get()) as { policy: string }).policy).toBe("");
+    expect(
+      (
+        (await target.db
+          .prepare("SELECT policy FROM search_sources")
+          .get()) as { policy: string }
+      ).policy,
+    ).toBe("");
     // Sessions and rate-limit counters are not carried over.
-    expect(await target.db.prepare("SELECT 1 FROM sessions").get()).toBeUndefined();
-    expect(await target.db.prepare("SELECT 1 FROM login_attempts").get()).toBeUndefined();
+    expect(
+      await target.db.prepare("SELECT 1 FROM sessions").get(),
+    ).toBeUndefined();
+    expect(
+      await target.db.prepare("SELECT 1 FROM login_attempts").get(),
+    ).toBeUndefined();
   });
 
   it("refuses to overwrite an existing company unless forced", async () => {
     buildSource();
     await importSqlite({ from: file, repo: target, apply: true });
-    await expect(importSqlite({ from: file, repo: target, apply: true })).rejects.toThrow("already has a company workspace");
-    const again = await importSqlite({ from: file, repo: target, apply: true, force: true });
+    await expect(
+      importSqlite({ from: file, repo: target, apply: true }),
+    ).rejects.toThrow("already has a company workspace");
+    const again = await importSqlite({
+      from: file,
+      repo: target,
+      apply: true,
+      force: true,
+    });
     expect(again.applied).toBe(true);
     expect((await target.read()).revision).toBe(7);
   });
 
   it("refuses a source whose recovery point fails its own checksum, before writing anything", async () => {
     buildSource(true);
-    await expect(importSqlite({ from: file, repo: target, apply: true })).rejects.toThrow("fails its own checksum");
+    await expect(
+      importSqlite({ from: file, repo: target, apply: true }),
+    ).rejects.toThrow("fails its own checksum");
     expect(await target.initialized()).toBe(false);
   });
 
@@ -135,7 +201,9 @@ describe("SQLite → Postgres import", () => {
     const db = new DatabaseSync(file);
     db.exec(OLD_SCHEMA);
     db.close();
-    await expect(importSqlite({ from: file, repo: target })).rejects.toThrow("no company workspace");
+    await expect(importSqlite({ from: file, repo: target })).rejects.toThrow(
+      "no company workspace",
+    );
   });
 
   it("never modifies the source file", async () => {
@@ -148,9 +216,13 @@ describe("SQLite → Postgres import", () => {
 
 function readAll() {
   const db = new DatabaseSync(file, { readOnly: true });
-  const rows = ["workspace", "users", "sessions", "audit", "search_sources"].map((t) =>
-    db.prepare(`SELECT * FROM ${t}`).all(),
-  );
+  const rows = [
+    "workspace",
+    "users",
+    "sessions",
+    "audit",
+    "search_sources",
+  ].map((t) => db.prepare(`SELECT * FROM ${t}`).all());
   db.close();
   return rows;
 }

@@ -54,9 +54,9 @@ describe("portal administrator sign-in", () => {
     });
     expect(session.json.user.role).toBe("Administrator");
     // The created account has no usable password.
-    expect((await repo.userByEmail("boss@example.test"))?.password_hash).not.toContain(
-      ":",
-    );
+    expect(
+      (await repo.userByEmail("boss@example.test"))?.password_hash,
+    ).not.toContain(":");
   });
 
   it("signs in an existing workspace user as themselves, case-insensitively", async () => {

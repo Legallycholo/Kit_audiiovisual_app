@@ -20,8 +20,7 @@ export interface IntegrationsConfig {
   transport?: typeof fetch;
 }
 
-export type IntegrationId =
-  "ai" | "whatsapp" | "serpapi" | "search" | "email";
+export type IntegrationId = "ai" | "whatsapp" | "serpapi" | "search" | "email";
 
 const clean = (value?: string) => value?.trim() || undefined;
 
@@ -133,13 +132,7 @@ export async function integrationStatus(
   extra: { messagingLabel?: string | null; searchName?: string | null },
 ): Promise<IntegrationStatus[]> {
   const { ai, serpapi, whatsapp, email } = config;
-  const ids: IntegrationId[] = [
-    "ai",
-    "whatsapp",
-    "serpapi",
-    "search",
-    "email",
-  ];
+  const ids: IntegrationId[] = ["ai", "whatsapp", "serpapi", "search", "email"];
   const last = Object.fromEntries(
     await Promise.all(ids.map(async (id) => [id, await lastTest(repo, id)])),
   ) as Record<IntegrationId, Awaited<ReturnType<typeof lastTest>>>;

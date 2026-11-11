@@ -74,7 +74,28 @@ export type ProposalStatus =
   | "Accepted"
   | "Declined"
   | "Superseded";
-export type ProposalTemplate = "Minimal" | "Editorial" | "Spotlight";
+/** "Classic" is the KIT Classic document (default for new proposals); the others are kept for existing records. */
+export type ProposalTemplate =
+  "Classic" | "Minimal" | "Editorial" | "Spotlight";
+export type ProposalDocumentType = "PROPUESTA" | "COTIZACIÓN" | "FACTURA";
+/** Client details as printed on an issued document; later client edits do not change it. */
+export interface ProposalClientSnapshot {
+  name: string;
+  contact: string;
+  email: string;
+  phone: string;
+  company?: string;
+  address?: string;
+}
+/** Event details as printed on the document. */
+export interface ProposalEventSnapshot {
+  name: string;
+  type: string;
+  venue: string;
+  start: string;
+  end: string;
+  attendees: number;
+}
 export interface ProposalVisual {
   id: string;
   sourceType: "Creative" | "Layout plan" | "Layout 3D";
@@ -91,11 +112,23 @@ export interface ProposalVisual {
 export interface Proposal {
   id: string;
   number: string;
+  /** "" until the proposal is linked to an event; unlinked proposals are visible to administrators and sales only. */
   eventId: string;
   version: number;
   title: string;
   introduction: string;
   terms: string;
+  documentType?: ProposalDocumentType;
+  /** Alcance: what the job covers (KIT Classic "Trabajo"). */
+  scope?: string;
+  notes?: string;
+  paymentTerms?: string;
+  salesperson?: string;
+  /** Fecha de término (ISO date) when it differs from the event's end. */
+  completionDate?: string;
+  clientSnapshot?: ProposalClientSnapshot;
+  eventSnapshot?: ProposalEventSnapshot;
+  updatedAt?: string;
   lines: QuoteLine[];
   discount: number;
   tax: number;
@@ -448,5 +481,10 @@ export interface Workspace {
     timezone: string;
     email: string;
     notifications: boolean;
+    /** Brand fields printed on documents (KIT Classic header). */
+    slogan: string;
+    address: string;
+    phone: string;
+    website: string;
   };
 }

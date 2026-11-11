@@ -607,6 +607,24 @@ export function acceptConversation(
     ],
   };
 }
+/**
+ * The next document number, KIT-<year>-<sequence>. The sequence continues from
+ * the highest number already used this year, so deleted drafts never free a
+ * number that a client may have seen.
+ */
+export function nextProposalNumber(
+  proposals: Pick<Proposal, "number">[],
+  now = new Date(),
+) {
+  const year = now.getFullYear();
+  const prefix = `KIT-${year}-`;
+  const highest = proposals.reduce((max, p) => {
+    if (!p.number.startsWith(prefix)) return max;
+    const sequence = Number(p.number.slice(prefix.length));
+    return Number.isInteger(sequence) ? Math.max(max, sequence) : max;
+  }, 0);
+  return `${prefix}${String(highest + 1).padStart(3, "0")}`;
+}
 export function reviseProposal(proposal: Proposal): Proposal {
   return {
     ...proposal,

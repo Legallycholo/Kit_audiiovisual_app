@@ -10,7 +10,7 @@ import type {
   QuoteLine,
   Reservation,
 } from "./types";
-import { availableStock } from "./domain";
+import { availableStock, nextProposalNumber } from "./domain";
 
 export type RoomImageMimeType = "image/png" | "image/jpeg" | "image/webp";
 
@@ -348,7 +348,7 @@ export function designToProposal(input: {
     ? structuredClone(draft)
     : {
         id: newId(),
-        number: `KIT-${new Date().getFullYear()}-${String(proposals.length + 1).padStart(3, "0")}`,
+        number: nextProposalNumber(proposals),
         eventId: event.id,
         version: 1,
         title: event.name,

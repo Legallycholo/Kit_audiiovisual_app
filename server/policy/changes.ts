@@ -251,6 +251,10 @@ export function applyChanges(
           p.number !== old.number || p.version !== old.version,
           "Proposal identity and revision cannot be changed.",
         );
+        invalid(
+          Boolean(old.eventId) && p.eventId !== old.eventId,
+          "A proposal stays linked to its event. Create a new proposal for another event.",
+        );
       } else {
         invalid(
           p.status !== "Draft" || Boolean(p.acceptedAt),
@@ -258,7 +262,7 @@ export function applyChanges(
         );
         const family = original.proposals.filter((q) => q.number === p.number);
         invalid(
-          family.some((q) => q.eventId !== p.eventId),
+          family.some((q) => q.eventId && p.eventId && q.eventId !== p.eventId),
           "A proposal number belongs to one event.",
         );
         invalid(

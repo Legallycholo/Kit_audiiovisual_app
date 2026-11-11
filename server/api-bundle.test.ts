@@ -45,7 +45,8 @@ describe("Vercel function bundle (api/index.mjs)", () => {
 
   it("reports an unreachable database as a retryable start failure and never leaks the connection string", () => {
     const result = run({
-      KIT_DATABASE: "postgres://kit_server:secret-password@127.0.0.1:1/postgres",
+      KIT_DATABASE:
+        "postgres://kit_server:secret-password@127.0.0.1:1/postgres",
     });
     expect(result.status).toBe(503);
     expect(result.body.error).toContain("could not start");

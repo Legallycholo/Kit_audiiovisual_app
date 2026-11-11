@@ -175,7 +175,10 @@ export async function importSqlite(options: {
       for (const table of [...TABLES].reverse())
         await repo.db.exec(`DELETE FROM ${table}`);
     // users first: sessions (not copied) are the only table that references them.
-    for (const table of ["users", ...TABLES.filter((t) => t !== "users")] as (typeof TABLES)[number][]) {
+    for (const table of [
+      "users",
+      ...TABLES.filter((t) => t !== "users"),
+    ] as (typeof TABLES)[number][]) {
       const [sql, columns] = insertSql[table];
       const statement = repo.db.prepare(sql);
       for (const row of data[table])

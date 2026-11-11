@@ -116,6 +116,29 @@ import { waitUntil } from "@vercel/functions";
 // server/database.ts
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 
+// src/shared/company.ts
+var kitCompanyProfile = {
+  company: "KIT Audiovisual",
+  slogan: "La gente de los eventos",
+  address: "Calle 3 SE Urb. La Riviera #982, San Juan, PR 00921",
+  phone: "787-436-8556",
+  email: "kitaudiovisual@hotmail.com",
+  website: ""
+};
+function withCompanyDefaults(settings) {
+  return {
+    company: settings.company,
+    currency: settings.currency ?? "USD",
+    timezone: settings.timezone ?? "America/Puerto_Rico",
+    email: settings.email ?? "",
+    notifications: settings.notifications ?? true,
+    slogan: settings.slogan ?? kitCompanyProfile.slogan,
+    address: settings.address ?? kitCompanyProfile.address,
+    phone: settings.phone ?? kitCompanyProfile.phone,
+    website: settings.website ?? kitCompanyProfile.website
+  };
+}
+
 // src/shared/empty.ts
 function emptyWorkspace(company) {
   return {
@@ -136,13 +159,7 @@ function emptyWorkspace(company) {
     brandAssets: [],
     creativeAssets: [],
     activity: [],
-    settings: {
-      company,
-      currency: "USD",
-      timezone: "America/Puerto_Rico",
-      email: "",
-      notifications: true
-    }
+    settings: withCompanyDefaults({ company })
   };
 }
 
@@ -378,6 +395,7 @@ var Repository = class _Repository {
     workspace.maintenanceRecords ||= [];
     workspace.operations ||= [];
     workspace.automations ||= [];
+    workspace.settings = withCompanyDefaults(workspace.settings);
     workspace.activity = (await this.db.prepare("SELECT * FROM audit ORDER BY seq DESC LIMIT 1000").all()).map((a) => ({
       id: a.id,
       title: a.action,
@@ -1181,11 +1199,35 @@ var schemas = {
   proposals: z.object({
     id: identifier,
     number: name,
-    eventId: identifier,
+    // "" until the proposal is linked to an event (visible to administrators and sales only).
+    eventId: identifier.or(z.literal("")),
     version: z.number().int().positive(),
     title: name,
     introduction: text,
     terms: text,
+    documentType: z.enum(["PROPUESTA", "COTIZACI\xD3N", "FACTURA"]).optional(),
+    scope: text.optional(),
+    notes: text.optional(),
+    paymentTerms: z.string().trim().max(500).optional(),
+    salesperson: z.string().trim().max(200).optional(),
+    completionDate: z.union([date, z.literal("")]).optional(),
+    clientSnapshot: z.object({
+      name: z.string().trim().max(200),
+      contact: z.string().trim().max(200),
+      email: z.string().trim().max(200),
+      phone: z.string().trim().max(60),
+      company: z.string().trim().max(200).optional(),
+      address: z.string().trim().max(400).optional()
+    }).strict().optional(),
+    eventSnapshot: z.object({
+      name: z.string().trim().max(200),
+      type: z.string().trim().max(120),
+      venue: z.string().trim().max(200),
+      start: z.union([date, z.literal("")]),
+      end: z.union([date, z.literal("")]),
+      attendees: z.number().int().nonnegative().max(1e6)
+    }).strict().optional(),
+    updatedAt: z.string().datetime().optional(),
     lines: z.array(line).max(1e3),
     discount: z.number().min(0).max(100),
     tax: z.number().min(0).max(100),
@@ -1201,7 +1243,7 @@ var schemas = {
     validUntil: date,
     acceptedAt: z.string().datetime().optional(),
     creativeAssetIds: z.array(identifier).max(50).optional(),
-    presentationTemplate: z.enum(["Minimal", "Editorial", "Spotlight"]).optional(),
+    presentationTemplate: z.enum(["Classic", "Minimal", "Editorial", "Spotlight"]).optional(),
     visualNarrative: text.optional(),
     visuals: z.array(proposalVisual).max(12).optional(),
     aiReview: z.object({
@@ -1434,7 +1476,12 @@ var schemas = {
     currency: z.literal("USD"),
     timezone: name,
     email: z.union([z.email(), z.literal("")]),
-    notifications: z.boolean()
+    notifications: z.boolean(),
+    // Brand fields printed on proposals; older payloads get KIT's defaults.
+    slogan: z.string().trim().max(200).default(kitCompanyProfile.slogan),
+    address: z.string().trim().max(400).default(kitCompanyProfile.address),
+    phone: z.string().trim().max(60).default(kitCompanyProfile.phone),
+    website: z.string().trim().max(200).default(kitCompanyProfile.website)
   }).strict()
 };
 var changeSchema = z.object({
@@ -1717,7 +1764,7 @@ function validateWorkspace(next, before) {
   }
   const revisions = /* @__PURE__ */ new Set();
   for (const p of next.proposals) {
-    requireEvent(p.eventId);
+    if (p.eventId) requireEvent(p.eventId);
     const key = `${p.number}:${p.version}`;
     invalid(revisions.has(key), "Proposal revision already exists.");
     revisions.add(key);
@@ -2070,6 +2117,10 @@ function applyChanges(original, changes, user) {
           p.number !== old.number || p.version !== old.version,
           "Proposal identity and revision cannot be changed."
         );
+        invalid(
+          Boolean(old.eventId) && p.eventId !== old.eventId,
+          "A proposal stays linked to its event. Create a new proposal for another event."
+        );
       } else {
         invalid(
           p.status !== "Draft" || Boolean(p.acceptedAt),
@@ -2077,7 +2128,7 @@ function applyChanges(original, changes, user) {
         );
         const family = original.proposals.filter((q) => q.number === p.number);
         invalid(
-          family.some((q) => q.eventId !== p.eventId),
+          family.some((q) => q.eventId && p.eventId && q.eventId !== p.eventId),
           "A proposal number belongs to one event."
         );
         invalid(
@@ -3242,7 +3293,8 @@ async function gemini(options) {
   if (value.promptFeedback?.blockReason === "SAFETY")
     throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
   const candidate = value.candidates?.[0];
-  if (!candidate) throw new HttpError(502, "La respuesta de IA qued\xF3 incompleta.");
+  if (!candidate)
+    throw new HttpError(502, "La respuesta de IA qued\xF3 incompleta.");
   if (candidate.finishReason === "SAFETY")
     throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
   if (candidate.finishReason === "MAX_TOKENS")
@@ -3518,7 +3570,10 @@ var KitService = class {
     for (const row of await this.repo.db.prepare("SELECT id,owner,payload FROM kit_threads").all()) {
       const t = JSON.parse(row.payload);
       if (t.busy) {
-        this.interrupt(t, "La generaci\xF3n se interrumpi\xF3 al reiniciar el servicio.");
+        this.interrupt(
+          t,
+          "La generaci\xF3n se interrumpi\xF3 al reiniciar el servicio."
+        );
         await this.save(row.owner, t);
       }
     }
@@ -3531,7 +3586,10 @@ var KitService = class {
     const staleMs = Number(process.env.KIT_JOB_STALE_MS || 33e4);
     if (!t.busy || this.jobs.has(t.id) || Date.now() - Date.parse(t.updatedAt) < staleMs)
       return t;
-    this.interrupt(t, "La generaci\xF3n se interrumpi\xF3 porque el servicio la detuvo.");
+    this.interrupt(
+      t,
+      "La generaci\xF3n se interrumpi\xF3 porque el servicio la detuvo."
+    );
     await this.save(owner, t);
     return t;
   }
@@ -3561,100 +3619,109 @@ var KitService = class {
   }
   async sources(userId, refs, scope) {
     const { user, scoped } = scope ?? await this.scope(userId);
-    return Promise.all(refs.map(async (ref) => {
-      let label, text3, route = null;
-      let revision;
-      if (ref.kind === "attachment") {
-        if (!ref.text?.trim() || !ref.title)
-          throw new HttpError(422, "Adjunto vac\xEDo.");
-        label = ref.title;
-        text3 = ref.text;
-      } else if (ref.kind === "file") {
-        if (!this.files)
-          throw new HttpError(
-            503,
-            "Las fuentes de archivos indexados no est\xE1n disponibles."
-          );
-        const file = await this.files.source(userId, ref.id);
-        label = file.title;
-        route = `/search?source=${encodeURIComponent(file.id)}`;
-        text3 = JSON.stringify({
-          title: file.title,
-          mime: file.mime,
-          content: file.text
-        });
-        revision = file.hash;
-      } else if (ref.kind === "event") {
-        const event = scoped.events.find((e) => e.id === ref.id);
-        if (!event || !canSeeModule(user, "/events"))
-          throw new HttpError(403, "No tienes acceso al proyecto adjunto.");
-        label = event.name;
-        route = `/events/${event.id}`;
-        text3 = JSON.stringify({
-          event,
-          tasks: scoped.tasks.filter((t) => t.eventId === event.id)
-        });
-      } else {
-        const p = scoped.proposals.find((p2) => p2.id === ref.id);
-        if (!p || !canSeeModule(user, "/proposals"))
-          throw new HttpError(403, "No tienes acceso a la propuesta adjunta.");
-        label = p.title;
-        route = `/proposals/${p.id}`;
-        text3 = JSON.stringify({
-          id: p.id,
-          eventId: p.eventId,
-          number: p.number,
-          title: p.title,
-          introduction: p.introduction,
-          status: p.status,
-          version: p.version,
-          lines: p.lines,
-          terms: p.terms
-        });
-      }
-      text3 = redactSecrets(text3).text.slice(0, 16e3);
-      return {
-        key: `${ref.kind}:${ref.id}`,
-        ref: ref.kind === "attachment" ? { ...ref, text: redactSecrets(ref.text).text } : { kind: ref.kind, id: ref.id },
-        label: label.slice(0, 200),
-        route,
-        revision: revision || hash(text3),
-        text: text3
-      };
-    }));
+    return Promise.all(
+      refs.map(async (ref) => {
+        let label, text3, route = null;
+        let revision;
+        if (ref.kind === "attachment") {
+          if (!ref.text?.trim() || !ref.title)
+            throw new HttpError(422, "Adjunto vac\xEDo.");
+          label = ref.title;
+          text3 = ref.text;
+        } else if (ref.kind === "file") {
+          if (!this.files)
+            throw new HttpError(
+              503,
+              "Las fuentes de archivos indexados no est\xE1n disponibles."
+            );
+          const file = await this.files.source(userId, ref.id);
+          label = file.title;
+          route = `/search?source=${encodeURIComponent(file.id)}`;
+          text3 = JSON.stringify({
+            title: file.title,
+            mime: file.mime,
+            content: file.text
+          });
+          revision = file.hash;
+        } else if (ref.kind === "event") {
+          const event = scoped.events.find((e) => e.id === ref.id);
+          if (!event || !canSeeModule(user, "/events"))
+            throw new HttpError(403, "No tienes acceso al proyecto adjunto.");
+          label = event.name;
+          route = `/events/${event.id}`;
+          text3 = JSON.stringify({
+            event,
+            tasks: scoped.tasks.filter((t) => t.eventId === event.id)
+          });
+        } else {
+          const p = scoped.proposals.find((p2) => p2.id === ref.id);
+          if (!p || !canSeeModule(user, "/proposals"))
+            throw new HttpError(
+              403,
+              "No tienes acceso a la propuesta adjunta."
+            );
+          label = p.title;
+          route = `/proposals/${p.id}`;
+          text3 = JSON.stringify({
+            id: p.id,
+            eventId: p.eventId,
+            number: p.number,
+            title: p.title,
+            introduction: p.introduction,
+            status: p.status,
+            version: p.version,
+            lines: p.lines,
+            terms: p.terms
+          });
+        }
+        text3 = redactSecrets(text3).text.slice(0, 16e3);
+        return {
+          key: `${ref.kind}:${ref.id}`,
+          ref: ref.kind === "attachment" ? { ...ref, text: redactSecrets(ref.text).text } : { kind: ref.kind, id: ref.id },
+          label: label.slice(0, 200),
+          route,
+          revision: revision || hash(text3),
+          text: text3
+        };
+      })
+    );
   }
   async view(user, t) {
     const scope = t.messages.some((m) => m.sources.length) ? await this.scope(user).catch(() => void 0) : void 0;
     return {
       ...t,
-      messages: await Promise.all(t.messages.map(async (m) => {
-        const sources = await Promise.all(m.sources.map(async (s) => {
-          try {
-            if (!scope) throw new Error("unavailable");
-            const current = (await this.sources(user, [s.ref], scope))[0];
-            return { ...s, stale: current.revision !== s.revision };
-          } catch {
+      messages: await Promise.all(
+        t.messages.map(async (m) => {
+          const sources = await Promise.all(
+            m.sources.map(async (s) => {
+              try {
+                if (!scope) throw new Error("unavailable");
+                const current = (await this.sources(user, [s.ref], scope))[0];
+                return { ...s, stale: current.revision !== s.revision };
+              } catch {
+                return {
+                  ...s,
+                  label: "Fuente no disponible",
+                  text: "",
+                  ref: { kind: s.ref.kind, id: s.ref.id },
+                  unavailable: true
+                };
+              }
+            })
+          );
+          if (sources.some((s) => s.unavailable))
             return {
-              ...s,
-              label: "Fuente no disponible",
-              text: "",
-              ref: { kind: s.ref.kind, id: s.ref.id },
-              unavailable: true
+              ...m,
+              text: "Contenido oculto: se revoc\xF3 el acceso a una fuente.",
+              sources,
+              citations: [],
+              artifacts: [],
+              action: void 0,
+              status: "blocked"
             };
-          }
-        }));
-        if (sources.some((s) => s.unavailable))
-          return {
-            ...m,
-            text: "Contenido oculto: se revoc\xF3 el acceso a una fuente.",
-            sources,
-            citations: [],
-            artifacts: [],
-            action: void 0,
-            status: "blocked"
-          };
-        return { ...m, sources };
-      }))
+          return { ...m, sources };
+        })
+      )
     };
   }
   async list(user) {
@@ -3940,7 +4007,11 @@ var KitService = class {
         Object.assign(m, result2, { status: "completed" });
         t.busy = false;
         await this.save(user, t);
-        await this.repo.audit(user, "KIT generation completed", `${tid}:${mid}`);
+        await this.repo.audit(
+          user,
+          "KIT generation completed",
+          `${tid}:${mid}`
+        );
       } catch (error) {
         if (controller.signal.aborted) return;
         try {
@@ -4166,7 +4237,12 @@ var KitService = class {
         confirmed: z5.literal(true)
       }).strict().parse(req.body);
       res.json(
-        await this.confirm(await actor(res), id2.parse(req.params.id), b.messageId, b.token)
+        await this.confirm(
+          await actor(res),
+          id2.parse(req.params.id),
+          b.messageId,
+          b.token
+        )
       );
     });
   }
@@ -6790,13 +6866,7 @@ async function lastTest(repo, id3) {
 }
 async function integrationStatus(repo, config, extra) {
   const { ai, serpapi, whatsapp, email } = config;
-  const ids2 = [
-    "ai",
-    "whatsapp",
-    "serpapi",
-    "search",
-    "email"
-  ];
+  const ids2 = ["ai", "whatsapp", "serpapi", "search", "email"];
   const last = Object.fromEntries(
     await Promise.all(ids2.map(async (id3) => [id3, await lastTest(repo, id3)]))
   );

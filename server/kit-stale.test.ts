@@ -52,7 +52,8 @@ async function busyThread(id: string, updatedAt: string) {
     .prepare("INSERT INTO kit_threads VALUES(?,?,?,?)")
     .run(id, "owner", JSON.stringify(thread), updatedAt);
 }
-const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+const minutesAgo = (m: number) =>
+  new Date(Date.now() - m * 60_000).toISOString();
 
 describe("AI jobs cut off by the serverless platform", () => {
   it("frees a thread that has been busy longer than any function can run", async () => {

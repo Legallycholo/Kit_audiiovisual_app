@@ -140,9 +140,10 @@ export class KitService {
      */
     options: { resetBusyOnBoot?: boolean } = {},
   ) {
-    this.ready = (options.resetBusyOnBoot ?? true)
-      ? this.interruptAllBusy()
-      : Promise.resolve();
+    this.ready =
+      (options.resetBusyOnBoot ?? true)
+        ? this.interruptAllBusy()
+        : Promise.resolve();
     this.ready.catch(() => {});
   }
   private interrupt(t: KitThread, reason: string) {
@@ -161,7 +162,10 @@ export class KitService {
       .all()) as { id: string; owner: string; payload: string }[]) {
       const t = JSON.parse(row.payload) as KitThread;
       if (t.busy) {
-        this.interrupt(t, "La generación se interrumpió al reiniciar el servicio.");
+        this.interrupt(
+          t,
+          "La generación se interrumpió al reiniciar el servicio.",
+        );
         await this.save(row.owner, t);
       }
     }
@@ -178,7 +182,10 @@ export class KitService {
       Date.now() - Date.parse(t.updatedAt) < staleMs
     )
       return t;
-    this.interrupt(t, "La generación se interrumpió porque el servicio la detuvo.");
+    this.interrupt(
+      t,
+      "La generación se interrumpió porque el servicio la detuvo.",
+    );
     await this.save(owner, t);
     return t;
   }
@@ -190,9 +197,9 @@ export class KitService {
   }
   private async read(userId: string, threadId: string) {
     await this.actor(userId);
-    const row = await this.repo.db
+    const row = (await this.repo.db
       .prepare("SELECT payload FROM kit_threads WHERE id=? AND owner=?")
-      .get(threadId, userId) as { payload: string } | undefined;
+      .get(threadId, userId)) as { payload: string } | undefined;
     if (!row) throw new HttpError(404, "Conversación no disponible.");
     return this.reapStale(userId, JSON.parse(row.payload) as KitThread);
   }
@@ -216,72 +223,77 @@ export class KitService {
     scope?: Awaited<ReturnType<KitService["scope"]>>,
   ): Promise<KitSource[]> {
     const { user, scoped } = scope ?? (await this.scope(userId));
-    return Promise.all(refs.map(async (ref) => {
-      let label: string,
-        text: string,
-        route: string | null = null;
-      let revision: string | undefined;
-      if (ref.kind === "attachment") {
-        if (!ref.text?.trim() || !ref.title)
-          throw new HttpError(422, "Adjunto vacío.");
-        label = ref.title;
-        text = ref.text;
-      } else if (ref.kind === "file") {
-        if (!this.files)
-          throw new HttpError(
-            503,
-            "Las fuentes de archivos indexados no están disponibles.",
-          );
-        const file = await this.files.source(userId, ref.id);
-        label = file.title;
-        route = `/search?source=${encodeURIComponent(file.id)}`;
-        text = JSON.stringify({
-          title: file.title,
-          mime: file.mime,
-          content: file.text,
-        });
-        revision = file.hash;
-      } else if (ref.kind === "event") {
-        const event = scoped.events.find((e) => e.id === ref.id);
-        if (!event || !canSeeModule(user, "/events"))
-          throw new HttpError(403, "No tienes acceso al proyecto adjunto.");
-        label = event.name;
-        route = `/events/${event.id}`;
-        text = JSON.stringify({
-          event,
-          tasks: scoped.tasks.filter((t) => t.eventId === event.id),
-        });
-      } else {
-        const p = scoped.proposals.find((p) => p.id === ref.id);
-        if (!p || !canSeeModule(user, "/proposals"))
-          throw new HttpError(403, "No tienes acceso a la propuesta adjunta.");
-        label = p.title;
-        route = `/proposals/${p.id}`;
-        text = JSON.stringify({
-          id: p.id,
-          eventId: p.eventId,
-          number: p.number,
-          title: p.title,
-          introduction: p.introduction,
-          status: p.status,
-          version: p.version,
-          lines: p.lines,
-          terms: p.terms,
-        });
-      }
-      text = redactSecrets(text).text.slice(0, 16000);
-      return {
-        key: `${ref.kind}:${ref.id}`,
-        ref:
-          ref.kind === "attachment"
-            ? { ...ref, text: redactSecrets(ref.text!).text }
-            : { kind: ref.kind, id: ref.id },
-        label: label.slice(0, 200),
-        route,
-        revision: revision || hash(text),
-        text,
-      };
-    }));
+    return Promise.all(
+      refs.map(async (ref) => {
+        let label: string,
+          text: string,
+          route: string | null = null;
+        let revision: string | undefined;
+        if (ref.kind === "attachment") {
+          if (!ref.text?.trim() || !ref.title)
+            throw new HttpError(422, "Adjunto vacío.");
+          label = ref.title;
+          text = ref.text;
+        } else if (ref.kind === "file") {
+          if (!this.files)
+            throw new HttpError(
+              503,
+              "Las fuentes de archivos indexados no están disponibles.",
+            );
+          const file = await this.files.source(userId, ref.id);
+          label = file.title;
+          route = `/search?source=${encodeURIComponent(file.id)}`;
+          text = JSON.stringify({
+            title: file.title,
+            mime: file.mime,
+            content: file.text,
+          });
+          revision = file.hash;
+        } else if (ref.kind === "event") {
+          const event = scoped.events.find((e) => e.id === ref.id);
+          if (!event || !canSeeModule(user, "/events"))
+            throw new HttpError(403, "No tienes acceso al proyecto adjunto.");
+          label = event.name;
+          route = `/events/${event.id}`;
+          text = JSON.stringify({
+            event,
+            tasks: scoped.tasks.filter((t) => t.eventId === event.id),
+          });
+        } else {
+          const p = scoped.proposals.find((p) => p.id === ref.id);
+          if (!p || !canSeeModule(user, "/proposals"))
+            throw new HttpError(
+              403,
+              "No tienes acceso a la propuesta adjunta.",
+            );
+          label = p.title;
+          route = `/proposals/${p.id}`;
+          text = JSON.stringify({
+            id: p.id,
+            eventId: p.eventId,
+            number: p.number,
+            title: p.title,
+            introduction: p.introduction,
+            status: p.status,
+            version: p.version,
+            lines: p.lines,
+            terms: p.terms,
+          });
+        }
+        text = redactSecrets(text).text.slice(0, 16000);
+        return {
+          key: `${ref.kind}:${ref.id}`,
+          ref:
+            ref.kind === "attachment"
+              ? { ...ref, text: redactSecrets(ref.text!).text }
+              : { kind: ref.kind, id: ref.id },
+          label: label.slice(0, 200),
+          route,
+          revision: revision || hash(text),
+          text,
+        };
+      }),
+    );
   }
   private async view(user: string, t: KitThread): Promise<KitThread> {
     // One workspace read serves every source in the thread. If the actor is no
@@ -291,34 +303,38 @@ export class KitService {
       : undefined;
     return {
       ...t,
-      messages: await Promise.all(t.messages.map(async (m) => {
-        const sources = await Promise.all(m.sources.map(async (s) => {
-          try {
-            if (!scope) throw new Error("unavailable");
-            const current = (await this.sources(user, [s.ref], scope))[0];
-            return { ...s, stale: current.revision !== s.revision };
-          } catch {
+      messages: await Promise.all(
+        t.messages.map(async (m) => {
+          const sources = await Promise.all(
+            m.sources.map(async (s) => {
+              try {
+                if (!scope) throw new Error("unavailable");
+                const current = (await this.sources(user, [s.ref], scope))[0];
+                return { ...s, stale: current.revision !== s.revision };
+              } catch {
+                return {
+                  ...s,
+                  label: "Fuente no disponible",
+                  text: "",
+                  ref: { kind: s.ref.kind, id: s.ref.id },
+                  unavailable: true,
+                };
+              }
+            }),
+          );
+          if (sources.some((s) => s.unavailable))
             return {
-              ...s,
-              label: "Fuente no disponible",
-              text: "",
-              ref: { kind: s.ref.kind, id: s.ref.id },
-              unavailable: true,
+              ...m,
+              text: "Contenido oculto: se revocó el acceso a una fuente.",
+              sources,
+              citations: [],
+              artifacts: [],
+              action: undefined,
+              status: "blocked",
             };
-          }
-        }));
-        if (sources.some((s) => s.unavailable))
-          return {
-            ...m,
-            text: "Contenido oculto: se revocó el acceso a una fuente.",
-            sources,
-            citations: [],
-            artifacts: [],
-            action: undefined,
-            status: "blocked",
-          };
-        return { ...m, sources };
-      })),
+          return { ...m, sources };
+        }),
+      ),
     };
   }
   async list(user: string) {
@@ -473,7 +489,8 @@ export class KitService {
         date: e.date,
         status: e.status,
         venue: scoped.venues.find((v) => v.id === e.venueId)?.name || e.venueId,
-        client: scoped.clients.find((c) => c.id === e.clientId)?.name || e.clientId,
+        client:
+          scoped.clients.find((c) => c.id === e.clientId)?.name || e.clientId,
       }));
       const proposalsSummary = scoped.proposals.slice(0, 8).map((p) => ({
         id: p.id,
@@ -616,13 +633,19 @@ export class KitService {
     sources: KitSource[],
   ) {
     const current = await this.actor(user.id);
-    if (current.role !== user.role || (await this.repo.read()).revision !== revision)
+    if (
+      current.role !== user.role ||
+      (await this.repo.read()).revision !== revision
+    )
       throw new HttpError(
         409,
         "El acceso o los datos cambiaron. Revisa el contexto y reintenta.",
       );
     for (const source of sources) {
-      if ((await this.sources(user.id, [source.ref]))[0].revision !== source.revision)
+      if (
+        (await this.sources(user.id, [source.ref]))[0].revision !==
+        source.revision
+      )
         throw new HttpError(409, "Una fuente cambió durante la generación.");
     }
   }
@@ -654,7 +677,11 @@ export class KitService {
         Object.assign(m, result, { status: "completed" });
         t.busy = false;
         await this.save(user, t);
-        await this.repo.audit(user, "KIT generation completed", `${tid}:${mid}`);
+        await this.repo.audit(
+          user,
+          "KIT generation completed",
+          `${tid}:${mid}`,
+        );
       } catch (error) {
         if (controller.signal.aborted) return;
         try {
@@ -834,7 +861,9 @@ export class KitService {
         })
         .strict()
         .parse(req.body);
-      res.status(201).json(await this.create(await actor(res), b.title, b.projectId));
+      res
+        .status(201)
+        .json(await this.create(await actor(res), b.title, b.projectId));
     });
     app.get("/api/kit/threads/:id", async (req, res) =>
       res.json(await this.get(await actor(res), id.parse(req.params.id))),
@@ -903,7 +932,12 @@ export class KitService {
         .strict()
         .parse(req.body);
       res.json(
-        await this.confirm(await actor(res), id.parse(req.params.id), b.messageId, b.token),
+        await this.confirm(
+          await actor(res),
+          id.parse(req.params.id),
+          b.messageId,
+          b.token,
+        ),
       );
     });
   }
