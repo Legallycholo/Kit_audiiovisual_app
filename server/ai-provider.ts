@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { HttpError } from "./database";
-import { GoogleGenAI } from "@google/genai";
 
 /**
  * Provider-neutral structured output. Every provider gets the same inputs and
@@ -77,7 +76,11 @@ async function readJson(response: Response): Promise<any> {
 
 function parseOutput(text: string) {
   try {
-    const cleaned = text.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
+    const cleaned = text
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
     return JSON.parse(cleaned);
   } catch {
     throw new HttpError(502, "La IA no devolvió una respuesta válida.");
@@ -292,7 +295,8 @@ async function gemini(options: StructuredOptions) {
   if (value.promptFeedback?.blockReason === "SAFETY")
     throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
   const candidate = value.candidates?.[0];
-  if (!candidate) throw new HttpError(502, "La respuesta de IA quedó incompleta.");
+  if (!candidate)
+    throw new HttpError(502, "La respuesta de IA quedó incompleta.");
   if (candidate.finishReason === "SAFETY")
     throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
   if (candidate.finishReason === "MAX_TOKENS")

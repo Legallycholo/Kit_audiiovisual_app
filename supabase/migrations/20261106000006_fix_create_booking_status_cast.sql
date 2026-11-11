@@ -1,0 +1,15 @@
+-- Hotfix applied to the hosted project on 2026-11-06 (ledger version 20261106225946,
+-- name `fix_create_booking_status_cast`) but never committed to this folder. It is
+-- recorded here so the repository matches the project's migration history.
+-- The booking domain, including this function, was removed by migration 10, so this
+-- file is history only and must not be re-applied.
+--
+-- Original statement: casts the status/source literals explicitly in create_booking().
+--
+-- create or replace function public.create_booking(
+--   p_service_id uuid, p_starts_at timestamptz, p_notes text default null, p_client_id uuid default null)
+-- returns uuid language plpgsql security definer set search_path = '' as $$ ... $$;
+--
+-- (Full body: see the `statements` column of supabase_migrations.schema_migrations
+-- for version 20261106225946 in the hosted project.)
+select 1;

@@ -20,13 +20,5 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: "0.0.0.0",
     },
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks: (module) =>
-            module.includes("/three/src/") ? "three-engine" : undefined,
-        },
-      },
-    },
   };
 });

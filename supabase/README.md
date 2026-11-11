@@ -1,14 +1,18 @@
 # Supabase (KIT portal and company database)
 
 Project: `kit audiovisual` (`hgugkgbpsrbqusazmthb`, ca-central-1). The migrations in `migrations/` are the
-source of truth. Migrations 1–9 are applied to the hosted project (in order). **Migrations 10 (`remove_booking_domain`: drops the booking tables and the `client` role) and 11 (`profiles_set_password`) are written but NOT yet applied; they wait for the owner's go-ahead (the Supabase connector declined both).** There is no local stack on this
-machine (no Docker / Supabase CLI), so changes are applied with the Supabase connector and verified with
-rolled-back SQL transactions.
+source of truth. **All of them (1–14, plus the `fix_create_booking_status_cast` hotfix of 2026-11-06) are applied
+to the hosted project**, and since 2026-11-11 the project's own migration history (`supabase_migrations.schema_migrations`)
+lists every one of them; 10–14 were applied by hand through the SQL editor, so their ledger rows carry a note instead
+of the SQL. Keep the two in step: apply new files with the connector's `apply_migration`, which records them. There is no
+local stack on this machine (no Docker / Supabase CLI); changes are verified with rolled-back SQL transactions.
+Still to do in the dashboard (not possible from SQL): delete the empty booking buckets `deliverables` and
+`session-attachments`, and enable leaked-password protection (Authentication → Attack Protection).
 
 ## Create the first admin (manual, by design)
 
-1. Add the user in the Supabase dashboard → Authentication → Users → Add user (tick "Auto Confirm User").
-   There is no sign-up page: KIT is admin-only.
+1. Add the user in the Supabase dashboard → Authentication → Users → Add user (tick "Auto Confirm User"),
+   or let the person request an account at `/portal/signup` and approve it in `/portal/admin/users`.
 2. In the SQL editor run (replace the email):
 
 ```sql
@@ -40,8 +44,8 @@ query logs; use a one-time password and have the person change it, or use Authen
 
 ## Dashboard settings to review (cannot be set from SQL)
 
-- Authentication → URL Configuration: add `http://localhost:3001/portal/**` and the Fly URL to Redirect URLs.
-- Authentication → Sign In / Providers → Email: turn **off** "Allow new users to sign up" (there is no sign-up page; this also blocks direct API sign-ups). Choose whether "Confirm email" is required.
+- Authentication → URL Configuration: add `http://localhost:3001/portal/**` and the Vercel URL to Redirect URLs.
+- Authentication → Sign In / Providers → Email: sign-ups stay on (the portal has a sign-up page; `app_settings.require_account_approval` keeps new accounts pending). Choose whether "Confirm email" is required.
 - Authentication → Attack Protection: enable leaked-password protection (plan permitting).
 
 ## Never
@@ -54,9 +58,8 @@ query logs; use a one-time password and have the person change it, or use Authen
 login attempts, recovery points, search and KIT conversations) in a **private `kit` schema**, separate from the
 portal's `public` tables and **not exposed through the Data API**. It enables row level security with no public
 policy and creates the `kit_server` role (no password in the file) that the company server uses.
-It is **not applied yet**: the owner applies it, then sets the role's password, as written step by step in
-[../docs/DEPLOY_VERCEL.md](../docs/DEPLOY_VERCEL.md). The same file is what local development and the tests run on
-in-process PGlite, so the two cannot drift.
+It is applied, and the `kit_server` role has its password set (see [../docs/DEPLOY_VERCEL.md](../docs/DEPLOY_VERCEL.md)).
+The same file is what local development and the tests run on in-process PGlite, so the two cannot drift.
 
 `20261109000013_kit_design.sql` (migration 13) adds KIT Design's tables (`design_projects`, `design_images`,
 `design_versions`, `design_renders`, `design_messages`, `design_files`) to the same `kit` schema with the same

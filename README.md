@@ -2,7 +2,7 @@
 
 KIT is a Spanish-first workspace for an audiovisual event-production company. It connects **clients, events, venues, proposals, equipment inventory, 2D/3D layouts and day-of operations** in one app, with AI that _suggests_ and people that _decide_.
 
-> Status: in active development, nothing deployed. Current state in one page: [docs/STATUS.md](docs/STATUS.md).
+> Status: in active development and **deployed on Vercel** (every push to `main` is a production deploy). Current state in one page: [docs/STATUS.md](docs/STATUS.md).
 
 ## What it does
 
@@ -18,35 +18,33 @@ Feature details: [docs/FEATURES.md](docs/FEATURES.md). Product plan: [docs/IMPLE
 
 | Layer            | Technology                                                                                                                                                |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend         | React 19, TypeScript 5.9, Vite 7, React Router 7, Three.js, lucide-react                                                                                  |
+| Frontend         | React 19, TypeScript 5.9, Vite 7, React Router 7, lucide-react                                                                                            |
 | Company server   | Node ≥ 22.12, Express 5, Postgres (Supabase in production, PGlite locally), Zod 4 for validation, `tsx` runner                                           |
 | Auth             | Server-side sessions (HTTP-only cookies, CSRF, role/event scoping); reCAPTCHA hooks |
-| AI               | Server-only provider adapter: Gemini (`@google/genai`), OpenAI, Anthropic; structured output validated against the catalog                                |
+| AI               | Server-only provider adapter (`server/ai-provider.ts`): Anthropic, OpenAI, Gemini over `fetch`; structured output validated against the catalog           |
 | Desktop          | Tauri 2 (Rust): shell, native file commands, OS keyring                                                                                                   |
 | Local file index | Rust crate `native/file-index`: SQLCipher (rusqlite), file watching, PDF/Office text extraction                                                           |
 | Testing          | Vitest (unit/API), Playwright (browser journeys), axe-core (accessibility)                                                                                |
 | Tooling          | npm (only), Prettier, `tsc -b`                                                                                                                            |
 
-## Two data modes
+## Data
 
-- **Sample mode** — runs in the browser only; data lives in local storage. Good for UI work.
-- **Company mode** — data is persisted by the Express server in Postgres: the company's Supabase project in production (private `kit` schema), and an in-process PGlite database in `.kit-local/` (git-ignored) for local work. The workspace is currently one JSON row guarded by a single global revision, so concurrent saves conflict. A per-record model is proposed in [docs/DATA_MODEL_PROPOSAL.md](docs/DATA_MODEL_PROPOSAL.md).
-
-Both modes must keep working.
+All data is persisted by the Express server in Postgres: the company's Supabase project in production (private `kit` schema), and an in-process PGlite database in `.kit-local/` (git-ignored) for local work. The workspace is currently one JSON row guarded by a single global revision, so concurrent saves conflict. A per-record model is proposed in [docs/DATA_MODEL_PROPOSAL.md](docs/DATA_MODEL_PROPOSAL.md). The former browser-only sample mode no longer exists; `src/shared/seed.ts` is used by tests and by the optional `KIT_SEED_OWNER_PASSWORD` local seed.
 
 ## Accounts and roles
 
-There is no self-service sign-up: an administrator creates every account in
-_Configuración › Usuarios_ and assigns one of the six roles in
-`src/shared/access.ts`. Sign-in is by password (`/api/login`); the Express server issues its own
-session and stays the authorization gate.
+Sign-in goes through the Supabase portal (`/portal/login`, with account requests at `/portal/signup`
+that an administrator approves). A verified portal administrator enters the workspace through
+`POST /api/login/supabase`; the Express server issues its own session and stays the authorization gate.
+Workspace roles (six, in `src/shared/access.ts`) are managed in _Configuración › Usuarios_. The
+password login (`/api/login`, `/api/setup`) remains for local runs without a configured portal.
 
 Administrators also get `/admin`, an overview of who holds each role and the
 recent access history. Everyone sees their own role on the dashboard.
 
 ## Hosting
 
-Production runs on **Vercel**: the Vite build is served as static files and the API runs as one serverless function (`api/index.ts`) against the company's Supabase Postgres. See [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md) for the setup and the owner's manual steps. Search retries run from a Vercel Cron job and after search activity instead of an in-process timer.
+Production runs on **Vercel**: the Vite build is served as static files and the API runs as one serverless function (`api/index.mjs`, bundled from `server/vercel-entry.ts` by `npm run build:api`) against the company's Supabase Postgres. See [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md) for the setup and the owner's manual steps. Search retries run from a Vercel Cron job and after search activity instead of an in-process timer.
 
 ## Getting started
 
@@ -58,7 +56,7 @@ npm run dev          # sample workspace  → http://127.0.0.1:5173
 npm run dev:server   # company server    → http://127.0.0.1:3001
 ```
 
-In the app choose **Abrir espacio de empresa**. First run creates the owner account and an empty workspace (no sample import, no default credentials). Account setup is limited to connections from the server machine; both services bind to loopback.
+Without a configured portal the first run shows the local owner setup and creates an empty workspace (no sample import, no default credentials). Set `KIT_SEED_OWNER_PASSWORD` to start from the sample data instead. Both services bind to loopback.
 
 Copy `.env.example` to `.env` for optional settings (AI keys and models, reCAPTCHA, backup dir, search provider). Provider secrets are read by the server only. Never put credentials in a `VITE_` variable.
 
@@ -97,7 +95,7 @@ docs/              plan, technical decisions, status, desktop phases, cleanup pl
 
 ## Ground rules for contributors
 
-- **No external calls.** No live AI, WhatsApp, cloud or provider requests in dev or tests; tests use fixtures at the model and messaging boundaries. Never add credentials.
+- **External services are allowed in production, never in dev or tests.** Tests and local runs use fixtures at the provider boundaries and PGlite. Keys live only in server environment variables. Never add credentials.
 - **AI only suggests.** Outgoing client messages, proposal acceptance and Act-mode mutations always need confirmation plus a server-side authorization check. Do not weaken this.
 - **Refactors don't change behavior.** Keep exported names, API routes and response shapes identical; if a test must change, stop and explain.
 - **Ask first** before deleting files, changing an API route/response shape, or changing the on-disk database format.

@@ -13,7 +13,7 @@ npm run dev:server     # company server at http://127.0.0.1:3001 (local PGlite d
 npm run typecheck      # tsc -b
 npm run build          # typecheck + vite build
 npm test               # vitest (src + server)
-npm run test:browser   # Playwright, isolated headless Chrome (~2.5 min)
+npm run test:browser   # Playwright: Vite on 5173 + one isolated in-process API server per test (~10 min)
 npm run format         # prettier
 npm run backup         # checksummed workspace backup to KIT_BACKUP_DIR (uses KIT_DATABASE)
 npm run migrate:sqlite # one-time import of an old SQLite file into Postgres (dry run by default)
@@ -30,7 +30,7 @@ Before committing, run typecheck, `npm test` and `npm run test:browser`. Compare
   - Tests and local development use those fixtures and PGlite, never live services, so `npm test` stays free, deterministic and offline. The company database (Supabase Postgres, role `kit_server`, `KIT_DATABASE`) is used only by the deployed server.
   - Calls that cost money (image renders, AI generations) need a visible quota or cap.
 - **Never touch** `data/` (the original company SQLite file; it is only ever read by `npm run migrate:sqlite`, read-only, when the owner runs it), `.env*`, or `node_modules/`. The company database is Postgres in the `kit` schema of the Supabase project; tests and local development use in-process PGlite and never connect to it.
-- **No push or deploy** without explicit user approval.
+- **No push or deploy** without explicit user approval. The Vercel project builds every push to `main` into production, so a push is a deploy.
 - **Refactors do not change behavior.** Moves and extractions keep exported names, API routes and response shapes identical. If a test must change, stop and explain.
 - **Ask before** deleting files, changing an API route or response shape, or changing the on-disk database format.
 - AI only suggests. Outgoing client messages, proposal acceptance, and mutations proposed by KIT Act mode always need an owner or user confirmation and a server-side authorization check. Do not weaken this.
@@ -57,4 +57,4 @@ Before committing, run typecheck, `npm test` and `npm run test:browser`. Compare
 - The database layer is async (`server/db/`): the same SQL runs on `pg` (Supabase) and PGlite (local/tests). Schema: `supabase/migrations/20261107000012_kit_company_schema.sql`. Every transaction takes one global writer lock, which keeps SQLite's one-writer behavior.
 - On Vercel there is no background timer or shared memory: search retries run from Vercel Cron (`/api/cron/search-retry`, bearer `CRON_SECRET`) and after search activity; KIT's background AI jobs run under `waitUntil`, and jobs left behind by a cut-off function are interrupted by age (`KIT_JOB_STALE_MS`).
 - All company data is currently one JSON row (`workspace` table, `server/database.ts`) guarded by a single global revision. Saves conflict across sessions even when they touch different records. A migration is planned in Stage 5 of the cleanup plan, which needs approval before it starts.
-- Sample mode keeps data in browser local storage. Company mode persists it on the server. Both modes must keep working.
+- There is no browser-only sample mode any more: the store is company-only and every page needs a server session. `src/shared/seed.ts` feeds tests, the browser harness (`tests/browser/harness.ts`) and the optional `KIT_SEED_OWNER_PASSWORD` local seed.
