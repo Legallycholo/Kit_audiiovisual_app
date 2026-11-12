@@ -13,6 +13,7 @@ import {
 import { activity, useWorkspace } from "../../shared/store";
 import { canEditCollection } from "../../shared/access";
 import { id } from "../../shared/domain";
+import { createDesignProposalVisual } from "../../shared/proposal-visuals";
 import {
   Badge,
   Button,
@@ -608,6 +609,7 @@ function Result({
       {proposalOpen && (
         <AddToProposal
           event={event}
+          project={project}
           version={version}
           onClose={() => setProposalOpen(false)}
         />
@@ -627,10 +629,12 @@ function Result({
 /** add_to_proposal: always an explicit confirmation; the server re-checks permission and validity on save. */
 function AddToProposal({
   event,
+  project,
   version,
   onClose,
 }: {
   event: ProductionEvent;
+  project: DesignProject;
   version: DesignVersion;
   onClose: () => void;
 }) {
@@ -647,15 +651,40 @@ function AddToProposal({
       versionNumber: version.number,
     }),
   );
+  const realRenders = version.renders.filter((r) => !isFixtureRender(r));
+  const [includeRenders, setIncludeRenders] = useState(realRenders.length > 0);
+  // Renders enter the document by reference (max 12 visuals), never copied inline.
+  const withRenders = () => {
+    if (!includeRenders) return plan.proposal;
+    const visuals = [...(plan.proposal.visuals || [])];
+    for (const render of realRenders) {
+      if (visuals.length >= 12) break;
+      if (
+        visuals.some(
+          (v) => v.sourceType === "KIT Design" && v.sourceId === render.id,
+        )
+      )
+        continue;
+      visuals.push(
+        createDesignProposalVisual({
+          id: id(),
+          render,
+          designTitle: project.title,
+          versionNumber: version.number,
+          addedAt: new Date().toISOString(),
+        }),
+      );
+    }
+    return { ...plan.proposal, visuals };
+  };
   async function confirm() {
     setSaving(true);
+    const proposal = withRenders();
     const saved = await update((s) => ({
       ...s,
       proposals: plan.created
-        ? [...s.proposals, plan.proposal]
-        : s.proposals.map((p) =>
-            p.id === plan.proposal.id ? plan.proposal : p,
-          ),
+        ? [...s.proposals, proposal]
+        : s.proposals.map((p) => (p.id === proposal.id ? proposal : p)),
       activity: [
         activity(
           "Equipo del diseño añadido a la propuesta",
@@ -702,13 +731,27 @@ function AddToProposal({
             {plan.skipped.join(", ")}.
           </p>
         )}
+        {realRenders.length > 0 && (
+          <label className="kd-include-renders">
+            <input
+              type="checkbox"
+              checked={includeRenders}
+              onChange={(e) => setIncludeRenders(e.target.checked)}
+            />{" "}
+            Incluir{" "}
+            {realRenders.length === 1
+              ? "el render"
+              : `los ${realRenders.length} renders`}{" "}
+            de esta versión como imágenes del documento
+          </label>
+        )}
       </div>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose}>
           Cancelar
         </Button>
         <Button
-          disabled={saving || !plan.changes.length}
+          disabled={saving || (!plan.changes.length && !includeRenders)}
           onClick={() => void confirm()}
         >
           <Check size={16} />

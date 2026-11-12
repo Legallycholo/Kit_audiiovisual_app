@@ -1,6 +1,7 @@
 import { uiLabel } from "../../../shared/i18n";
 import { Wordmark } from "../../../shared/ui";
 import { money, shortDate } from "../../../shared/domain";
+import { visualSrc } from "../../../shared/proposal-visuals";
 import type { ProposalDocumentData } from "./ProposalDocument";
 
 /**
@@ -35,7 +36,7 @@ export function LegacyProposal({ data }: { data: ProposalDocumentData }) {
           <div>
             {(proposal.visuals || []).map((visual) => (
               <figure key={visual.id}>
-                <img src={visual.dataUrl} alt={visual.altText} />
+                <img src={visualSrc(visual)} alt={visual.altText} />
                 <figcaption>
                   <strong>{visual.title}</strong>
                   <span>{visual.caption}</span>

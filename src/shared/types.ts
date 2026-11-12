@@ -98,13 +98,16 @@ export interface ProposalEventSnapshot {
 }
 export interface ProposalVisual {
   id: string;
-  sourceType: "Creative" | "Layout plan" | "Layout 3D";
+  sourceType: "Creative" | "Layout plan" | "Layout 3D" | "KIT Design";
   sourceId: string;
   sourceRevision: number;
   title: string;
   caption: string;
   altText: string;
-  dataUrl: string;
+  /** Inline image (earlier sources). KIT Design renders use `url` instead, so the workspace row stays small. */
+  dataUrl?: string;
+  /** Server route of a KIT Design render, served to signed-in users. */
+  url?: string;
   mimeType: "image/svg+xml" | "image/png" | "image/jpeg" | "image/webp";
   measurementStatus?: "Verified" | "Unverified";
   addedAt: string;

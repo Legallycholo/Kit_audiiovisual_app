@@ -534,10 +534,10 @@ describe("proposal visual snapshots", () => {
       sourceRevision: 1,
       measurementStatus: "Unverified",
     });
-    expect(decodeURIComponent(plan.dataUrl)).toContain("PLANO 2D");
-    expect(decodeURIComponent(scene.dataUrl)).toContain("VISTA 3D");
+    expect(decodeURIComponent(plan.dataUrl!)).toContain("PLANO 2D");
+    expect(decodeURIComponent(scene.dataUrl!)).toContain("VISTA 3D");
     expect(plan.dataUrl).toBe(savedPlan);
-    expect(decodeURIComponent(plan.dataUrl)).not.toContain(
+    expect(decodeURIComponent(plan.dataUrl!)).not.toContain(
       "Changed after capture",
     );
     expect(

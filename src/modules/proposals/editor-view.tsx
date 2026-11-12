@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { activity, useWorkspace } from "../../shared/store";
 import { id, quoteTotals, createProposalRevision } from "../../shared/domain";
-import type { Proposal, QuoteLine } from "../../shared/types";
+import type { Proposal, ProposalVisual, QuoteLine } from "../../shared/types";
 import {
   createCreativeProposalVisual,
   createLayoutProposalVisual,
@@ -215,6 +215,27 @@ export function useEditorView({ original }: { original: Proposal }) {
     });
 
   // ---------- visuals (optional section) ----------
+  /** Adds a ready visual (a KIT Design render) once, up to the document's limit. */
+  const addVisual = (visual: ProposalVisual) => {
+    if ((draft.visuals || []).length >= 12) {
+      setError("La propuesta admite un máximo de 12 recursos visuales.");
+      return;
+    }
+    if (
+      draft.visuals?.some(
+        (existing) =>
+          existing.sourceType === visual.sourceType &&
+          existing.sourceId === visual.sourceId,
+      )
+    )
+      return;
+    setDraft({
+      ...draft,
+      status: "Draft",
+      visuals: [...(draft.visuals || []), visual],
+    });
+    setError("");
+  };
   const addCreativeVisual = (assetId: string) => {
     const asset = creativeOptions.find((item) => item.id === assetId);
     if (!asset) return;
@@ -499,6 +520,7 @@ export function useEditorView({ original }: { original: Proposal }) {
     applySuggestion,
     addCreativeVisual,
     addLayoutVisual,
+    addVisual,
     updateVisual,
     removeVisual,
     moveVisual,

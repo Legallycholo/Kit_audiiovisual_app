@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { Equipment, Proposal, QuoteLine } from "../../../shared/types";
 import { money } from "../../../shared/domain";
 import { Wordmark } from "../../../shared/ui";
+import { visualSrc } from "../../../shared/proposal-visuals";
 import {
   DocCell,
   DocText,
@@ -412,7 +413,7 @@ export function KitClassicProposal({
           <div className="doc-figures">
             {proposal.visuals!.map((visual) => (
               <figure key={visual.id}>
-                <img src={visual.dataUrl} alt={visual.altText} />
+                <img src={visualSrc(visual)} alt={visual.altText} />
                 <figcaption>
                   <strong>{visual.title}</strong>
                   {visual.caption && <span>{visual.caption}</span>}

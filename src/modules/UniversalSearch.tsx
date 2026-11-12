@@ -8,6 +8,12 @@ import {
   type IndexedFile,
   type FileStatus,
 } from "../shared/file-search";
+const sourceLabel: Record<SearchResult["source"], string> = {
+  app: "KIT",
+  company: "Empresa",
+  local: "Este equipo",
+  cloud: "Nube personal",
+};
 export function SearchPage() {
   const { data, user, mode, request } = useWorkspace();
   const [params] = useSearchParams();
@@ -22,6 +28,10 @@ export function SearchPage() {
   const [busy, setBusy] = useState(false);
   const [grouped, setGrouped] = useState(true);
   const [filter, setFilter] = useState("Todos");
+  /** Where results come from; every source is on until one chip is chosen. */
+  const [sourceFilter, setSourceFilter] = useState<SearchResult["source"] | "">(
+    "",
+  );
   const key = `kit:saved-searches:${mode}:${user?.id || "local"}`;
   const [saved, setSaved] = useState<string[]>(() => {
     try {
@@ -178,7 +188,12 @@ export function SearchPage() {
     ...remote,
   ].sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
   const types = [...new Set(all.map((r) => r.type))];
-  const results = all.filter((r) => filter === "Todos" || r.type === filter);
+  const sources = [...new Set(all.map((r) => r.source))];
+  const results = all.filter(
+    (r) =>
+      (filter === "Todos" || r.type === filter) &&
+      (!sourceFilter || r.source === sourceFilter),
+  );
   const groups = grouped
     ? [...new Set(results.map((r) => r.type))]
     : ["Resultados"];
@@ -246,6 +261,30 @@ export function SearchPage() {
           </ul>
         </details>
       )}
+      {sources.length > 1 && (
+        <div className="search-sources" role="group" aria-label="Fuentes">
+          <button
+            type="button"
+            className={`search-source-chip ${sourceFilter === "" ? "active" : ""}`}
+            aria-pressed={sourceFilter === ""}
+            onClick={() => setSourceFilter("")}
+          >
+            Todas las fuentes
+          </button>
+          {sources.map((source) => (
+            <button
+              key={source}
+              type="button"
+              className={`search-source-chip ${sourceFilter === source ? "active" : ""}`}
+              aria-pressed={sourceFilter === source}
+              onClick={() => setSourceFilter(source)}
+            >
+              {sourceLabel[source]} (
+              {all.filter((r) => r.source === source).length})
+            </button>
+          ))}
+        </div>
+      )}
       <p role="status">
         {busy ? "Buscando…" : coverage}{" "}
         {q && !busy && `${results.length} resultados.`}
@@ -294,15 +333,7 @@ export function SearchPage() {
                   <span>
                     {r.title}
                     <small>
-                      {r.type} ·{" "}
-                      {r.source === "company"
-                        ? "Empresa"
-                        : r.source === "app"
-                          ? "KIT"
-                          : r.source === "local"
-                            ? "Este equipo"
-                            : "Nube personal"}{" "}
-                      · {r.reason}
+                      {r.type} · {sourceLabel[r.source]} · {r.reason}
                     </small>
                     <small>{r.excerpt}</small>
                   </span>

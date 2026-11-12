@@ -115,8 +115,8 @@ export function CloudSearchSettings() {
         </>
       ) : (
         <p>
-          Abre la conexión de empresa para configurar una cuenta. No hay
-          proveedor activo en modo de ejemplo.
+          La nube personal se conecta desde KIT Desktop con un token de
+          dispositivo; en el navegador solo se consulta su estado.
         </p>
       )}
       {(native || mode === "company") && (

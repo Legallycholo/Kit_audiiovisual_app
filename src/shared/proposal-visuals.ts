@@ -4,6 +4,33 @@ import type {
   LayoutObject,
   ProposalVisual,
 } from "./types";
+import type { DesignRender } from "./kit-design";
+
+/** The image source of a visual: a KIT Design render route or inline data. */
+export const visualSrc = (visual: ProposalVisual) =>
+  visual.url ?? visual.dataUrl ?? "";
+
+/** A KIT Design render enters the document by reference; the file stays on the server. */
+export function createDesignProposalVisual(input: {
+  id: string;
+  render: DesignRender;
+  designTitle: string;
+  versionNumber: number;
+  addedAt: string;
+}): ProposalVisual {
+  return {
+    id: input.id,
+    sourceType: "KIT Design",
+    sourceId: input.render.id,
+    sourceRevision: input.versionNumber,
+    title: input.designTitle,
+    caption: "",
+    altText: `Render de KIT Design: ${input.designTitle}, versión ${input.versionNumber}`,
+    url: input.render.url,
+    mimeType: "image/png",
+    addedAt: input.addedAt,
+  };
+}
 
 const escapeXml = (value: string) =>
   value

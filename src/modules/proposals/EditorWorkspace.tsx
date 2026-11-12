@@ -11,7 +11,11 @@ import { Button, Drawer, Field } from "../../shared/ui";
 import { KitClassicProposal } from "./templates/KitClassicProposal";
 import { LegacyProposal } from "./templates/LegacyProposal";
 import { AIReview, ProposalAssistant } from "./ProposalAssistant";
-import { createVisualNarrative } from "../../shared/proposal-visuals";
+import {
+  createVisualNarrative,
+  visualSrc,
+} from "../../shared/proposal-visuals";
+import { DesignRenders } from "./DesignRenders";
 import type { EditorView } from "./editor-view";
 
 function useMediaQuery(query: string) {
@@ -48,6 +52,7 @@ export function EditorWorkspace({ ctx }: { ctx: EditorView }) {
     layoutOptions,
     addCreativeVisual,
     addLayoutVisual,
+    addVisual,
     updateVisual,
     removeVisual,
     moveVisual,
@@ -167,6 +172,13 @@ export function EditorWorkspace({ ctx }: { ctx: EditorView }) {
                       </p>
                     )}
                   </div>
+                  {draft.eventId && (
+                    <DesignRenders
+                      eventId={draft.eventId}
+                      visuals={draft.visuals || []}
+                      onAdd={addVisual}
+                    />
+                  )}
                   {layoutOptions.length > 0 && (
                     <div>
                       <strong>Diseños guardados</strong>
@@ -254,7 +266,7 @@ export function EditorWorkspace({ ctx }: { ctx: EditorView }) {
                   )}
                   {(draft.visuals || []).map((visual, index) => (
                     <article className="proposal-visual-card" key={visual.id}>
-                      <img src={visual.dataUrl} alt={visual.altText} />
+                      <img src={visualSrc(visual)} alt={visual.altText} />
                       <div>
                         <div className="proposal-visual-heading">
                           <span>

@@ -130,12 +130,6 @@ export function KitChat({
   }
   async function attachFiles(list: FileList | null) {
     if (!list) return;
-    if (!company) {
-      setNotice(
-        "Adjuntos disponibles en el espacio de empresa. No guardes archivos privados en el modo de ejemplo.",
-      );
-      return;
-    }
     const next = [...kit.refs];
     for (const file of Array.from(list)) {
       if (next.length >= 8) break;
@@ -198,13 +192,7 @@ export function KitChat({
       "Mensaje copiado al editor. Revísalo antes de volver a enviarlo; no se sobrescribe el historial.",
     );
   };
-  const disclosure = !company && (
-    <p className="kit-disclosure">
-      Modo de ejemplo: mensajes guardados en este navegador sin cifrado. No hay
-      respuestas simuladas ni acciones ejecutables. Usa solo datos de ejemplo;
-      abre el espacio de empresa para la IA.
-    </p>
-  );
+  const disclosure = null;
   const composer = (
     <>
       <form
@@ -341,8 +329,8 @@ export function KitChat({
             <button
               className="kit-send"
               disabled={!canSend}
-              aria-label={company ? "Enviar" : "Guardar mensaje de ejemplo"}
-              title={company ? "Enviar" : "Guardar mensaje de ejemplo"}
+              aria-label="Enviar"
+              title="Enviar"
             >
               <ArrowUp size={18} aria-hidden="true" />
             </button>
@@ -670,9 +658,7 @@ export function KitChat({
   }
   const status = kit.status.configured
     ? `${kit.status.provider} · ${kit.status.model}`
-    : company
-      ? "IA no conectada"
-      : "Espacio de demostración · sin IA";
+    : "IA no conectada";
   if (sidebar)
     return (
       <aside className="assistant kit-chat-sidebar">

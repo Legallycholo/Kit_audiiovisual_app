@@ -1073,13 +1073,17 @@ var creativeAsset = z.object({
 );
 var proposalVisual = z.object({
   id: identifier,
-  sourceType: z.enum(["Creative", "Layout plan", "Layout 3D"]),
+  sourceType: z.enum(["Creative", "Layout plan", "Layout 3D", "KIT Design"]),
   sourceId: identifier,
   sourceRevision: z.number().int().positive().max(1e3),
   title: name,
   caption: z.string().trim().max(2e3),
   altText: z.string().trim().min(1).max(500),
-  dataUrl: z.string().max(15e5).regex(/^data:image\/(svg\+xml(;charset=utf-8)?|png|jpeg|webp)[;,]/),
+  dataUrl: z.string().max(15e5).regex(/^data:image\/(svg\+xml(;charset=utf-8)?|png|jpeg|webp)[;,]/).optional(),
+  // KIT Design renders are referenced by their server route, never copied inline.
+  url: z.string().regex(
+    /^\/api\/design\/designs\/[A-Za-z0-9_-]+\/renders\/[A-Za-z0-9_-]+\/file$/
+  ).optional(),
   mimeType: z.enum([
     "image/svg+xml",
     "image/png",
@@ -1089,8 +1093,14 @@ var proposalVisual = z.object({
   measurementStatus: z.enum(["Verified", "Unverified"]).optional(),
   addedAt: z.string().datetime()
 }).strict().refine(
-  (value) => value.dataUrl.startsWith(`data:${value.mimeType}`),
+  (value) => Boolean(value.dataUrl) !== Boolean(value.url),
+  "A proposal visual has either inline data or a render route."
+).refine(
+  (value) => !value.dataUrl || value.dataUrl.startsWith(`data:${value.mimeType}`),
   "Proposal visual MIME type does not match its data."
+).refine(
+  (value) => !value.url || value.sourceType === "KIT Design",
+  "Only KIT Design visuals are referenced by route."
 );
 var line = z.object({
   id: identifier,

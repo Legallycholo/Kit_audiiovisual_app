@@ -468,3 +468,15 @@
   color: #fff;
   font-size: var(--text-caption);
 }
+
+/* "Incluir los renders" in the add-to-proposal dialog. */
+.kd-include-renders {
+  display: block;
+  margin-top: var(--space-3);
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+.kd-include-renders input {
+  width: auto;
+  margin-right: 6px;
+}
