@@ -51,7 +51,9 @@ export function applyChanges(
       );
     if (before && "eventId" in before)
       invalid(
-        before.eventId !== eventId,
+        // The first link of an unlinked proposal ("" → an event) is allowed;
+        // after that the record stays with its event.
+        Boolean(before.eventId) && before.eventId !== eventId,
         "A record cannot be moved between events.",
       );
     if (

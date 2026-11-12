@@ -37,6 +37,8 @@ export function useEditorView({ original }: { original: Proposal }) {
   const assistantKey = `kit.proposal-assistant:${user?.id || "local"}`;
   const [assistantOpen, setAssistantOpenState] = useState(() => {
     if (params.get("kit") === "1") return true;
+    // Beside the document on wide screens; on narrow ones it opens only on request.
+    if (!matchMedia("(min-width: 1100px)").matches) return false;
     try {
       return localStorage.getItem(assistantKey) !== "closed";
     } catch {

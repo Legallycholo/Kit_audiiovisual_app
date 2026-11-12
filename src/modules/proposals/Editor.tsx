@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { uiLabel } from "../../shared/i18n";
 import { Link } from "react-router-dom";
 import {
@@ -50,6 +51,21 @@ export function Editor({ original }: { original: Proposal }) {
     user,
   } = ctx;
   const canSend = !dirty && Boolean(client) && Boolean(user?.isOwner);
+  // ⌘/Ctrl + Shift + P toggles preview (plain ⌘P stays the browser's print).
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "p"
+      ) {
+        event.preventDefault();
+        setPreview(!preview);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [preview, setPreview]);
   return (
     <div className={`proposal-editor ${preview ? "previewing" : ""}`}>
       <div className="proposal-editor-top no-print">
@@ -69,6 +85,7 @@ export function Editor({ original }: { original: Proposal }) {
           <Button
             variant="secondary"
             aria-pressed={preview}
+            title="Atajo: ⌘/Ctrl + Shift + P"
             onClick={() => setPreview(!preview)}
           >
             {preview ? (

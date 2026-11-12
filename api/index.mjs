@@ -509,7 +509,8 @@ function scopeWorkspace(workspace, user) {
   const guest = user.role === "Client / Guest";
   const commercial = user.role === "Sales Manager";
   const proposals = workspace.proposals.filter(
-    (p) => guest ? user.sharedProposalIds.includes(p.id) && workspace.events.find((e) => e.id === p.eventId)?.clientId === user.clientId && ["Issued", "Accepted", "Declined", "Superseded"].includes(p.status) : commercial && ownsEvent(user, p.eventId)
+    (p) => guest ? user.sharedProposalIds.includes(p.id) && // An unlinked proposal (no event yet) is never visible to a client.
+    Boolean(user.clientId) && workspace.events.find((e) => e.id === p.eventId)?.clientId === user.clientId && ["Issued", "Accepted", "Declined", "Superseded"].includes(p.status) : commercial && ownsEvent(user, p.eventId)
   );
   const events = workspace.events.filter(
     (e) => guest ? proposals.some((p) => p.eventId === e.id) : ownsEvent(user, e.id)
@@ -1953,7 +1954,9 @@ function applyChanges(original, changes, user) {
       );
     if (before && "eventId" in before)
       invalid(
-        before.eventId !== eventId,
+        // The first link of an unlinked proposal ("" → an event) is allowed;
+        // after that the record stays with its event.
+        Boolean(before.eventId) && before.eventId !== eventId,
         "A record cannot be moved between events."
       );
     if (collection === "events" && before && user.role === "Production Manager") {

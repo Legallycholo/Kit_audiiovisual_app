@@ -17,6 +17,8 @@ export function scopeWorkspace(
   const proposals = workspace.proposals.filter((p) =>
     guest
       ? user.sharedProposalIds.includes(p.id) &&
+        // An unlinked proposal (no event yet) is never visible to a client.
+        Boolean(user.clientId) &&
         workspace.events.find((e) => e.id === p.eventId)?.clientId ===
           user.clientId &&
         ["Issued", "Accepted", "Declined", "Superseded"].includes(p.status)

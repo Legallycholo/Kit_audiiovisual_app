@@ -203,132 +203,144 @@ export function KitClassicProposal({
 
       <section className="doc-lines">
         <h3 className="doc-section">Equipos y servicios</h3>
-        <table className="doc-table">
-          <thead>
-            <tr>
-              <th className="num">Cant.</th>
-              <th>Descripción</th>
-              <th className="num">Días</th>
-              <th className="num">Precio unitario</th>
-              <th className="num">Total</th>
-              {edit && <th className="doc-row-tools" />}
-            </tr>
-          </thead>
-          <tbody>
-            {proposal.lines.map((line, index) => (
-              <tr key={line.id}>
-                <td className="num">
-                  {edit ? (
-                    <input
-                      className="doc-input num"
-                      type="number"
-                      min="0"
-                      step="1"
-                      aria-label={`${line.description || "Partida"} Cantidad`}
-                      value={line.quantity}
-                      onChange={(e) =>
-                        edit.setLine(line.id, {
-                          quantity: Number(e.target.value),
-                        })
-                      }
-                    />
-                  ) : (
-                    line.quantity
-                  )}
-                </td>
-                <td>
-                  {edit ? (
-                    <input
-                      className="doc-input"
-                      aria-label={`Descripción de la partida ${index + 1}`}
-                      value={line.description}
-                      placeholder="Descripción"
-                      onChange={(e) =>
-                        edit.setLine(line.id, { description: e.target.value })
-                      }
-                    />
-                  ) : (
-                    line.description
-                  )}
-                </td>
-                <td className="num">
-                  {edit ? (
-                    <input
-                      className="doc-input num"
-                      type="number"
-                      min="0"
-                      step="1"
-                      aria-label={`${line.description || "Partida"} Días`}
-                      value={line.days}
-                      onChange={(e) =>
-                        edit.setLine(line.id, { days: Number(e.target.value) })
-                      }
-                    />
-                  ) : (
-                    line.days
-                  )}
-                </td>
-                <td className="num">
-                  {edit ? (
-                    <input
-                      className="doc-input num"
-                      type="number"
-                      min="0"
-                      step=".01"
-                      aria-label={`${line.description || "Partida"} Tarifa`}
-                      value={line.rate}
-                      onChange={(e) =>
-                        edit.setLine(line.id, { rate: Number(e.target.value) })
-                      }
-                    />
-                  ) : (
-                    money(line.rate)
-                  )}
-                </td>
-                <td className="num doc-line-total">
-                  {money(line.quantity * line.rate * line.days)}
-                </td>
-                {edit && (
-                  <td className="doc-row-tools">
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Subir ${line.description || "partida"}`}
-                      disabled={index === 0}
-                      onClick={() => edit.moveLine(line.id, -1)}
-                    >
-                      <ArrowUp size={14} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Bajar ${line.description || "partida"}`}
-                      disabled={index === proposal.lines.length - 1}
-                      onClick={() => edit.moveLine(line.id, 1)}
-                    >
-                      <ArrowDown size={14} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Quitar ${line.description || "partida"}`}
-                      onClick={() => edit.removeLine(line.id)}
-                    >
-                      <Trash2 size={14} aria-hidden="true" />
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))}
-            {!proposal.lines.length && !edit && (
+        <div
+          className="doc-table-wrap"
+          tabIndex={0}
+          role="region"
+          aria-label="Equipos y servicios (desplazable)"
+        >
+          <table className="doc-table">
+            <thead>
               <tr>
-                <td colSpan={5} className="doc-muted">
-                  Sin partidas todavía.
-                </td>
+                <th className="num">Cant.</th>
+                <th>Descripción</th>
+                <th className="num">Días</th>
+                <th className="num">Precio unitario</th>
+                <th className="num">Total</th>
+                {edit && <th className="doc-row-tools" />}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {proposal.lines.map((line, index) => (
+                <tr key={line.id}>
+                  <td className="num">
+                    {edit ? (
+                      <input
+                        className="doc-input num"
+                        type="number"
+                        min="0"
+                        step="1"
+                        aria-label={`${line.description || "Partida"} Cantidad`}
+                        value={line.quantity}
+                        onChange={(e) =>
+                          edit.setLine(line.id, {
+                            quantity: Number(e.target.value),
+                          })
+                        }
+                      />
+                    ) : (
+                      line.quantity
+                    )}
+                  </td>
+                  <td>
+                    {edit ? (
+                      <textarea
+                        className="doc-input doc-area"
+                        rows={1}
+                        aria-label={`Descripción de la partida ${index + 1}`}
+                        value={line.description}
+                        placeholder="Descripción"
+                        onChange={(e) =>
+                          edit.setLine(line.id, { description: e.target.value })
+                        }
+                      />
+                    ) : (
+                      line.description
+                    )}
+                  </td>
+                  <td className="num">
+                    {edit ? (
+                      <input
+                        className="doc-input num"
+                        type="number"
+                        min="0"
+                        step="1"
+                        aria-label={`${line.description || "Partida"} Días`}
+                        value={line.days}
+                        onChange={(e) =>
+                          edit.setLine(line.id, {
+                            days: Number(e.target.value),
+                          })
+                        }
+                      />
+                    ) : (
+                      line.days
+                    )}
+                  </td>
+                  <td className="num">
+                    {edit ? (
+                      <input
+                        className="doc-input num"
+                        type="number"
+                        min="0"
+                        step=".01"
+                        aria-label={`${line.description || "Partida"} Tarifa`}
+                        value={line.rate}
+                        onChange={(e) =>
+                          edit.setLine(line.id, {
+                            rate: Number(e.target.value),
+                          })
+                        }
+                      />
+                    ) : (
+                      money(line.rate)
+                    )}
+                  </td>
+                  <td className="num doc-line-total">
+                    {money(line.quantity * line.rate * line.days)}
+                  </td>
+                  {edit && (
+                    <td className="doc-row-tools">
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Subir ${line.description || "partida"}`}
+                        disabled={index === 0}
+                        onClick={() => edit.moveLine(line.id, -1)}
+                      >
+                        <ArrowUp size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Bajar ${line.description || "partida"}`}
+                        disabled={index === proposal.lines.length - 1}
+                        onClick={() => edit.moveLine(line.id, 1)}
+                      >
+                        <ArrowDown size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Quitar ${line.description || "partida"}`}
+                        onClick={() => edit.removeLine(line.id)}
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {!proposal.lines.length && !edit && (
+                <tr>
+                  <td colSpan={5} className="doc-muted">
+                    Sin partidas todavía.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
         {edit && (
           <div className="doc-add-line">
             <label className="doc-add-catalog">

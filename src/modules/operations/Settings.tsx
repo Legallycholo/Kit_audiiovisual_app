@@ -126,6 +126,48 @@ export function SettingsPage() {
                     }
                   />
                 </Field>
+                <Field
+                  label="Eslogan"
+                  hint="Aparece bajo el logo en las propuestas."
+                >
+                  <input
+                    maxLength={200}
+                    value={settings.slogan}
+                    onChange={(e) =>
+                      setSettings({ ...settings, slogan: e.target.value })
+                    }
+                  />
+                </Field>
+                <Field label="Dirección">
+                  <input
+                    maxLength={400}
+                    value={settings.address}
+                    onChange={(e) =>
+                      setSettings({ ...settings, address: e.target.value })
+                    }
+                  />
+                </Field>
+                <div className="form-grid">
+                  <Field label="Teléfono">
+                    <input
+                      type="tel"
+                      maxLength={60}
+                      value={settings.phone}
+                      onChange={(e) =>
+                        setSettings({ ...settings, phone: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Sitio web">
+                    <input
+                      maxLength={200}
+                      value={settings.website}
+                      onChange={(e) =>
+                        setSettings({ ...settings, website: e.target.value })
+                      }
+                    />
+                  </Field>
+                </div>
                 <div className="form-grid">
                   <Field label="Currency">
                     <select value={settings.currency} disabled>
