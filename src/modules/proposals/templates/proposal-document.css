@@ -1,0 +1,715 @@
+/* KIT Classic proposal document: white paper in every theme, prints on US Letter (A4 fits). */
+.proposal-sheet {
+  --paper: #ffffff;
+  --ink: #15181d;
+  --ink-muted: #5c6470;
+  --ink-line: #d9dde3;
+  --ink-line-strong: #8a929e;
+  /* Darker than the brand blue so slogan text keeps 4.5:1 on white paper. */
+  --doc-accent: #1a4cb5;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 56px 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: var(--shadow-2, 0 10px 30px -18px rgba(0, 0, 0, 0.25));
+}
+.proposal-sheet * {
+  box-sizing: border-box;
+}
+.proposal-sheet h1,
+.proposal-sheet h2,
+.proposal-sheet h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-heading);
+}
+.proposal-sheet p {
+  margin: 0;
+}
+
+/* The sheet is paper in every theme: app table and control colors must not leak in. */
+.proposal-sheet table,
+.proposal-sheet thead,
+.proposal-sheet tbody,
+.proposal-sheet tr,
+.proposal-sheet th,
+.proposal-sheet td,
+.proposal-sheet input,
+.proposal-sheet textarea,
+.proposal-sheet select {
+  background: transparent;
+  color: inherit;
+}
+.proposal-sheet .doc-table th {
+  color: var(--ink-muted);
+}
+.proposal-sheet .doc-add-catalog select {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--ink-line-strong);
+}
+
+/* Header */
+.doc-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 32px;
+  align-items: start;
+}
+.doc-brand {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.doc-wordmark .wordmark-dot {
+  fill: var(--ink);
+}
+.doc-company {
+  display: grid;
+  gap: 2px;
+}
+.doc-company-name {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.doc-slogan {
+  color: var(--doc-accent);
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-weight: 600;
+}
+.doc-address {
+  display: grid;
+  margin-top: 6px;
+  color: var(--ink-muted);
+  font-style: normal;
+  font-size: 12px;
+}
+.doc-title-block {
+  text-align: right;
+}
+.doc-kind {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  line-height: 1;
+}
+.doc-ids {
+  display: grid;
+  gap: 2px;
+  margin: 14px 0 0;
+  font-size: 12px;
+}
+.doc-ids > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.doc-ids dt {
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-size: 11px;
+  align-self: center;
+}
+.doc-ids dd {
+  margin: 0;
+  font-weight: 600;
+}
+.doc-version {
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+.doc-rule {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 4px;
+  height: 3px;
+  margin: 22px 0 26px;
+}
+.doc-rule span {
+  border-radius: 2px;
+}
+.doc-rule .r {
+  background: var(--brand-red);
+}
+.doc-rule .b {
+  background: var(--brand-blue);
+}
+.doc-rule .g {
+  background: var(--brand-green);
+}
+
+/* Parties and meta */
+.doc-parties {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 28px;
+  align-items: start;
+}
+.doc-for {
+  display: grid;
+  gap: 2px;
+}
+.doc-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+}
+.doc-client-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+.doc-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--ink-line);
+  border-radius: 10px;
+}
+.doc-cell {
+  min-width: 0;
+}
+.doc-cell .doc-label {
+  margin-bottom: 2px;
+}
+.doc-muted {
+  color: var(--ink-muted);
+}
+
+/* Narrative */
+.doc-intro {
+  margin-top: 30px;
+}
+.doc-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.doc-event {
+  margin-top: 4px;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.doc-paragraph {
+  margin-top: 10px;
+  white-space: pre-wrap;
+  max-width: 70ch;
+}
+.doc-section {
+  margin: 32px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+/* Lines */
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+.doc-table th,
+.doc-table td {
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--ink-line);
+  text-align: left;
+  vertical-align: top;
+}
+.doc-table th {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  border-bottom-color: var(--ink-line-strong);
+}
+.doc-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.doc-table th:first-child,
+.doc-table td:first-child {
+  padding-left: 0;
+  width: 56px;
+}
+.doc-line-total {
+  font-weight: 600;
+}
+.doc-row-tools {
+  width: 96px;
+  padding-right: 0 !important;
+  white-space: nowrap;
+}
+.doc-row-tools .icon-button {
+  width: 28px;
+  height: 28px;
+  color: var(--ink-muted);
+}
+.doc-add-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.doc-add-catalog select {
+  max-width: 100%;
+  font-size: 13px;
+}
+.doc-totals {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 320px);
+  margin: 18px 0 0 auto;
+}
+.doc-totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+}
+.doc-totals dt {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+.doc-totals dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.doc-grand-total {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 2px solid var(--ink);
+}
+.doc-grand-total dt {
+  color: var(--ink);
+  font-size: 13px;
+}
+.doc-grand-total dd {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 800;
+}
+.doc-percent {
+  width: 44px;
+  display: inline-block;
+}
+
+/* Visuals */
+.doc-figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+.doc-figures figure {
+  margin: 0;
+  break-inside: avoid;
+}
+.doc-figures img {
+  width: 100%;
+  border: 1px solid var(--ink-line);
+  border-radius: 8px;
+}
+.doc-figures figcaption {
+  display: grid;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.doc-figures figcaption span {
+  color: var(--ink-muted);
+}
+
+/* Terms and footer */
+.doc-validity {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.doc-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 40px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ink-line);
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+/* Inline editing: controls that read as the printed text. */
+.proposal-sheet .doc-input {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  box-shadow: none;
+}
+.proposal-sheet .doc-input::placeholder {
+  color: var(--ink-line-strong);
+}
+.proposal-sheet .doc-area {
+  resize: none;
+  field-sizing: content;
+  min-height: 2.4em;
+}
+.proposal-sheet .doc-input.num {
+  text-align: right;
+  width: 72px;
+  margin-left: auto;
+}
+.proposal-sheet .doc-input[type="date"] {
+  width: auto;
+  display: inline-block;
+}
+.proposal-sheet.editing .doc-input:hover {
+  border-color: var(--ink-line);
+}
+.proposal-sheet .doc-input:focus,
+.proposal-sheet .doc-input:focus-visible {
+  outline: none;
+  border-color: var(--doc-accent);
+  background: #f5f8ff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--doc-accent) 18%, transparent);
+}
+.proposal-sheet .doc-title.doc-input {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 700;
+}
+.proposal-sheet .doc-client-name.doc-input {
+  font-size: 15px;
+  font-weight: 700;
+}
+.proposal-sheet .doc-input:disabled {
+  color: inherit;
+  opacity: 1;
+}
+
+@media (max-width: 720px) {
+  .proposal-sheet {
+    padding: 28px 20px;
+    border-radius: var(--radius-md);
+  }
+  .doc-header,
+  .doc-parties {
+    grid-template-columns: 1fr;
+  }
+  .doc-title-block {
+    text-align: left;
+  }
+  .doc-ids > div {
+    justify-content: flex-start;
+  }
+  .doc-meta {
+    grid-template-columns: 1fr;
+  }
+  .doc-figures {
+    grid-template-columns: 1fr;
+  }
+  .doc-table th:nth-child(3),
+  .doc-table td:nth-child(3) {
+    display: none;
+  }
+}
+
+/* Print: the sheet alone, US Letter with A4 fallback margins. */
+@page {
+  size: letter;
+  margin: 0.55in 0.6in;
+}
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .proposal-print-root,
+  .proposal-print-root .proposal-sheet,
+  .proposal-print-root .proposal-sheet * {
+    visibility: visible !important;
+  }
+  .proposal-print-root {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+  }
+  .proposal-sheet {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    font-size: 12px;
+  }
+  .doc-section {
+    break-after: avoid;
+  }
+  .doc-table tr,
+  .doc-totals,
+  .doc-meta,
+  .doc-header {
+    break-inside: avoid;
+  }
+  .doc-row-tools,
+  .doc-add-line {
+    display: none !important;
+  }
+  .doc-footer {
+    margin-top: 28px;
+  }
+}
+
+/* ---------- Editor layout around the sheet ---------- */
+.proposal-editor-top {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.proposal-editor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+}
+.proposal-editor-meta strong {
+  color: var(--color-text);
+  font-family: var(--font-heading);
+}
+.save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-caption);
+}
+.save-state::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+.save-state.dirty::before {
+  background: var(--color-warning);
+}
+.proposal-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.proposal-editor-actions .button {
+  font-size: var(--text-small);
+}
+.proposal-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.proposal-workbench.with-assistant {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+.proposal-paper {
+  min-width: 0;
+}
+.proposal-options {
+  max-width: 880px;
+  margin: var(--space-4) auto 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.proposal-option-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+.proposal-visuals-options {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.proposal-visuals-options > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.proposal-visuals-options .proposal-media-picker,
+.proposal-visuals-options .proposal-visual-list {
+  margin-top: var(--space-3);
+}
+
+/* KIT beside the document */
+.proposal-assistant {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * var(--space-4));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.proposal-assistant-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+.proposal-assistant-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+.proposal-assistant-body {
+  flex: 1;
+  min-height: 160px;
+  overflow: auto;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+.proposal-assistant-intro h3 {
+  margin: 0 0 4px;
+  font-size: var(--text-h3);
+}
+.proposal-assistant-examples {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.proposal-assistant-examples button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--text-caption);
+}
+.proposal-assistant-examples button:hover {
+  border-style: solid;
+  background: var(--color-elevated);
+}
+.proposal-composer {
+  margin: 0 var(--space-3) var(--space-3);
+}
+.proposal-change-list {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: var(--text-small);
+}
+.proposal-change-list li {
+  display: flex;
+  gap: 8px;
+}
+.change-symbol {
+  width: 1.2em;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+.change-line .change-symbol,
+.change-money .change-symbol {
+  color: var(--color-warning);
+}
+.proposal-change-total {
+  margin: var(--space-2) 0;
+  font-size: var(--text-small);
+}
+.proposal-change-confirm {
+  display: block;
+  margin: var(--space-2) 0;
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+.proposal-change-confirm input {
+  width: auto;
+  margin-right: 6px;
+}
+.proposal-change-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.proposal-assistant-drawer .proposal-assistant {
+  position: static;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+}
+.proposal-version-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.proposal-version-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.proposal-version-list li.current {
+  background: var(--color-primary-subtle);
+}
+.proposal-version-list small {
+  display: block;
+  color: var(--color-text-muted);
+}
+@media (max-width: 1099px) {
+  .proposal-workbench.with-assistant {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media print {
+  .proposal-editor-top,
+  .proposal-options,
+  .proposal-assistant,
+  .no-print {
+    display: none !important;
+  }
+}

@@ -1,31 +1,26 @@
 import { uiLabel } from "../../shared/i18n";
-import { ProposalAI } from "../ProposalAI";
-import { Send, Printer } from "lucide-react";
-import { Button, Field, Modal, Wordmark } from "../../shared/ui";
-import { money, shortDate } from "../../shared/domain";
-import type { Proposal } from "../../shared/types";
+import { Link } from "react-router-dom";
+import { Send } from "lucide-react";
+import { Badge, Button, Field, Modal } from "../../shared/ui";
+import { money } from "../../shared/domain";
+import { longDate } from "./templates/ProposalDocument";
 import type { EditorView } from "./editor-view";
 
+/** Review-and-send, version comparison and the version list. */
 export function EditorDialogs({ ctx }: { ctx: EditorView }) {
   const {
-    data,
-    mode,
     draft,
-    setDraft,
-    preview,
-    setPreview,
     sending,
     setSending,
     outgoingMessage,
     setOutgoingMessage,
-    aiOpen,
-    setAiOpen,
     compareOpen,
     setCompareOpen,
     setCompareId,
-    section,
-    event,
+    versionsOpen,
+    setVersionsOpen,
     client,
+    family,
     priorVersions,
     comparison,
     totals,
@@ -34,28 +29,9 @@ export function EditorDialogs({ ctx }: { ctx: EditorView }) {
   } = ctx;
   return (
     <>
-      {aiOpen && (
-        <Modal
-          wide
-          title="Mejorar propuesta con IA"
-          description="Genera y revisa una sugerencia antes de reemplazar contenido."
-          onClose={() => setAiOpen(false)}
-        >
-          <div className="modal-body">
-            <ProposalAI
-              eventId={draft.eventId}
-              existing={draft}
-              onApply={(suggestion) => {
-                setDraft({ ...draft, ...suggestion, status: "Draft" });
-                setAiOpen(false);
-              }}
-            />
-          </div>
-        </Modal>
-      )}
       {sending && (
         <Modal
-          title={uiLabel("Owner review \u00B7 outgoing proposal")}
+          title={uiLabel("Owner review · outgoing proposal")}
           description={uiLabel(
             "Every client message requires your confirmation.",
           )}
@@ -88,7 +64,7 @@ export function EditorDialogs({ ctx }: { ctx: EditorView }) {
               />
             </Field>
             <div className="connection-note">
-              <Send size={20} />
+              <Send size={20} aria-hidden="true" />
               <div>
                 <strong>Revisión antes del envío</strong>
                 <p>
@@ -104,6 +80,46 @@ export function EditorDialogs({ ctx }: { ctx: EditorView }) {
             >
               Preparar en mensajes
             </Button>
+          </div>
+        </Modal>
+      )}
+      {versionsOpen && (
+        <Modal
+          title="Versiones"
+          description={`${draft.number} · cada versión enviada se conserva tal cual`}
+          onClose={() => setVersionsOpen(false)}
+        >
+          <div className="modal-body">
+            <ol className="proposal-version-list">
+              {family.map((version) => (
+                <li
+                  key={version.id}
+                  className={version.id === draft.id ? "current" : ""}
+                >
+                  <span>
+                    <strong>v{version.version}</strong>
+                    <small>
+                      {version.updatedAt
+                        ? longDate(version.updatedAt.slice(0, 10))
+                        : version.acceptedAt
+                          ? longDate(version.acceptedAt.slice(0, 10))
+                          : "—"}
+                    </small>
+                  </span>
+                  <Badge>{version.status}</Badge>
+                  {version.id === draft.id ? (
+                    <em>Abierta</em>
+                  ) : (
+                    <Link
+                      to={`/proposals/${version.id}`}
+                      onClick={() => setVersionsOpen(false)}
+                    >
+                      Abrir
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ol>
           </div>
         </Modal>
       )}
@@ -218,95 +234,6 @@ export function EditorDialogs({ ctx }: { ctx: EditorView }) {
                   </small>
                 )}
             </div>
-          </div>
-        </Modal>
-      )}
-      {preview && (
-        <Modal
-          title={uiLabel("Proposal preview")}
-          description={uiLabel(
-            "Print this review copy or save it as a PDF using your browser.",
-          )}
-          onClose={() => setPreview(false)}
-          wide
-        >
-          <div
-            className={`print-proposal template-${(draft.presentationTemplate || "Editorial").toLowerCase()}`}
-          >
-            <header className="print-proposal-cover">
-              <Wordmark size={30} className="document-wordmark" />
-              <p>{data.settings.company}</p>
-              <h1>{draft.title}</h1>
-              <p>
-                {draft.number} · Versión {draft.version} ·{" "}
-                {uiLabel(draft.status)}
-              </p>
-            </header>
-            <hr />
-            <h3>
-              {uiLabel("Prepared for")} {client?.name}
-            </h3>
-            <p>{draft.introduction}</p>
-            {(draft.visuals || []).length > 0 && (
-              <section className="print-visuals">
-                <h2>Concepto visual</h2>
-                {draft.visualNarrative && <p>{draft.visualNarrative}</p>}
-                <div>
-                  {(draft.visuals || []).map((visual) => (
-                    <figure key={visual.id}>
-                      <img src={visual.dataUrl} alt={visual.altText} />
-                      <figcaption>
-                        <strong>{visual.title}</strong>
-                        <span>{visual.caption}</span>
-                        {visual.measurementStatus === "Unverified" && (
-                          <small>Medidas no verificadas</small>
-                        )}
-                      </figcaption>
-                    </figure>
-                  ))}
-                </div>
-              </section>
-            )}
-            <table>
-              <thead>
-                <tr>
-                  <th>{uiLabel("Description")}</th>
-                  <th>{uiLabel("Qty")}</th>
-                  <th>{uiLabel("Days")}</th>
-                  <th>{uiLabel("Rate")}</th>
-                  <th>{uiLabel("Total")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {draft.lines.map((l) => (
-                  <tr key={l.id}>
-                    <td>{l.description}</td>
-                    <td>{l.quantity}</td>
-                    <td>{l.days}</td>
-                    <td>{money(l.rate)}</td>
-                    <td>{money(l.quantity * l.rate * l.days)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="print-totals">
-              <p>Subtotal: {money(totals.subtotal)}</p>
-              <p>Descuento: −{money(totals.discount)}</p>
-              <p>Impuesto: {money(totals.tax)}</p>
-              <h2>Total: {money(totals.total)}</h2>
-            </div>
-            <h3>{uiLabel("Terms")}</h3>
-            <p>{draft.terms}</p>
-            <p>
-              {uiLabel("Valid until")}: {shortDate(draft.validUntil)}
-            </p>
-            <p className="tiny">Copia de revisión</p>
-          </div>
-          <div className="modal-actions no-print">
-            <Button onClick={() => window.print()}>
-              <Printer size={16} />
-              {uiLabel("Print / save PDF")}
-            </Button>
           </div>
         </Modal>
       )}

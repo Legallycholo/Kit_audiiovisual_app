@@ -312,36 +312,45 @@ test("owner reviews AI suggestion, edits, saves, reopens and preserves manual ed
   await repo.save(seed, 0);
   await page.reload();
   await page.goto("/proposals");
+  const before = (await repo.read()).workspace.proposals.length;
+  // "Redactar con IA" opens a blank KIT Classic document with KIT beside it.
   await page.getByRole("button", { name: "Más acciones", exact: true }).click();
   await page
     .getByRole("menuitem", { name: "Redactar con IA", exact: true })
     .click();
+  await expect(page).toHaveURL(/\/proposals\/[^/?]+/);
+  expect((await repo.read()).workspace.proposals).toHaveLength(before + 1);
   await page
     .getByLabel("¿Qué debe incluir la propuesta?")
     .fill("Necesitamos dos altavoces para una conferencia de un día.");
   await page
     .getByRole("button", { name: "Generar sugerencia", exact: true })
     .click();
-  await expect(
-    page.getByRole("region", { name: "Sugerencia de propuesta" }),
-  ).toBeVisible();
+  const suggestion = page.getByRole("region", {
+    name: "Sugerencia de propuesta",
+  });
+  await expect(suggestion).toBeVisible();
+  await expect(suggestion).toContainText("Añadir 2 × QSC K12.2 Active Speaker");
   await expect(
     page.getByText("Generada por IA", { exact: false }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Historial de generación" }),
   ).toContainText("test-model");
-  const before = (await repo.read()).workspace.proposals.length;
-  await page
-    .getByRole("button", {
-      name: "Crear propuesta con esta sugerencia",
-      exact: true,
-    })
-    .click();
+  // Line changes are financial: they need an explicit confirmation first.
+  const apply = page.getByRole("button", {
+    name: "Aplicar cambios",
+    exact: true,
+  });
+  await expect(apply).toBeDisabled();
+  await page.getByLabel(/Confirmo los cambios de partidas/).check();
+  await apply.click();
   await expect(page.getByLabel("Título de la propuesta")).toHaveValue(
     "Conferencia con audio profesional",
   );
-  expect((await repo.read()).workspace.proposals).toHaveLength(before + 1);
+  await expect(
+    page.getByLabel("QSC K12.2 Active Speaker Cantidad"),
+  ).toHaveValue("2");
   await page
     .getByLabel("Introducción y alcance del evento")
     .fill("Alcance editado y revisado por el propietario.");
@@ -361,39 +370,26 @@ test("owner reviews AI suggestion, edits, saves, reopens and preserves manual ed
   await expect(
     page.getByLabel("Introducción y alcance del evento"),
   ).toHaveValue("Alcance editado y revisado por el propietario.");
+  // A second suggestion is reviewed, not applied: discarding keeps the manual edit.
   await page
-    .getByRole("button", { name: "Mejorar con IA", exact: true })
-    .click();
+    .getByLabel("¿Qué debe incluir la propuesta?")
+    .fill("Reescribe la introducción con un tono más formal.");
   await page
     .getByRole("button", { name: "Generar sugerencia", exact: true })
     .click();
-  await expect(
-    page.getByRole("button", {
-      name: "Aplicar selección al borrador",
-      exact: true,
-    }),
-  ).toBeDisabled();
-  await page.getByLabel("Reemplazar la lista de equipos y servicios").check();
-  await page
-    .getByRole("button", { name: "Aplicar selección al borrador", exact: true })
-    .click();
+  await expect(suggestion).toContainText("Actualizar introducción");
+  await page.getByRole("button", { name: "Descartar", exact: true }).click();
   await expect(
     page.getByLabel("Introducción y alcance del evento"),
   ).toHaveValue("Alcance editado y revisado por el propietario.");
-  await page
-    .getByRole("button", { name: "Guardar cambios", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Más acciones", exact: true }).click();
-  await page.getByRole("menuitem", { name: /^Vista previa/ }).click();
+  await page.getByRole("button", { name: "Vista previa", exact: true }).click();
   await expect(page.locator(".print-proposal")).toContainText(
     "Alcance editado",
   );
   await expect(page.locator(".print-proposal")).not.toContainText(
     "Confirmar los horarios de montaje.",
   );
-  await page
-    .getByRole("button", { name: "Cerrar ventana", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Editar", exact: true }).click();
   expect(page.url()).toBe(draftUrl);
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
@@ -415,9 +411,6 @@ test("provider failure preserves the brief and unsaved manual proposal edits", a
     .getByLabel("Introducción y alcance del evento")
     .fill("Conservar este cambio manual sin guardar.");
   await page
-    .getByRole("button", { name: "Mejorar con IA", exact: true })
-    .click();
-  await page
     .getByLabel("¿Qué debe incluir la propuesta?")
     .fill("Preparar una propuesta de iluminación para el evento.");
   failGeneration = true;
@@ -430,9 +423,6 @@ test("provider failure preserves the brief and unsaved manual proposal edits", a
   await expect(page.getByLabel("¿Qué debe incluir la propuesta?")).toHaveValue(
     "Preparar una propuesta de iluminación para el evento.",
   );
-  await page
-    .getByRole("button", { name: "Cerrar ventana", exact: true })
-    .click();
   await expect(
     page.getByLabel("Introducción y alcance del evento"),
   ).toHaveValue("Conservar este cambio manual sin guardar.");

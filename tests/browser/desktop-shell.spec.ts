@@ -8,6 +8,7 @@ test("unsaved proposal blocks tab close until cancelled, saved or discarded", as
 }) => {
   await page.goto("/proposals/p2");
   const field = page.getByLabel("Título de la propuesta");
+  await expect(field).toBeVisible();
   await field.fill("Draft protected by tabs");
   await page.getByRole("button", { name: "Cerrar pestaña activa" }).click();
   const dialog = page.getByRole("dialog", { name: "Cambios sin guardar" });

@@ -13,6 +13,7 @@ import {
   reviseProposal,
   validateLayoutGeometry,
   validateReservation,
+  nextProposalNumber,
 } from "./domain";
 import { createSeed } from "./seed";
 import { createShowcaseCreativeAsset } from "./creative";
@@ -563,5 +564,27 @@ describe("proposal visual snapshots", () => {
     expect(revision.visuals).toHaveLength(1);
     expect(revision.visuals?.[0].id).not.toBe("old-visual");
     expect(revision.visuals?.[0].dataUrl).toBe(proposal.visuals[0].dataUrl);
+  });
+});
+
+describe("nextProposalNumber", () => {
+  it("continues from the highest number of the year, ignoring other years and gaps", () => {
+    const now = new Date("2026-06-01T12:00:00Z");
+    expect(nextProposalNumber([], now)).toBe("KIT-2026-001");
+    expect(
+      nextProposalNumber(
+        [
+          { number: "KIT-2026-001" },
+          { number: "KIT-2026-007" },
+          { number: "KIT-2025-040" },
+          { number: "KIT-2026-007" },
+        ],
+        now,
+      ),
+    ).toBe("KIT-2026-008");
+    // A deleted draft never frees a number: 003 stays taken when 004 exists.
+    expect(nextProposalNumber([{ number: "KIT-2026-004" }], now)).toBe(
+      "KIT-2026-005",
+    );
   });
 });

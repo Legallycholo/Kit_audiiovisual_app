@@ -40,7 +40,8 @@ Before committing, run typecheck, `npm test` and `npm run test:browser`. Compare
 ## Where things live
 
 - `src/application/` — app frame, navigation, session entry, contextual assistant.
-- `src/modules/` — business workspaces, proposal editor and AI suggestion review.
+- `src/modules/` — business workspaces.
+- `src/modules/proposals/` — the KIT Classic proposal workspace: `templates/KitClassicProposal.tsx` renders structured proposal data (edit and print modes, `proposal-document.css`), `editor-view.tsx` holds the handlers, `ProposalAssistant.tsx` is KIT for proposals (structured suggestions from `POST /api/ai/proposal-draft`, reviewed and confirmed before they touch the document; AI never emits HTML).
 - `src/modules/design-ai/` — KIT Design (Diseño): room images in, realistic event renders out, refined by chat. Plan: `docs/kit_design_AI.md`. Shared records in `src/shared/kit-design.ts`.
 - `src/shared/` — domain records/calculations, access policy, API/store boundary, interface labels, sample data and common UI.
 - `server/` — authenticated API, validation, Postgres persistence (`server/db/`), authorization, proposal generation adapter and tests.

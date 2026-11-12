@@ -89,8 +89,10 @@ test("visual proposal revision combines reviewed media and client-safe print out
   await page
     .getByRole("button", { name: "Nueva versión", exact: true })
     .click();
-  await expect(page.getByText(/VERSIÓN 3/)).toBeVisible();
-  await page.getByRole("button", { name: "03 Imágenes", exact: true }).click();
+  await expect(
+    page.locator(".proposal-editor-meta").getByText("· v3", { exact: true }),
+  ).toBeVisible();
+  await page.getByText(/^Imágenes de la propuesta/).click();
   await page.getByLabel("Plantilla de presentación").selectOption("Spotlight");
   await page.getByRole("button", { name: "Añadir 2D", exact: true }).click();
   await page.getByRole("button", { name: "Añadir 3D", exact: true }).click();
@@ -111,15 +113,16 @@ test("visual proposal revision combines reviewed media and client-safe print out
   await page
     .getByLabel("Pie de imagen · 1")
     .fill("Concepto visual aprobado para la experiencia del cliente.");
-  await page.getByRole("button", { name: "Más acciones", exact: true }).click();
   await expect(
-    page.getByRole("menuitem", { name: /^Vista previa/ }),
-  ).toHaveAttribute("aria-disabled", "true");
-  await page.keyboard.press("Escape");
+    page.getByRole("button", { name: "Exportar PDF", exact: true }),
+  ).toBeDisabled();
   await page
     .getByRole("button", { name: "Guardar cambios", exact: true })
     .click();
-  await headerMenuAction(page, "Vista previa");
+  await expect(
+    page.getByRole("button", { name: "Exportar PDF", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Vista previa", exact: true }).click();
   await expect(page.locator(".print-visuals figure")).toHaveCount(2);
   await expect(page.locator(".print-proposal")).toContainText(
     "La propuesta combina una llegada cálida",
@@ -147,14 +150,16 @@ test("visual proposal revision combines reviewed media and client-safe print out
     animations: "disabled",
   });
   await page.emulateMedia({ media: "screen" });
-  await page.getByRole("button", { name: "Cerrar ventana" }).click();
-  await headerMenuAction(page, "Comparar versiones");
+  await page.getByRole("button", { name: "Editar", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Comparar versiones", exact: true })
+    .click();
   await expect(page.getByRole("dialog")).toContainText("Versión 2");
   await expect(page.getByRole("dialog")).toContainText("Recursos visuales");
   await expect(page.getByRole("dialog")).toContainText("VISTA 3D");
   await page.getByRole("button", { name: "Cerrar ventana" }).click();
   await page.reload();
-  await page.getByRole("button", { name: "03 Imágenes", exact: true }).click();
+  await page.getByText(/^Imágenes de la propuesta/).click();
   await expect(page.locator(".proposal-visual-card")).toHaveCount(2);
   await expect(page.getByLabel("Plantilla de presentación")).toHaveValue(
     "Spotlight",
@@ -188,11 +193,13 @@ test("owner acceptance requires review and does not send an acknowledgment", asy
   ).toBeVisible();
   await page.goto("/proposals/p1");
   await expect(page.getByText("Aceptada", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Título de la propuesta")).toBeDisabled();
+  await expect(page.getByLabel("Título de la propuesta")).toHaveCount(0);
   await page
     .getByRole("button", { name: "Nueva versión", exact: true })
     .click();
-  await expect(page.getByText(/VERSIÓN 3/)).toBeVisible();
+  await expect(
+    page.locator(".proposal-editor-meta").getByText("· v3", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByLabel("Título de la propuesta")).toBeEnabled();
 });
 
@@ -249,7 +256,6 @@ test("proposal line edits calculate and persist a revised total", async ({
   page,
 }) => {
   await page.goto("/proposals/p2");
-  await page.getByRole("button", { name: "02 Equipos y servicios" }).click();
   await page.getByLabel("Agregar equipo del catálogo").selectOption("q2");
   await page.getByLabel("Shure Wireless Microphone Cantidad").fill("2");
   await page
@@ -261,7 +267,6 @@ test("proposal line edits calculate and persist a revised total", async ({
     }),
   ).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "02 Equipos y servicios" }).click();
   await expect(
     page.getByLabel("Shure Wireless Microphone Cantidad"),
   ).toHaveValue("2");

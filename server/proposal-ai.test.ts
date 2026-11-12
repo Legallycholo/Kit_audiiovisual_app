@@ -3,6 +3,7 @@ import {
   materializeSuggestion,
   openAIProposalGenerator,
   proposalContext,
+  proposalEditContext,
 } from "./proposal-ai";
 import { createSeed } from "../src/shared/seed";
 const context = proposalContext(
@@ -133,5 +134,61 @@ it("flags missing requirements and catalog rates in the review notes", () => {
       "Confirmar la cantidad estimada de asistentes.",
       expect.stringContaining("el catálogo indica cero"),
     ]),
+  );
+});
+
+it("builds an edit context from an existing proposal, with or without a linked event", () => {
+  const workspace = createSeed();
+  const edit = proposalEditContext(workspace, "p2", "Añade un técnico.");
+  expect(edit.existing?.title).toBe(workspace.proposals[1].title);
+  expect(edit.existing?.lines[0].equipmentId).toBe("q1");
+  expect(edit.client.name).not.toBe("");
+  const unlinked = {
+    ...workspace,
+    proposals: [
+      {
+        ...workspace.proposals[1],
+        id: "p9",
+        eventId: "",
+        clientSnapshot: {
+          name: "Cliente nuevo",
+          contact: "",
+          email: "",
+          phone: "",
+        },
+      },
+    ],
+  };
+  const context = proposalEditContext(unlinked, "p9", "Redacta la propuesta.");
+  expect(context.event.name).toBe("");
+  expect(context.client.name).toBe("Cliente nuevo");
+  expect(() => proposalEditContext(workspace, "missing", "x")).toThrowError();
+});
+
+it("materializes custom services without a price and asks for it", () => {
+  const result = materializeSuggestion(
+    {
+      ...payload,
+      items: [{ equipmentId: "q1", quantity: 1, days: 1 }],
+      customItems: [
+        { description: "Técnicos de montaje", quantity: 2, days: 1 },
+      ],
+      discount: 10,
+      scope: "Proyección",
+    },
+    context,
+    "model",
+  );
+  expect(result.lines).toHaveLength(2);
+  expect(result.lines[1]).toMatchObject({
+    description: "Técnicos de montaje",
+    rate: 0,
+    quantity: 2,
+  });
+  expect(result.lines[1].equipmentId).toBeUndefined();
+  expect(result.discount).toBe(10);
+  expect(result.scope).toBe("Proyección");
+  expect(result.aiReview.questions).toContain(
+    "Indicar el precio de «Técnicos de montaje»: KIT no inventa precios.",
   );
 });
