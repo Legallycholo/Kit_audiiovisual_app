@@ -62,7 +62,12 @@ export function mountAuthRoutes(
         .run(JSON.stringify(emptyWorkspace(input.company)));
       await repo.audit(id, "Company workspace created", input.company);
     });
-    const csrf = await createSession(repo, id, res, Boolean(config.secureCookies));
+    const csrf = await createSession(
+      repo,
+      id,
+      res,
+      Boolean(config.secureCookies),
+    );
     res.status(201).json({ user: publicUser((await repo.user(id))!), csrf });
   });
   app.post("/api/login", async (req, res) => {

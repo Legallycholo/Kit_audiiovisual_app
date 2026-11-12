@@ -5962,7 +5962,12 @@ function mountAuthRoutes(app, { repo, config }) {
       await repo.db.prepare("INSERT INTO workspace VALUES (1,0,?)").run(JSON.stringify(emptyWorkspace(input.company)));
       await repo.audit(id3, "Company workspace created", input.company);
     });
-    const csrf = await createSession(repo, id3, res, Boolean(config.secureCookies));
+    const csrf = await createSession(
+      repo,
+      id3,
+      res,
+      Boolean(config.secureCookies)
+    );
     res.status(201).json({ user: publicUser(await repo.user(id3)), csrf });
   });
   app.post("/api/login", async (req, res) => {
@@ -6054,6 +6059,31 @@ function mountAuthRoutes(app, { repo, config }) {
   });
 }
 
+// server/policy/delete-draft.ts
+function deleteDraftProposal(workspace, proposalId, user) {
+  if (!canEditCollection(user, "proposals"))
+    throw new HttpError(403, "Tu rol no puede eliminar propuestas.");
+  const proposal = workspace.proposals.find((p) => p.id === proposalId);
+  if (!proposal || proposal.eventId && !ownsEvent(user, proposal.eventId))
+    throw new HttpError(404, "No se encontr\xF3 la propuesta.");
+  if (proposal.status !== "Draft")
+    throw new HttpError(
+      422,
+      "Solo se pueden eliminar borradores. Las versiones enviadas o aceptadas se conservan."
+    );
+  if (workspace.conversations.some(
+    (c) => c.proposalId === proposal.id || c.messages.some((m) => m.proposalId === proposal.id)
+  ) || workspace.automations.some((a) => a.proposalId === proposal.id))
+    throw new HttpError(
+      422,
+      "Este borrador ya tiene mensajes o tareas asociadas y no se puede eliminar."
+    );
+  return {
+    ...workspace,
+    proposals: workspace.proposals.filter((p) => p.id !== proposal.id)
+  };
+}
+
 // server/routes/workspace.ts
 function mountWorkspaceRoutes(app, { repo, response }) {
   app.get("/api/workspace", async (_req, res) => res.json(await response(res)));
@@ -6107,6 +6137,23 @@ function mountWorkspaceRoutes(app, { repo, response }) {
           eventId
         );
       }
+    });
+    res.json(await response(res));
+  });
+  app.delete("/api/proposals/:id", async (req, res) => {
+    const user = userOf(res);
+    const id3 = identifier.parse(req.params.id);
+    await repo.transaction(async () => {
+      const current = await repo.read();
+      const proposal = current.workspace.proposals.find((p) => p.id === id3);
+      const next = deleteDraftProposal(current.workspace, id3, user);
+      await repo.save(next, current.revision);
+      await repo.audit(
+        user.id,
+        "Proposal draft deleted",
+        `${user.name} \xB7 ${proposal.number} \xB7 v${proposal.version}`,
+        proposal.eventId || void 0
+      );
     });
     res.json(await response(res));
   });
@@ -6530,7 +6577,11 @@ function mountUserRoutes(app, { repo }) {
         input.clientId || null,
         JSON.stringify(input.sharedProposalIds)
       );
-      await repo.audit(actor.id, "User created", `${input.name} \xB7 ${input.role}`);
+      await repo.audit(
+        actor.id,
+        "User created",
+        `${input.name} \xB7 ${input.role}`
+      );
     });
     res.status(201).json({ user: publicUser(await repo.user(id3)) });
   });
@@ -6638,7 +6689,11 @@ function mountUserRoutes(app, { repo }) {
     await repo.transaction(async () => {
       await repo.db.prepare("UPDATE users SET password_hash=? WHERE id=?").run(encoded, userId);
       await repo.db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
-      await repo.audit(actor.id, "User password reset by administrator", row.email);
+      await repo.audit(
+        actor.id,
+        "User password reset by administrator",
+        row.email
+      );
     });
     res.json({ temporaryPassword });
   });
@@ -6888,7 +6943,11 @@ function mountBackupRoutes(app, { repo, response }) {
   app.get("/api/export", async (_req, res) => {
     const user = requireAdmin(res);
     const current = await repo.read();
-    await repo.audit(user.id, "Workspace exported", "Legacy workspace JSON export");
+    await repo.audit(
+      user.id,
+      "Workspace exported",
+      "Legacy workspace JSON export"
+    );
     res.setHeader(
       "Content-Disposition",
       'attachment; filename="kit-workspace-export.json"'
@@ -7272,7 +7331,11 @@ function mountLookupRoutes(app, { repo, config }) {
       serpapi.key,
       config.integrations?.transport
     );
-    await repo.audit(user.id, AUDIT.lookup, `${input.kind} \xB7 ${results.length}`);
+    await repo.audit(
+      user.id,
+      AUDIT.lookup,
+      `${input.kind} \xB7 ${results.length}`
+    );
     res.json({ kind: input.kind, results, ...await usage() });
   });
 }

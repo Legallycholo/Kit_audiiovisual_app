@@ -166,6 +166,44 @@ describe("authenticated company workspace", () => {
       "password_hash",
     );
   });
+  it("deletes only a draft proposal, through its own route, with an audit entry", async () => {
+    const draft = {
+      ...(await workspace()).workspace.proposals.find((p) => p.id === "p2")!,
+      id: "p-draft-api",
+      number: "KIT-2026-077",
+      status: "Draft" as const,
+      lines: [],
+    };
+    expect(
+      (await patch([{ collection: "proposals", id: draft.id, value: draft }]))
+        .status,
+    ).toBe(200);
+    // Sent or accepted revisions are records: the route refuses them.
+    const kept = await call("/proposals/p1", "DELETE");
+    expect(kept.status).toBe(422);
+    expect(kept.json.error).toMatch(/Solo se pueden eliminar borradores/);
+    // A role without proposal access cannot delete, and gets no hint it exists.
+    const tech = await account("Technician", { eventIds: ["e1"] });
+    expect(
+      (await call("/proposals/p-draft-api", "DELETE", undefined, tech)).status,
+    ).toBe(403);
+    // The workspace PATCH still cannot delete anything.
+    const before = (await workspace()).workspace;
+    const gone = await call("/proposals/p-draft-api", "DELETE");
+    expect(gone.status).toBe(200);
+    const after = gone.json.workspace;
+    expect(after.proposals.map((p: { id: string }) => p.id)).toEqual(
+      before.proposals.filter((p) => p.id !== "p-draft-api").map((p) => p.id),
+    );
+    expect((await call("/proposals/p-draft-api", "DELETE")).status).toBe(404);
+    expect(
+      (await repo.read()).workspace.activity.some(
+        (a) =>
+          a.title === "Proposal draft deleted" &&
+          a.detail.includes("KIT-2026-077"),
+      ),
+    ).toBe(true);
+  });
   it("protects records and client shares at the API boundary", async () => {
     const tech = await account("Technician", { eventIds: ["e1"] });
     const scoped = await workspace(tech);

@@ -737,3 +737,17 @@
     display: none !important;
   }
 }
+
+/* Row actions in the proposal list. */
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.icon-button.danger-hover:hover,
+.icon-button.danger-hover:focus-visible {
+  color: var(--color-danger);
+  background: var(--color-danger-subtle);
+}

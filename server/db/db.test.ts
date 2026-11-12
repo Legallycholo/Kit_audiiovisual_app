@@ -155,10 +155,18 @@ describe("KIT_DATABASE values left over from the SQLite setup", () => {
       expect(existing.target).toBe(DEFAULT_LOCAL_DB);
       expect(readFileSync(file, "utf8")).toBe("SQLite format 3");
       // Normal values are untouched.
-      expect(resolveDbTarget(undefined, dir)).toEqual({ target: DEFAULT_LOCAL_DB });
-      expect(resolveDbTarget("memory://", dir)).toEqual({ target: "memory://" });
-      expect(resolveDbTarget("postgres://u:p@h/db", dir)).toEqual({ target: "postgres://u:p@h/db" });
-      expect(resolveDbTarget(".kit-local/other", dir)).toEqual({ target: ".kit-local/other" });
+      expect(resolveDbTarget(undefined, dir)).toEqual({
+        target: DEFAULT_LOCAL_DB,
+      });
+      expect(resolveDbTarget("memory://", dir)).toEqual({
+        target: "memory://",
+      });
+      expect(resolveDbTarget("postgres://u:p@h/db", dir)).toEqual({
+        target: "postgres://u:p@h/db",
+      });
+      expect(resolveDbTarget(".kit-local/other", dir)).toEqual({
+        target: ".kit-local/other",
+      });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

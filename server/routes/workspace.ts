@@ -3,6 +3,8 @@ import { HttpError } from "../database";
 import { userOf } from "../security";
 import { changeSchema } from "../schema";
 import { applyChanges } from "../permissions";
+import { deleteDraftProposal } from "../policy/delete-draft";
+import { identifier } from "../schema";
 import type { RouteContext } from "./context";
 
 export function mountWorkspaceRoutes(
@@ -77,6 +79,24 @@ export function mountWorkspaceRoutes(
           eventId,
         );
       }
+    });
+    res.json(await response(res));
+  });
+  // Draft proposals are the only records that can be deleted (see policy/delete-draft).
+  app.delete("/api/proposals/:id", async (req, res) => {
+    const user = userOf(res);
+    const id = identifier.parse(req.params.id);
+    await repo.transaction(async () => {
+      const current = await repo.read();
+      const proposal = current.workspace.proposals.find((p) => p.id === id);
+      const next = deleteDraftProposal(current.workspace, id, user);
+      await repo.save(next, current.revision);
+      await repo.audit(
+        user.id,
+        "Proposal draft deleted",
+        `${user.name} · ${proposal!.number} · v${proposal!.version}`,
+        proposal!.eventId || undefined,
+      );
     });
     res.json(await response(res));
   });

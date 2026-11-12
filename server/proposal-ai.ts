@@ -90,7 +90,10 @@ export interface ProposalGenerator {
   generate: (context: ProposalContext) => Promise<unknown>;
 }
 /** What the application applies after review (rates always from the catalog). */
-export type DraftSuggestion = Pick<Proposal, "title" | "introduction" | "lines"> & {
+export type DraftSuggestion = Pick<
+  Proposal,
+  "title" | "introduction" | "lines"
+> & {
   aiReview: NonNullable<Proposal["aiReview"]>;
 } & Partial<Pick<Proposal, "scope" | "notes" | "terms" | "discount">>;
 

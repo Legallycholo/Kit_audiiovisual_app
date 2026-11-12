@@ -156,7 +156,11 @@ export function mountBackupRoutes(
   app.get("/api/export", async (_req, res) => {
     const user = requireAdmin(res);
     const current = await repo.read();
-    await repo.audit(user.id, "Workspace exported", "Legacy workspace JSON export");
+    await repo.audit(
+      user.id,
+      "Workspace exported",
+      "Legacy workspace JSON export",
+    );
     res.setHeader(
       "Content-Disposition",
       'attachment; filename="kit-workspace-export.json"',

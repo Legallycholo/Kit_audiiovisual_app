@@ -53,7 +53,11 @@ export function mountLookupRoutes(
       config.integrations?.transport,
     );
     // The query itself is not stored; only that a search was spent.
-    await repo.audit(user.id, AUDIT.lookup, `${input.kind} · ${results.length}`);
+    await repo.audit(
+      user.id,
+      AUDIT.lookup,
+      `${input.kind} · ${results.length}`,
+    );
     res.json({ kind: input.kind, results, ...(await usage()) });
   });
 }

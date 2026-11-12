@@ -2,12 +2,14 @@ import { uiLabel } from "../../shared/i18n";
 import { canEditCollection } from "../../shared/access";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowUpRight, FileText, Plus, Sparkles } from "lucide-react";
+import { ArrowUpRight, FileText, Plus, Sparkles, Trash2 } from "lucide-react";
 import { activity, useWorkspace } from "../../shared/store";
 import {
   Badge,
   Button,
   Empty,
+  ErrorNote,
+  Modal,
   PageHeader,
   Panel,
   SearchField,
@@ -46,13 +48,35 @@ export const DEFAULT_TERMS =
   "La disponibilidad, las condiciones de pago y el alcance final están sujetos a revisión.";
 
 export function Proposals() {
-  const { data, update, user, saving } = useWorkspace();
+  const { data, update, user, saving, request, refresh, toast } =
+    useWorkspace();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<(typeof filters)[number]>("Todos");
   const canCreate = canEditCollection(user, "proposals");
   const eventFilter = params.get("event") || "";
+  // The draft waiting for the "¿Eliminar?" confirmation.
+  const [deleting, setDeleting] = useState<Proposal | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  async function confirmDelete() {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await request(`/proposals/${encodeURIComponent(deleting.id)}`, {
+        method: "DELETE",
+      });
+      await refresh();
+      toast("Borrador eliminado.");
+      setDeleting(null);
+    } catch (error) {
+      setDeleteError((error as Error).message);
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   /** "Nueva propuesta": the document opens at once, linked to the event when one is known. */
   async function createDraft(withKit: boolean) {
@@ -204,7 +228,21 @@ export function Proposals() {
                     <td className="nowrap">
                       {p.updatedAt ? longDate(p.updatedAt.slice(0, 10)) : "—"}
                     </td>
-                    <td>
+                    <td className="row-actions">
+                      {p.status === "Draft" && canCreate && (
+                        <button
+                          type="button"
+                          className="icon-button danger-hover"
+                          aria-label={`Eliminar borrador ${p.title || p.number}`}
+                          title="Eliminar borrador"
+                          onClick={() => {
+                            setDeleteError("");
+                            setDeleting(p);
+                          }}
+                        >
+                          <Trash2 size={17} aria-hidden="true" />
+                        </button>
+                      )}
                       <Link
                         className="icon-button"
                         to={`/proposals/${p.id}`}
@@ -234,6 +272,40 @@ export function Proposals() {
           )}
         </div>
       </Panel>
+      {deleting && (
+        <Modal
+          title="¿Eliminar este borrador?"
+          description="Esta acción no se puede deshacer."
+          onClose={() => !deleteBusy && setDeleting(null)}
+        >
+          <div className="modal-body">
+            <p>
+              Se eliminará de forma permanente{" "}
+              <strong>{deleting.title || "Nueva propuesta"}</strong> (
+              {deleting.number} · v{deleting.version}). Las propuestas enviadas
+              o aceptadas no se ven afectadas.
+            </p>
+            {deleteError && <ErrorNote>{deleteError}</ErrorNote>}
+            <div className="modal-actions">
+              <Button
+                variant="secondary"
+                disabled={deleteBusy}
+                onClick={() => setDeleting(null)}
+              >
+                {uiLabel("Cancel")}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={deleteBusy}
+                onClick={() => void confirmDelete()}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+                Eliminar borrador
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }

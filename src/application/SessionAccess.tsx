@@ -38,7 +38,7 @@ export function SessionAccess({
   // for "server unreachable" and, without a portal, for local first-time setup.
   const portalConfigured = Boolean(
     import.meta.env.VITE_SUPABASE_URL &&
-      import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
   );
   const goToLogin =
     !desktopLocal &&

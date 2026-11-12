@@ -254,3 +254,75 @@ test("the editor works on a tablet and phone: KIT opens as a drawer and nothing 
     fullPage: true,
   });
 });
+
+test("a draft is deleted from the list only after confirming, and kept proposals have no delete button", async ({
+  page,
+  company,
+}) => {
+  await company.update((workspace) => {
+    workspace.proposals.push({
+      id: "p-borrar",
+      number: "KIT-2026-090",
+      eventId: "",
+      version: 1,
+      title: "Borrador para eliminar",
+      introduction: "",
+      terms: "",
+      lines: [],
+      discount: 0,
+      tax: 0,
+      status: "Draft",
+      validUntil: "2026-12-31",
+      presentationTemplate: "Classic",
+      updatedAt: new Date().toISOString(),
+    });
+  });
+  await page.goto("/proposals");
+  const trash = page.getByRole("button", {
+    name: "Eliminar borrador Borrador para eliminar",
+  });
+  await expect(trash).toBeVisible();
+  // Only drafts get the button: it is not shown for a sent or accepted proposal.
+  const workspace = (await company.repo.read()).workspace;
+  const drafts = workspace.proposals.filter((p) => p.status === "Draft");
+  await expect(
+    page.getByRole("button", { name: /^Eliminar borrador/ }),
+  ).toHaveCount(drafts.length);
+  const kept = workspace.proposals.find((p) => p.status !== "Draft")!;
+  await expect(
+    page.getByRole("button", { name: `Eliminar borrador ${kept.title}` }),
+  ).toHaveCount(0);
+
+  // The confirmation names the draft and can be cancelled without deleting.
+  await trash.click();
+  const dialog = page.getByRole("dialog", { name: "¿Eliminar este borrador?" });
+  await expect(dialog).toContainText("Borrador para eliminar");
+  await expect(dialog).toContainText("no se puede deshacer");
+  // Let the dialog finish fading in so axe measures the final colors.
+  await page.waitForTimeout(600);
+  const axe = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(axe.violations).toEqual([]);
+  await dialog.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  expect(
+    (await company.repo.read()).workspace.proposals.some(
+      (p) => p.id === "p-borrar",
+    ),
+  ).toBe(true);
+
+  // Confirming removes it from the list and from the company data.
+  await trash.click();
+  await dialog.getByRole("button", { name: "Eliminar borrador" }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(trash).toHaveCount(0);
+  await expect(
+    page.getByText("Borrador eliminado.", { exact: true }),
+  ).toBeVisible();
+  expect(
+    (await company.repo.read()).workspace.proposals.some(
+      (p) => p.id === "p-borrar",
+    ),
+  ).toBe(false);
+});

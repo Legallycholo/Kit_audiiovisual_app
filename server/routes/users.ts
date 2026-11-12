@@ -88,7 +88,11 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
           input.clientId || null,
           JSON.stringify(input.sharedProposalIds),
         );
-      await repo.audit(actor.id, "User created", `${input.name} · ${input.role}`);
+      await repo.audit(
+        actor.id,
+        "User created",
+        `${input.name} · ${input.role}`,
+      );
     });
     res.status(201).json({ user: publicUser((await repo.user(id))!) });
   });
@@ -211,7 +215,11 @@ export function mountUserRoutes(app: express.Express, { repo }: RouteContext) {
         .prepare("UPDATE users SET password_hash=? WHERE id=?")
         .run(encoded, userId);
       await repo.db.prepare("DELETE FROM sessions WHERE user_id=?").run(userId);
-      await repo.audit(actor.id, "User password reset by administrator", row.email);
+      await repo.audit(
+        actor.id,
+        "User password reset by administrator",
+        row.email,
+      );
     });
     res.json({ temporaryPassword });
   });

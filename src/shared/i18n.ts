@@ -1011,6 +1011,7 @@ export const spanish: Record<string, string> = {
   "Workspace exported": "Espacio exportado",
   "Workspace recovery point restored": "Punto de recuperación restaurado",
   "Workspace maintenance": "Mantenimiento del espacio",
+  "Proposal draft deleted": "Borrador de propuesta eliminado",
   "Integration connection tested": "Conexión de integración probada",
   "External lookup performed": "Búsqueda externa realizada",
   "search-device-created": "Dispositivo de búsqueda conectado",
