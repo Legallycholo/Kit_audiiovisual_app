@@ -189,6 +189,37 @@ td {
 .live-dot {
   box-shadow: 0 0 0 3px var(--color-success-subtle);
 }
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.dashboard-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: var(--text-small);
+  text-decoration: none;
+}
+.dashboard-action:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-elevated);
+}
+.dashboard-action > svg {
+  color: var(--color-primary);
+}
+.dashboard-empty {
+  padding: 16px 0;
+  font-size: var(--text-small);
+}
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

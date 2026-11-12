@@ -1,29 +1,32 @@
 import {
   ArrowRight,
   ArrowUpRight,
-  Box,
   CalendarDays,
+  CalendarPlus,
   ChevronRight,
   Clock3,
+  FilePlus2,
   FileText,
-  Plus,
+  Layers3,
   ShieldCheck,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWorkspace } from "../shared/store";
 import { Avatar, Badge, PageHeader, Panel, Stat, TextLink } from "../shared/ui";
-import { canSeeModule } from "../shared/access";
-import { shortDate } from "../shared/domain";
+import { canEditCollection, canSeeModule } from "../shared/access";
+import { money, shortDate } from "../shared/domain";
+import { pipelineReport } from "../shared/reporting";
 import { activityLabel, uiLabel } from "../shared/i18n";
+
 /**
- * The role the signed-in account holds and the sections it opens. Shown so a
- * person can see their own scope without opening Settings; administrators get
- * the fuller picture at /admin instead.
+ * What a scoped account can open. Administrators get the full picture in
+ * /admin, so this only appears for the other roles.
  */
 function YourAccess() {
   const { user } = useWorkspace();
-  if (!user) return null;
+  if (!user || user.role === "Administrator") return null;
   const sections = Object.entries({
     "/": "Inicio",
     "/events": "Eventos",
@@ -42,30 +45,21 @@ function YourAccess() {
     <Panel
       title="Your access"
       subtitle="The role you signed in with and what it opens."
-      action={
-        user.role === "Administrator" ? (
-          <TextLink to="/admin">{uiLabel("Access and roles")}</TextLink>
-        ) : undefined
-      }
     >
       <div className="panel-body">
         <div className="role-row">
-          <ShieldCheck size={21} />
+          <ShieldCheck size={21} aria-hidden="true" />
           <div>
-            <strong>
-              {user.name || user.email}
-              {user.isOwner ? ` · ${uiLabel("Workspace owner")}` : ""}
-            </strong>
+            <strong>{user.name || user.email}</strong>
             <p>
-              {uiLabel("Your role")}: {user.role}
+              {uiLabel("Your role")}: {uiLabel(user.role)}
             </p>
             <small>
               {uiLabel("Sections")}: {sections.join(", ") || "—"}
             </small>
           </div>
-          <Badge tone="blue">{user.role}</Badge>
           <Badge tone="neutral">
-            {user.role === "Administrator" || user.role === "Sales Manager"
+            {user.role === "Sales Manager"
               ? uiLabel("All events")
               : `${user.eventIds.length} ${uiLabel("Assigned events").toLowerCase()}`}
           </Badge>
@@ -75,8 +69,10 @@ function YourAccess() {
   );
 }
 
+const WEEK = 7 * 86_400_000;
+
 export function Dashboard() {
-  const { data, update } = useWorkspace();
+  const { data, update, user } = useWorkspace();
   const active = data.events.filter(
     (e) => !["Completed", "Cancelled"].includes(e.status),
   );
@@ -85,70 +81,108 @@ export function Dashboard() {
   ).length;
   const next = [...active].sort((a, b) => a.date.localeCompare(b.date))[0];
   const venue = data.venues.find((v) => v.id === next?.venueId);
+  const pipeline = pipelineReport(data).filter((row) =>
+    ["Draft", "In review", "Ready to send", "Issued"].includes(row.status),
+  );
+  const pipelineValue = pipeline.reduce((sum, row) => sum + row.value, 0);
+  const pipelineCount = pipeline.reduce((sum, row) => sum + row.count, 0);
+  const soon = new Date(Date.now() + WEEK).toISOString().slice(0, 10);
+  const weekTasks = data.tasks.filter((t) => !t.done && t.date <= soon);
+  const openTasks = data.tasks.filter((t) => !t.done);
   const date = new Date().toLocaleDateString("es-PR", {
     weekday: "long",
     month: "long",
     day: "numeric",
     year: "numeric",
   });
+  const actions = [
+    {
+      to: "/proposals?new=manual",
+      label: "Nueva propuesta",
+      icon: <FilePlus2 size={18} aria-hidden="true" />,
+      allowed:
+        canEditCollection(user, "proposals") &&
+        canSeeModule(user, "/proposals"),
+    },
+    {
+      to: "/events?new=1",
+      label: "Nuevo evento",
+      icon: <CalendarPlus size={18} aria-hidden="true" />,
+      allowed: canEditCollection(user, "events"),
+    },
+    {
+      to: "/design",
+      label: "Abrir KIT Design",
+      icon: <Layers3 size={18} aria-hidden="true" />,
+      allowed: canSeeModule(user, "/design"),
+    },
+  ].filter((action) => action.allowed);
   return (
     <>
       <PageHeader
         eyebrow={date}
         title="Dashboard"
         actions={
-          <Link className="button primary" to="/events?new=1">
-            <Plus size={17} />
-            {uiLabel("Create event")}
-          </Link>
+          canEditCollection(user, "events") ? (
+            <Link className="button primary" to="/events?new=1">
+              <CalendarPlus size={17} aria-hidden="true" />
+              {uiLabel("Create event")}
+            </Link>
+          ) : undefined
         }
       />
+      <div className="dashboard-actions">
+        {actions.map((action) => (
+          <Link key={action.to} className="dashboard-action" to={action.to}>
+            {action.icon}
+            <span>{action.label}</span>
+          </Link>
+        ))}
+        {canSeeModule(user, "/kit") && (
+          <Link className="dashboard-action" to="/kit">
+            <Sparkles size={18} aria-hidden="true" />
+            <span>Abrir KIT</span>
+          </Link>
+        )}
+      </div>
       <div className="stat-grid">
         <Stat
           label="Active events"
           value={active.length.toString().padStart(2, "0")}
-          icon={<CalendarDays size={18} />}
+          icon={<CalendarDays size={18} aria-hidden="true" />}
         />
         <Stat
-          label="Proposals in progress"
-          value={data.proposals
-            .filter((p) =>
-              ["Draft", "In review", "Issued", "Ready to send"].includes(
-                p.status,
-              ),
-            )
-            .length.toString()
-            .padStart(2, "0")}
+          label="Propuestas en curso"
+          value={money(pipelineValue)}
           detail={
             <Link to="/proposals">
-              {uiLabel("Review your pipeline")} <ArrowUpRight size={13} />
+              {pipelineCount} {pipelineCount === 1 ? "propuesta" : "propuestas"}{" "}
+              · {uiLabel("Review your pipeline")}{" "}
+              <ArrowUpRight size={13} aria-hidden="true" />
             </Link>
           }
-          icon={<FileText size={18} />}
+          icon={<FileText size={18} aria-hidden="true" />}
         />
         <Stat
-          label="Equipment in catalog"
-          value={data.equipment.reduce((s, e) => s + e.quantity, 0)}
-          detail={
-            <>
-              {data.equipment.length}{" "}
-              {uiLabel("products across your inventory")}
-            </>
-          }
-          icon={<Box size={18} />}
-        />
-        <Stat
-          label="Open production tasks"
-          value={data.tasks
-            .filter((t) => !t.done)
-            .length.toString()
-            .padStart(2, "0")}
+          label="Tareas esta semana"
+          value={weekTasks.length.toString().padStart(2, "0")}
           detail={
             <Link to="/production">
-              {uiLabel("Production")} <ArrowUpRight size={13} />
+              {openTasks.length} abiertas en total · {uiLabel("Production")}{" "}
+              <ArrowUpRight size={13} aria-hidden="true" />
             </Link>
           }
-          icon={<Users size={18} />}
+          icon={<Users size={18} aria-hidden="true" />}
+        />
+        <Stat
+          label="Respuestas por revisar"
+          value={pending.toString().padStart(2, "0")}
+          detail={
+            <Link to="/inbox">
+              Mensajes de clientes <ArrowUpRight size={13} aria-hidden="true" />
+            </Link>
+          }
+          icon={<Clock3 size={18} aria-hidden="true" />}
         />
       </div>
       <div className="dashboard-focus">
@@ -170,7 +204,7 @@ export function Dashboard() {
               {next && (
                 <Link to={`/events/${next.id}`}>
                   {uiLabel("Open event")}
-                  <ArrowUpRight size={17} />
+                  <ArrowUpRight size={17} aria-hidden="true" />
                 </Link>
               )}
             </div>
@@ -180,7 +214,7 @@ export function Dashboard() {
         <div className="attention-card">
           <div className="attention-heading">
             <span className="attention-icon">
-              <Clock3 size={18} />
+              <Clock3 size={18} aria-hidden="true" />
             </span>
             <span>{uiLabel("OWNER'S DESK")}</span>
             <Badge tone="amber">{`${pending} ${uiLabel("pending")}`}</Badge>
@@ -207,7 +241,7 @@ export function Dashboard() {
           </p>
           <Link className="attention-link" to="/inbox">
             {uiLabel("Review client responses")}
-            <ArrowRight size={17} />
+            <ArrowRight size={17} aria-hidden="true" />
           </Link>
         </div>
       </div>
@@ -227,7 +261,7 @@ export function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {active.slice(0, 4).map((event) => {
+                {active.slice(0, 5).map((event) => {
                   const c = data.clients.find((c) => c.id === event.clientId);
                   return (
                     <tr key={event.id}>
@@ -256,7 +290,7 @@ export function Dashboard() {
                           aria-label={`${uiLabel("Open")} ${event.name}`}
                           to={`/events/${event.id}`}
                         >
-                          <ArrowUpRight size={17} />
+                          <ArrowUpRight size={17} aria-hidden="true" />
                         </Link>
                       </td>
                     </tr>
@@ -264,6 +298,11 @@ export function Dashboard() {
                 })}
               </tbody>
             </table>
+            {active.length === 0 && (
+              <p className="muted dashboard-empty">
+                Sin eventos activos. Crea el primero para empezar.
+              </p>
+            )}
           </div>
         </Panel>
         <Panel
@@ -271,43 +310,49 @@ export function Dashboard() {
           action={<TextLink to="/production">{uiLabel("View all")}</TextLink>}
         >
           <div className="task-list">
-            {data.tasks.slice(0, 4).map((task) => (
-              <label
-                className={`task-item ${task.done ? "done" : ""}`}
-                key={task.id}
-              >
-                <input
-                  type="checkbox"
-                  checked={task.done}
-                  onChange={() =>
-                    update((s) => ({
-                      ...s,
-                      tasks: s.tasks.map((t) =>
-                        t.id === task.id ? { ...t, done: !t.done } : t,
-                      ),
-                    }))
-                  }
-                />
-                <span>
-                  <strong>{task.title}</strong>
-                  <small>
-                    {data.events.find((e) => e.id === task.eventId)?.name}
-                  </small>
-                  <span className="task-due">
-                    {shortDate(task.date)} · {task.assignee.split(" ")[0]}
+            {(weekTasks.length ? weekTasks : openTasks)
+              .slice(0, 5)
+              .map((task) => (
+                <label
+                  className={`task-item ${task.done ? "done" : ""}`}
+                  key={task.id}
+                >
+                  <input
+                    type="checkbox"
+                    checked={task.done}
+                    disabled={!canEditCollection(user, "tasks")}
+                    onChange={() =>
+                      update((s) => ({
+                        ...s,
+                        tasks: s.tasks.map((t) =>
+                          t.id === task.id ? { ...t, done: !t.done } : t,
+                        ),
+                      }))
+                    }
+                  />
+                  <span>
+                    <strong>{task.title}</strong>
+                    <small>
+                      {data.events.find((e) => e.id === task.eventId)?.name}
+                    </small>
+                    <span className="task-due">
+                      {shortDate(task.date)} · {task.assignee.split(" ")[0]}
+                    </span>
                   </span>
-                </span>
-              </label>
-            ))}
+                </label>
+              ))}
+            {openTasks.length === 0 && (
+              <p className="muted dashboard-empty">Sin tareas pendientes.</p>
+            )}
           </div>
         </Panel>
       </div>
       <YourAccess />
       <Panel title="Recent activity">
         <div className="activity-list">
-          {data.activity.slice(0, 3).map((item, i) => (
+          {data.activity.slice(0, 8).map((item, i) => (
             <div className="activity-row" key={item.id}>
-              <span className={`activity-dot dot-${i}`} />
+              <span className={`activity-dot dot-${i % 3}`} />
               <div>
                 <strong>{activityLabel(item.title)}</strong>
                 <p>{item.detail}</p>
@@ -315,13 +360,16 @@ export function Dashboard() {
               {item.eventId && (
                 <Link
                   to={`/events/${item.eventId}`}
-                  aria-label={`${uiLabel("View event for")} ${item.title}`}
+                  aria-label={`${uiLabel("View event for")} ${activityLabel(item.title)}`}
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={16} aria-hidden="true" />
                 </Link>
               )}
             </div>
           ))}
+          {data.activity.length === 0 && (
+            <p className="muted dashboard-empty">Todavía no hay actividad.</p>
+          )}
         </div>
       </Panel>
     </>
