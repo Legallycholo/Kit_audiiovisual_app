@@ -8,6 +8,7 @@ import {
   MapPin,
   Plus,
   Ruler,
+  Trash2,
   Users,
 } from "lucide-react";
 import { useWorkspace, activity } from "../shared/store";
@@ -21,6 +22,7 @@ import {
   Badge,
   Button,
   Empty,
+  ErrorNote,
   Field,
   Modal,
   PageHeader,
@@ -31,7 +33,28 @@ import {
 import { downloadFile, id, initials, shortDate } from "../shared/domain";
 import type { Client, Venue } from "../shared/types";
 export function Clients() {
-  const { data, update, toast, user } = useWorkspace();
+  const { data, update, toast, user, request, refresh } = useWorkspace();
+  // The client waiting for the "¿Eliminar?" confirmation.
+  const [deleting, setDeleting] = useState<Client | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  async function confirmDelete() {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await request(`/clients/${encodeURIComponent(deleting.id)}`, {
+        method: "DELETE",
+      });
+      await refresh();
+      toast("Cliente eliminado.");
+      setDeleting(null);
+    } catch (error) {
+      setDeleteError((error as Error).message);
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
   const [importing, setImporting] = useState(false);
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState("");
@@ -150,7 +173,21 @@ export function Clients() {
                         ? c.phone
                         : data.events.filter((e) => e.clientId === c.id).length}
                     </td>
-                    <td>
+                    <td className="row-actions">
+                      {canEditCollection(user, "clients") && (
+                        <button
+                          type="button"
+                          className="icon-button danger-hover"
+                          aria-label={`Eliminar cliente ${c.name}`}
+                          title="Eliminar cliente"
+                          onClick={() => {
+                            setDeleteError("");
+                            setDeleting(c);
+                          }}
+                        >
+                          <Trash2 size={17} aria-hidden="true" />
+                        </button>
+                      )}
                       <button
                         className="icon-button"
                         aria-label={`${uiLabel("Open")} ${c.name}`}
@@ -172,6 +209,38 @@ export function Clients() {
           </div>
         )}
       </Panel>
+      {deleting && (
+        <Modal
+          title="¿Eliminar este cliente?"
+          description="Esta acción no se puede deshacer."
+          onClose={() => !deleteBusy && setDeleting(null)}
+        >
+          <div className="modal-body">
+            <p>
+              Se eliminará de forma permanente <strong>{deleting.name}</strong>.
+              Solo se puede eliminar un cliente sin eventos ni mensajes.
+            </p>
+            {deleteError && <ErrorNote>{deleteError}</ErrorNote>}
+            <div className="modal-actions">
+              <Button
+                variant="secondary"
+                disabled={deleteBusy}
+                onClick={() => setDeleting(null)}
+              >
+                {uiLabel("Cancel")}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={deleteBusy}
+                onClick={() => void confirmDelete()}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+                Eliminar cliente
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {selected && (
         <Modal
           title={selected.name}

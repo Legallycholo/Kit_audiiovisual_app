@@ -5808,6 +5808,23 @@ function deleteDraftProposal(workspace, proposalId, user) {
   };
 }
 
+// server/policy/delete-client.ts
+function deleteClient(workspace, clientId, user) {
+  if (!canEditCollection(user, "clients"))
+    throw new HttpError(403, "Tu rol no puede eliminar clientes.");
+  const client = workspace.clients.find((c) => c.id === clientId);
+  if (!client) throw new HttpError(404, "No se encontr\xF3 el cliente.");
+  if (workspace.events.some((e) => e.clientId === client.id) || workspace.conversations.some((c) => c.clientId === client.id))
+    throw new HttpError(
+      422,
+      "Este cliente tiene eventos o mensajes asociados y no se puede eliminar."
+    );
+  return {
+    ...workspace,
+    clients: workspace.clients.filter((c) => c.id !== client.id)
+  };
+}
+
 // server/policy/assignees.ts
 async function assertTaskAssignees(repo, next, changes) {
   for (const change of changes.filter((c) => c.collection === "tasks")) {
@@ -5879,6 +5896,28 @@ function mountWorkspaceRoutes(app, { repo, response }) {
         "Proposal draft deleted",
         `${user.name} \xB7 ${proposal.number} \xB7 v${proposal.version}`,
         proposal.eventId || void 0
+      );
+    });
+    res.json(await response(res));
+  });
+  app.delete("/api/clients/:id", async (req, res) => {
+    const user = userOf(res);
+    const id3 = identifier.parse(req.params.id);
+    await repo.transaction(async () => {
+      const current = await repo.read();
+      const client = current.workspace.clients.find((c) => c.id === id3);
+      const next = deleteClient(current.workspace, id3, user);
+      const linked = await repo.db.prepare("SELECT count(*) count FROM users WHERE client_id=?").get(id3);
+      if (Number(linked.count) > 0)
+        throw new HttpError(
+          422,
+          "Este cliente tiene cuentas de acceso asociadas y no se puede eliminar."
+        );
+      await repo.save(next, current.revision);
+      await repo.audit(
+        user.id,
+        "Client deleted",
+        `${user.name} \xB7 ${client.name}`
       );
     });
     res.json(await response(res));

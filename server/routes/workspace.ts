@@ -4,6 +4,7 @@ import { userOf } from "../security";
 import { changeSchema } from "../schema";
 import { applyChanges } from "../permissions";
 import { deleteDraftProposal } from "../policy/delete-draft";
+import { deleteClient } from "../policy/delete-client";
 import { assertCrewMembers, assertTaskAssignees } from "../policy/assignees";
 import { identifier } from "../schema";
 import type { RouteContext } from "./context";
@@ -58,6 +59,31 @@ export function mountWorkspaceRoutes(
         "Proposal draft deleted",
         `${user.name} · ${proposal!.number} · v${proposal!.version}`,
         proposal!.eventId || undefined,
+      );
+    });
+    res.json(await response(res));
+  });
+  // Clients with no events or messages can be deleted (see policy/delete-client).
+  app.delete("/api/clients/:id", async (req, res) => {
+    const user = userOf(res);
+    const id = identifier.parse(req.params.id);
+    await repo.transaction(async () => {
+      const current = await repo.read();
+      const client = current.workspace.clients.find((c) => c.id === id);
+      const next = deleteClient(current.workspace, id, user);
+      const linked = (await repo.db
+        .prepare("SELECT count(*) count FROM users WHERE client_id=?")
+        .get(id)) as { count: number };
+      if (Number(linked.count) > 0)
+        throw new HttpError(
+          422,
+          "Este cliente tiene cuentas de acceso asociadas y no se puede eliminar.",
+        );
+      await repo.save(next, current.revision);
+      await repo.audit(
+        user.id,
+        "Client deleted",
+        `${user.name} · ${client!.name}`,
       );
     });
     res.json(await response(res));

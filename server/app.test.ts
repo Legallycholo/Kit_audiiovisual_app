@@ -204,6 +204,40 @@ describe("authenticated company workspace", () => {
       ),
     ).toBe(true);
   });
+  it("deletes only a client with no events or messages, through its own route, with an audit entry", async () => {
+    const client = {
+      ...(await workspace()).workspace.clients[0],
+      id: "c-delete-api",
+      name: "Cliente sin eventos",
+    };
+    expect(
+      (await patch([{ collection: "clients", id: client.id, value: client }]))
+        .status,
+    ).toBe(200);
+    const used = (await workspace()).workspace.events[0].clientId;
+    const kept = await call(`/clients/${used}`, "DELETE");
+    expect(kept.status).toBe(422);
+    expect(kept.json.error).toMatch(/eventos o mensajes/);
+    const tech = await account("Technician", { eventIds: ["e1"] });
+    expect(
+      (await call("/clients/c-delete-api", "DELETE", undefined, tech)).status,
+    ).toBe(403);
+    const gone = await call("/clients/c-delete-api", "DELETE");
+    expect(gone.status).toBe(200);
+    expect(
+      gone.json.workspace.clients.some(
+        (c: { id: string }) => c.id === "c-delete-api",
+      ),
+    ).toBe(false);
+    expect((await call("/clients/c-delete-api", "DELETE")).status).toBe(404);
+    expect(
+      (await repo.read()).workspace.activity.some(
+        (a) =>
+          a.title === "Client deleted" &&
+          a.detail.includes("Cliente sin eventos"),
+      ),
+    ).toBe(true);
+  });
   it("protects records and client shares at the API boundary", async () => {
     const tech = await account("Technician", { eventIds: ["e1"] });
     const scoped = await workspace(tech);

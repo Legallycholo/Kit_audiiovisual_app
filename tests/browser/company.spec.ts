@@ -304,6 +304,62 @@ test("company KIT answers a plain message and keeps one thread between the sideb
     page.getByText("El proyecto tiene contexto verificado", { exact: false }),
   ).toBeVisible();
 });
+test("owner deletes a client from the list with a confirmation, and a client with events is kept", async ({
+  page,
+}) => {
+  await setup(page);
+  const seed = createSeed();
+  seed.clients.push({
+    ...seed.clients[0],
+    id: "c-sin-eventos",
+    name: "Cliente temporal",
+    contact: "Ana",
+    email: "ana@temporal.test",
+  });
+  await repo.save(seed, 0);
+  await page.reload();
+  await page.goto("/clients");
+  await page
+    .getByRole("button", { name: "Eliminar cliente Cliente temporal" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "¿Eliminar este cliente?" });
+  await expect(dialog).toContainText("Cliente temporal");
+  await expect(dialog).toContainText("no se puede deshacer");
+  // Cancelling changes nothing.
+  await dialog.getByRole("button", { name: "Cancelar" }).click();
+  expect(
+    (await repo.read()).workspace.clients.some((c) => c.id === "c-sin-eventos"),
+  ).toBe(true);
+  await page
+    .getByRole("button", { name: "Eliminar cliente Cliente temporal" })
+    .click();
+  await page
+    .getByRole("button", { name: "Eliminar cliente", exact: true })
+    .click();
+  await expect(page.getByText("Cliente eliminado.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Eliminar cliente Cliente temporal" }),
+  ).toHaveCount(0);
+  expect(
+    (await repo.read()).workspace.clients.some((c) => c.id === "c-sin-eventos"),
+  ).toBe(false);
+  // A client that already has an event is refused, and the dialog says why.
+  const used = seed.clients.find((c) =>
+    seed.events.some((e) => e.clientId === c.id),
+  )!;
+  await page
+    .getByRole("button", { name: `Eliminar cliente ${used.name}` })
+    .click();
+  await page
+    .getByRole("button", { name: "Eliminar cliente", exact: true })
+    .click();
+  await expect(
+    page.getByText("tiene eventos o mensajes asociados", { exact: false }),
+  ).toBeVisible();
+  expect(
+    (await repo.read()).workspace.clients.some((c) => c.id === used.id),
+  ).toBe(true);
+});
 test("owner reviews AI suggestion, edits, saves, reopens and preserves manual edits on regeneration", async ({
   page,
 }) => {
