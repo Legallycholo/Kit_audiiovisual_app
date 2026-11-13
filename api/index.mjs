@@ -11,8 +11,8 @@ var __esm = (fn, res, err) => function __init() {
   }
 };
 var __export = (target, all) => {
-  for (var name2 in all)
-    __defProp(target, name2, { get: all[name2], enumerable: true });
+  for (var name3 in all)
+    __defProp(target, name3, { get: all[name3], enumerable: true });
 };
 
 // server/db/pg.ts
@@ -100,7 +100,7 @@ var init_pglite_stub = __esm({
 
 // server/app.ts
 import express from "express";
-import { createHash as createHash6, randomUUID as randomUUID13, timingSafeEqual as timingSafeEqual4 } from "node:crypto";
+import { createHash as createHash6, randomUUID as randomUUID14, timingSafeEqual as timingSafeEqual4 } from "node:crypto";
 
 // server/search.ts
 import {
@@ -347,11 +347,11 @@ var Repository = class _Repository {
   async initialized() {
     return Boolean(await this.db.prepare("SELECT 1 FROM users LIMIT 1").get());
   }
-  async user(id5) {
-    return await this.db.prepare("SELECT * FROM users WHERE id=?").get(id5);
+  async user(id6) {
+    return await this.db.prepare("SELECT * FROM users WHERE id=?").get(id6);
   }
-  async userByEmail(email) {
-    return await this.db.prepare("SELECT * FROM users WHERE lower(email)=lower(?)").get(email);
+  async userByEmail(email2) {
+    return await this.db.prepare("SELECT * FROM users WHERE lower(email)=lower(?)").get(email2);
   }
   async users() {
     return (await this.db.prepare('SELECT * FROM users ORDER BY name COLLATE "C"').all()).map(publicUser);
@@ -422,14 +422,14 @@ var Repository = class _Repository {
         409,
         "The workspace changed after the recovery preview. Preview the backup again before restoring."
       );
-    const id5 = randomUUID();
+    const id6 = randomUUID();
     const createdAt = (/* @__PURE__ */ new Date()).toISOString();
     const restoredRevision = current.revision + 1;
     const payloadChecksum = createHash("sha256").update(current.payload).digest("hex");
     await this.db.prepare(
       "INSERT INTO workspace_recovery (id,actor_id,previous_revision,restored_revision,payload,payload_checksum,source_checksum,created_at) VALUES (?,?,?,?,?,?,?,?)"
     ).run(
-      id5,
+      id6,
       actor,
       current.revision,
       restoredRevision,
@@ -455,7 +455,7 @@ var Repository = class _Repository {
         SELECT id FROM workspace_recovery ORDER BY seq DESC LIMIT 10
       )`);
     return {
-      id: id5,
+      id: id6,
       createdAt,
       previousRevision: current.revision,
       restoredRevision
@@ -466,10 +466,10 @@ var Repository = class _Repository {
       'SELECT id,created_at AS "createdAt",previous_revision AS "previousRevision",restored_revision AS "restoredRevision",source_checksum AS "sourceChecksum" FROM workspace_recovery ORDER BY seq DESC LIMIT 10'
     ).all();
   }
-  async recoveryWorkspace(id5) {
+  async recoveryWorkspace(id6) {
     const row = await this.db.prepare(
       'SELECT payload,payload_checksum AS "payloadChecksum" FROM workspace_recovery WHERE id=?'
-    ).get(id5);
+    ).get(id6);
     if (!row) throw new HttpError(404, "Recovery point not found.");
     const expected = Buffer.from(row.payloadChecksum, "hex");
     const actual = Buffer.from(
@@ -507,24 +507,24 @@ function ownsEvent(user, eventId) {
 function scopeWorkspace(workspace, user) {
   if (user.role === "Administrator") return workspace;
   const guest = user.role === "Client / Guest";
-  const commercial2 = user.role === "Sales Manager";
+  const commercial3 = user.role === "Sales Manager";
   const proposals = workspace.proposals.filter(
     (p) => guest ? user.sharedProposalIds.includes(p.id) && // An unlinked proposal (no event yet) is never visible to a client.
-    Boolean(user.clientId) && workspace.events.find((e) => e.id === p.eventId)?.clientId === user.clientId && ["Issued", "Accepted", "Declined", "Superseded"].includes(p.status) : commercial2 && ownsEvent(user, p.eventId)
+    Boolean(user.clientId) && workspace.events.find((e) => e.id === p.eventId)?.clientId === user.clientId && ["Issued", "Accepted", "Declined", "Superseded"].includes(p.status) : commercial3 && ownsEvent(user, p.eventId)
   );
   const events = workspace.events.filter(
     (e) => guest ? proposals.some((p) => p.eventId === e.id) : ownsEvent(user, e.id)
   );
   const allowed = new Set(events.map((e) => e.id));
-  const company = commercial2 ? workspace.settings : { ...workspace.settings, email: "", notifications: false };
+  const company = commercial3 ? workspace.settings : { ...workspace.settings, email: "", notifications: false };
   return {
     ...workspace,
     settings: company,
     events: events.map(
-      (e) => commercial2 ? e : { ...e, budget: 0, notes: guest ? "" : e.notes }
+      (e) => commercial3 ? e : { ...e, budget: 0, notes: guest ? "" : e.notes }
     ),
-    clients: workspace.clients.filter((c) => commercial2 || events.some((e) => e.clientId === c.id)).map(
-      (c) => commercial2 ? c : { ...c, notes: "", email: guest ? "" : c.email }
+    clients: workspace.clients.filter((c) => commercial3 || events.some((e) => e.clientId === c.id)).map(
+      (c) => commercial3 ? c : { ...c, notes: "", email: guest ? "" : c.email }
     ),
     venues: guest ? [] : workspace.venues.filter(
       (v) => ["Sales Manager", "Event Designer", "Production Manager"].includes(
@@ -532,10 +532,10 @@ function scopeWorkspace(workspace, user) {
       ) || events.some((e) => e.venueId === v.id)
     ),
     equipment: guest ? [] : workspace.equipment.map(
-      (q) => commercial2 || user.role === "Production Manager" ? q : { ...q, rate: 0 }
+      (q) => commercial3 || user.role === "Production Manager" ? q : { ...q, rate: 0 }
     ),
     proposals: guest ? proposals.map(({ aiReview: _internal, ...proposal }) => proposal) : proposals,
-    conversations: commercial2 ? workspace.conversations.filter((c) => allowed.has(c.eventId)) : [],
+    conversations: commercial3 ? workspace.conversations.filter((c) => allowed.has(c.eventId)) : [],
     tasks: guest ? [] : workspace.tasks.filter(
       (t) => allowed.has(t.eventId) && (user.role !== "Technician" || t.assigneeId === user.id)
     ),
@@ -566,7 +566,7 @@ function scopeWorkspace(workspace, user) {
       (asset) => allowed.has(asset.eventId) && (user.role === "Event Designer" || asset.status === "Approved")
     ) : [],
     activity: guest ? [] : workspace.activity.filter(
-      (a) => Boolean(a.eventId && allowed.has(a.eventId)) && (commercial2 || !/proposal|acceptance|message|client response/i.test(a.title))
+      (a) => Boolean(a.eventId && allowed.has(a.eventId)) && (commercial3 || !/proposal|acceptance|message|client response/i.test(a.title))
     )
   };
 }
@@ -657,6 +657,7 @@ function canEditCollection(user, collection) {
 
 // src/shared/domain.ts
 var id = () => crypto.randomUUID();
+var initials = (name3) => name3.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 function quoteTotals(lines, discount, tax) {
   if (![discount, tax].every((n) => Number.isFinite(n) && n >= 0 && n <= 100))
     throw new Error("Discount and tax must be between 0 and 100.");
@@ -1575,8 +1576,8 @@ function invalid(condition, message2) {
 
 // server/policy/validation.ts
 function validateWorkspace(next, before) {
-  const requireEvent = (id5) => {
-    const event = next.events.find((e) => e.id === id5);
+  const requireEvent = (id6) => {
+    const event = next.events.find((e) => e.id === id6);
     invalid(!event, "The linked event does not exist.");
     return event;
   };
@@ -2280,7 +2281,7 @@ function applyChanges(original, changes, user) {
       );
       invalid(
         Boolean(layout.cameraPath) && layout.cameraPath.cameraIds.some(
-          (id5) => !layout.cameras?.some((camera) => camera.id === id5)
+          (id6) => !layout.cameras?.some((camera) => camera.id === id6)
         ),
         "A camera path can only reference saved cameras in the layout."
       );
@@ -2293,7 +2294,7 @@ function applyChanges(original, changes, user) {
       );
       invalid(
         Boolean(layout.cameraPath) && layout.cameraPath.cameraIds.some(
-          (id5) => !layout.cameras?.some((camera) => camera.id === id5)
+          (id6) => !layout.cameras?.some((camera) => camera.id === id6)
         ),
         "A camera path can only reference saved cameras in the layout."
       );
@@ -2320,12 +2321,12 @@ function searchWorkspace(data, user, query2) {
     data.events.filter((e) => clients.has(e.clientId) || matches2(`${e.name} ${e.notes}`)).map((e) => e.id)
   );
   const rows = [];
-  function add(id5, title, path, type, text4, related = false) {
+  function add(id6, title, path, type, text4, related = false) {
     if (!canSeeModule(user, path)) return;
     const direct = matches2(`${title} ${text4}`);
     if (!direct && !related) return;
     rows.push({
-      id: id5,
+      id: id6,
       title,
       path,
       type,
@@ -2559,9 +2560,9 @@ var SearchGateway = class {
     this.tenant = await this.repo.transaction(async () => {
       const row = await this.repo.db.prepare("SELECT id FROM search_tenant LIMIT 1").get();
       if (row) return row.id;
-      const id5 = randomUUID2();
-      await this.repo.db.prepare("INSERT INTO search_tenant VALUES(?)").run(id5);
-      return id5;
+      const id6 = randomUUID2();
+      await this.repo.db.prepare("INSERT INTO search_tenant VALUES(?)").run(id6);
+      return id6;
     });
     const incompatible = await this.repo.db.prepare("SELECT count(*) count FROM search_sources WHERE policy<>?").get(this.fingerprint);
     if (incompatible.count)
@@ -2670,11 +2671,11 @@ var SearchGateway = class {
     await rateLimit(this.repo, `search-device:${row.user_id}`, 120);
     return row.user_id;
   }
-  async issue(user, name2) {
+  async issue(user, name3) {
     await this.checkUser(user);
     const token = randomBytes2(32).toString("hex");
-    await this.repo.db.prepare("INSERT INTO search_devices VALUES(?,?,?,?,0)").run(sha(token), user, name2, Date.now() + 30 * 864e5);
-    await this.audit(user, "search-device-created", name2);
+    await this.repo.db.prepare("INSERT INTO search_devices VALUES(?,?,?,?,0)").run(sha(token), user, name3, Date.now() + 30 * 864e5);
+    await this.audit(user, "search-device-created", name3);
     return token;
   }
   async put(user, input) {
@@ -2724,13 +2725,13 @@ ${clean2.text}`)
       return await this.sourceState(user, item2.id);
     });
   }
-  async sourceState(user, id5) {
+  async sourceState(user, id6) {
     return await this.repo.db.prepare(
       "SELECT id,state,error,updated FROM search_sources WHERE user_id=? AND id=?"
-    ).get(user, id5);
+    ).get(user, id6);
   }
-  async process(user, id5) {
-    const row = await this.repo.db.prepare("SELECT * FROM search_sources WHERE user_id=? AND id=?").get(user, id5);
+  async process(user, id6) {
+    const row = await this.repo.db.prepare("SELECT * FROM search_sources WHERE user_id=? AND id=?").get(user, id6);
     if (!row) return;
     try {
       if (row.state === "deletion_pending") {
@@ -2738,11 +2739,11 @@ ${clean2.text}`)
           throw new Error("Provider unavailable for deletion");
         const confirmed = await this.config.provider.delete(
           this.namespace(user),
-          id5
+          id6
         );
         if (!confirmed) throw new Error("Provider deletion not confirmed");
-        await this.repo.db.prepare("DELETE FROM search_sources WHERE user_id=? AND id=?").run(user, id5);
-        await this.audit(user, "search-source-deleted", id5);
+        await this.repo.db.prepare("DELETE FROM search_sources WHERE user_id=? AND id=?").run(user, id6);
+        await this.audit(user, "search-source-deleted", id6);
         return;
       }
       if (!this.enabled()) throw new Error("Provider unavailable");
@@ -2756,9 +2757,9 @@ ${clean2.text}`)
         throw new Error("Invalid embeddings response");
       await this.config.provider.replace(
         this.namespace(user),
-        id5,
+        id6,
         data.chunks.map((text4, i) => ({
-          id: `${id5}:${i}`,
+          id: `${id6}:${i}`,
           text: text4,
           vector: vectors[i]
         }))
@@ -2766,8 +2767,8 @@ ${clean2.text}`)
       await this.checkUser(user);
       await this.repo.db.prepare(
         "UPDATE search_sources SET state='ready',error='',updated=? WHERE user_id=? AND id=?"
-      ).run((/* @__PURE__ */ new Date()).toISOString(), user, id5);
-      await this.audit(user, "search-source-indexed", id5);
+      ).run((/* @__PURE__ */ new Date()).toISOString(), user, id6);
+      await this.audit(user, "search-source-indexed", id6);
     } catch (error) {
       await this.repo.db.prepare(
         "UPDATE search_sources SET state=CASE WHEN state='deletion_pending' THEN state ELSE 'failed' END,attempts=attempts+1,error=?,updated=? WHERE user_id=? AND id=?"
@@ -2775,16 +2776,16 @@ ${clean2.text}`)
         error instanceof HttpError ? error.message : "Provider operation failed; retry pending.",
         (/* @__PURE__ */ new Date()).toISOString(),
         user,
-        id5
+        id6
       );
     }
   }
-  async remove(user, id5) {
+  async remove(user, id6) {
     return this.serial(async () => {
-      if (id5)
+      if (id6)
         await this.repo.db.prepare(
           "UPDATE search_sources SET state='deletion_pending',payload='' WHERE user_id=? AND id=?"
-        ).run(user, id5);
+        ).run(user, id6);
       else
         await this.repo.db.prepare(
           "UPDATE search_sources SET state='deletion_pending',payload='' WHERE user_id=?"
@@ -2881,18 +2882,18 @@ ${clean2.text}`)
       return { configured: true, results: [...unique.values()] };
     });
   }
-  async source(user, id5) {
+  async source(user, id6) {
     await this.checkUser(user);
-    if (!/^[a-f0-9]{64}$/.test(id5))
+    if (!/^[a-f0-9]{64}$/.test(id6))
       throw new HttpError(422, "Invalid indexed source identifier.");
     const row = await this.repo.db.prepare(
       "SELECT hash,payload,updated FROM search_sources WHERE user_id=? AND id=? AND state='ready'"
-    ).get(user, id5);
+    ).get(user, id6);
     if (!row?.payload)
       throw new HttpError(404, "Indexed file source is unavailable.");
     const data = this.decrypt(row.payload);
     return {
-      id: id5,
+      id: id6,
       hash: row.hash,
       title: data.title,
       mime: data.mime,
@@ -2925,8 +2926,8 @@ ${clean2.text}`)
       next();
     });
     app.post("/api/search/device/records", async (req, res) => {
-      const id5 = await this.device(req);
-      const user = publicUser(await this.repo.user(id5));
+      const id6 = await this.device(req);
+      const user = publicUser(await this.repo.user(id6));
       const query2 = z2.string().trim().min(1).max(300).parse(req.body.query);
       const data = scopeWorkspace((await this.repo.read()).workspace, user);
       res.json({
@@ -3083,8 +3084,8 @@ function httpSearchProvider(base, token) {
 }
 
 // server/kit.ts
-import { createHash as createHash4, randomUUID as randomUUID6 } from "node:crypto";
-import { z as z8 } from "zod";
+import { createHash as createHash4, randomUUID as randomUUID7 } from "node:crypto";
+import { z as z9 } from "zod";
 import { waitUntil as waitUntil2 } from "@vercel/functions";
 
 // server/ai-provider.ts
@@ -3646,8 +3647,8 @@ function requiresConfirmation(effect, approval) {
   if (effect === "draft") return approval === "ask";
   return true;
 }
-var toolName = (id5) => id5.replace(/\./g, "__");
-var toolId = (name2) => name2.replace(/__/g, ".");
+var toolName = (id6) => id6.replace(/\./g, "__");
+var toolId = (name3) => name3.replace(/__/g, ".");
 var ToolRegistry = class {
   tools = /* @__PURE__ */ new Map();
   register(...tools) {
@@ -3657,8 +3658,8 @@ var ToolRegistry = class {
     }
     return this;
   }
-  get(id5) {
-    return this.tools.get(id5) ?? this.tools.get(toolId(id5));
+  get(id6) {
+    return this.tools.get(id6) ?? this.tools.get(toolId(id6));
   }
   /** Tools this actor may use, in a stable order; Ask mode offers reads only. */
   available(user, mode) {
@@ -3720,9 +3721,9 @@ var catalogOf = (workspace) => {
       "El cat\xE1logo supera el l\xEDmite de esta versi\xF3n. Redacta manualmente mientras se prepara la selecci\xF3n de equipos para IA."
     );
   return workspace.equipment.map(
-    ({ id: id5, name: name2, category, description, rate }) => ({
-      id: id5,
-      name: name2,
+    ({ id: id6, name: name3, category, description, rate }) => ({
+      id: id6,
+      name: name3,
       category,
       description,
       rate
@@ -4770,46 +4771,313 @@ var recordTools = [
   })
 ];
 
+// server/ai/tools/directory.ts
+import { randomUUID as randomUUID6 } from "node:crypto";
+import { z as z8 } from "zod";
+var commercial2 = ["Administrator", "Sales Manager"];
+var planners = [
+  "Administrator",
+  "Sales Manager",
+  "Production Manager"
+];
+var id4 = z8.string().min(1).max(100);
+var name2 = z8.string().trim().min(1).max(200);
+var isoDate3 = z8.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha AAAA-MM-DD");
+var eventStatus = z8.enum([
+  "Planning",
+  "Confirmed",
+  "Preparation",
+  "In production",
+  "Completed",
+  "Cancelled"
+]);
+var email = z8.union([z8.email(), z8.literal("")]);
+function clientOf(ctx, clientId) {
+  const c = ctx.workspace.clients.find((x) => x.id === clientId);
+  if (!c)
+    throw new HttpError(404, "No se encontr\xF3 el cliente o no tienes acceso.");
+  return c;
+}
+function eventOf2(ctx, eventId) {
+  const e = ctx.workspace.events.find((x) => x.id === eventId);
+  if (!e)
+    throw new HttpError(404, "No se encontr\xF3 el evento o no tienes acceso.");
+  return e;
+}
+var clientView = (c) => ({
+  clientId: c.id,
+  name: c.name,
+  contact: c.contact,
+  email: c.email,
+  phone: c.phone,
+  industry: c.industry,
+  notes: c.notes
+});
+var eventView = (e) => ({
+  eventId: e.id,
+  name: e.name,
+  clientId: e.clientId,
+  venueId: e.venueId || null,
+  date: e.date,
+  endDate: e.endDate,
+  status: e.status,
+  type: e.type,
+  manager: e.manager,
+  attendees: e.attendees,
+  budget: e.budget,
+  notes: e.notes,
+  timezone: e.timezone
+});
+var directoryTools = [
+  defineTool({
+    id: "client.create",
+    description: "Crea un cliente nuevo con nombre y contacto principal; correo, tel\xE9fono, sector y notas son opcionales. Busca antes con client.search para no duplicar.",
+    input: z8.object({
+      name: name2,
+      contact: name2,
+      email: email.optional(),
+      phone: z8.string().trim().max(60).optional(),
+      industry: z8.string().trim().min(1).max(200).optional(),
+      notes: z8.string().trim().max(2e4).optional()
+    }).strict(),
+    roles: commercial2,
+    effect: "draft",
+    describe: ({ name: name3 }) => `Crear el cliente \xAB${name3}\xBB`,
+    run: async (input, ctx) => {
+      const duplicate = ctx.workspace.clients.find(
+        (c) => c.name.trim().toLowerCase() === input.name.toLowerCase() || input.email && c.email.toLowerCase() === input.email.toLowerCase()
+      );
+      if (duplicate)
+        throw new HttpError(
+          409,
+          `Ya existe el cliente \xAB${duplicate.name}\xBB (${duplicate.id}); usa client.update.`
+        );
+      const client = {
+        id: randomUUID6(),
+        name: input.name,
+        contact: input.contact,
+        email: input.email ?? "",
+        phone: input.phone ?? "",
+        industry: input.industry ?? "Corporate",
+        initials: initials(input.name),
+        color: "sage",
+        notes: input.notes ?? ""
+      };
+      return {
+        changes: [{ collection: "clients", id: client.id, value: client }],
+        summary: `Cliente \xAB${client.name}\xBB creado.`,
+        route: "/clients",
+        output: clientView(client)
+      };
+    }
+  }),
+  defineTool({
+    id: "client.update",
+    description: "Actualiza los datos de contacto, sector o notas de un cliente existente.",
+    input: z8.object({
+      clientId: id4,
+      name: name2.optional(),
+      contact: name2.optional(),
+      email: email.optional(),
+      phone: z8.string().trim().max(60).optional(),
+      industry: z8.string().trim().min(1).max(200).optional(),
+      notes: z8.string().trim().max(2e4).optional()
+    }).strict().refine(
+      (v) => Object.keys(v).some(
+        (k) => k !== "clientId" && v[k] !== void 0
+      ),
+      "Indica qu\xE9 cambiar."
+    ),
+    roles: commercial2,
+    effect: "draft",
+    describe: ({ clientId }, ctx) => `Actualizar el cliente \xAB${clientOf(ctx, clientId).name}\xBB`,
+    run: async ({ clientId, ...values }, ctx) => {
+      const current = clientOf(ctx, clientId);
+      const client = { ...current };
+      if (values.name !== void 0) {
+        client.name = values.name;
+        client.initials = initials(values.name);
+      }
+      if (values.contact !== void 0) client.contact = values.contact;
+      if (values.email !== void 0) client.email = values.email;
+      if (values.phone !== void 0) client.phone = values.phone;
+      if (values.industry !== void 0) client.industry = values.industry;
+      if (values.notes !== void 0) client.notes = values.notes;
+      return {
+        changes: [{ collection: "clients", id: client.id, value: client }],
+        summary: `Cliente \xAB${client.name}\xBB actualizado.`,
+        route: "/clients",
+        output: clientView(client)
+      };
+    }
+  }),
+  defineTool({
+    id: "event.create",
+    description: "Crea un evento para un cliente existente: nombre, tipo, fecha de inicio (AAAA-MM-DD); fin, sede, asistentes y notas opcionales. El presupuesto se fija aparte con event.set_budget.",
+    input: z8.object({
+      name: name2,
+      clientId: id4,
+      type: name2,
+      date: isoDate3,
+      endDate: isoDate3.optional(),
+      venueId: id4.optional(),
+      attendees: z8.number().int().min(0).max(1e6).optional(),
+      notes: z8.string().trim().max(2e4).optional(),
+      status: eventStatus.optional()
+    }).strict().refine(
+      (v) => !v.endDate || v.endDate >= v.date,
+      "La fecha final precede a la inicial."
+    ),
+    roles: commercial2,
+    effect: "draft",
+    describe: ({ name: name3, clientId }, ctx) => `Crear el evento \xAB${name3}\xBB para ${clientOf(ctx, clientId).name}`,
+    run: async (input, ctx) => {
+      const client = clientOf(ctx, input.clientId);
+      if (input.venueId && !ctx.workspace.venues.some((v) => v.id === input.venueId))
+        throw new HttpError(404, "No se encontr\xF3 la sede.");
+      const event = {
+        id: randomUUID6(),
+        name: input.name,
+        clientId: client.id,
+        venueId: input.venueId ?? "",
+        date: input.date,
+        endDate: input.endDate ?? input.date,
+        status: input.status ?? "Planning",
+        type: input.type,
+        manager: ctx.user.name,
+        budget: 0,
+        attendees: input.attendees ?? 0,
+        notes: input.notes ?? "",
+        // New events take the company time zone, as the Events screen does.
+        timezone: ctx.workspace.settings.timezone
+      };
+      return {
+        changes: [{ collection: "events", id: event.id, value: event }],
+        eventId: event.id,
+        summary: `Evento \xAB${event.name}\xBB creado para ${client.name} el ${event.date}.`,
+        route: `/events/${event.id}`,
+        output: eventView(event)
+      };
+    }
+  }),
+  defineTool({
+    id: "event.update",
+    description: "Actualiza nombre, tipo, fechas, sede, asistentes, notas o estado de un evento. No cambia el presupuesto (event.set_budget) ni el cliente.",
+    input: z8.object({
+      eventId: id4,
+      name: name2.optional(),
+      type: name2.optional(),
+      date: isoDate3.optional(),
+      endDate: isoDate3.optional(),
+      venueId: id4.optional(),
+      attendees: z8.number().int().min(0).max(1e6).optional(),
+      notes: z8.string().trim().max(2e4).optional(),
+      status: eventStatus.optional()
+    }).strict().refine(
+      (v) => Object.keys(v).some(
+        (k) => k !== "eventId" && v[k] !== void 0
+      ),
+      "Indica qu\xE9 cambiar."
+    ),
+    roles: planners,
+    effect: "draft",
+    describe: ({ eventId, status }, ctx) => `${status ? `Cambiar el estado a ${status} de` : "Actualizar"} el evento \xAB${eventOf2(ctx, eventId).name}\xBB`,
+    run: async ({ eventId, ...values }, ctx) => {
+      const current = eventOf2(ctx, eventId);
+      if (values.venueId && !ctx.workspace.venues.some((v) => v.id === values.venueId))
+        throw new HttpError(404, "No se encontr\xF3 la sede.");
+      const event = { ...current };
+      if (values.name !== void 0) event.name = values.name;
+      if (values.type !== void 0) event.type = values.type;
+      if (values.date !== void 0) event.date = values.date;
+      if (values.endDate !== void 0) event.endDate = values.endDate;
+      if (values.venueId !== void 0) event.venueId = values.venueId;
+      if (values.attendees !== void 0) event.attendees = values.attendees;
+      if (values.notes !== void 0) event.notes = values.notes;
+      if (values.status !== void 0) event.status = values.status;
+      if (values.date !== void 0 && values.endDate === void 0 && event.endDate < event.date)
+        event.endDate = event.date;
+      if (event.endDate < event.date)
+        throw new HttpError(422, "La fecha final precede a la inicial.");
+      return {
+        changes: [{ collection: "events", id: event.id, value: event }],
+        eventId: event.id,
+        summary: `Evento \xAB${event.name}\xBB actualizado.`,
+        route: `/events/${event.id}`,
+        output: eventView(event)
+      };
+    }
+  }),
+  defineTool({
+    id: "event.set_budget",
+    description: "Fija el presupuesto estimado de un evento. Cambio financiero: requiere confirmaci\xF3n.",
+    input: z8.object({
+      eventId: id4,
+      budget: z8.number().finite().min(0).max(1e8)
+    }).strict(),
+    roles: commercial2,
+    effect: "financial",
+    describe: ({ eventId, budget }, ctx) => {
+      const e = eventOf2(ctx, eventId);
+      return `Cambiar el presupuesto de \xAB${e.name}\xBB de ${e.budget} a ${budget}`;
+    },
+    run: async ({ eventId, budget }, ctx) => {
+      const event = { ...eventOf2(ctx, eventId), budget };
+      return {
+        changes: [{ collection: "events", id: event.id, value: event }],
+        eventId: event.id,
+        summary: `Presupuesto de \xAB${event.name}\xBB fijado en ${budget}.`,
+        route: `/events/${event.id}`,
+        output: eventView(event)
+      };
+    }
+  })
+];
+
 // server/ai/tools/index.ts
 function defaultToolRegistry() {
-  return new ToolRegistry().register(...proposalTools, ...recordTools);
+  return new ToolRegistry().register(
+    ...proposalTools,
+    ...recordTools,
+    ...directoryTools
+  );
 }
 
 // server/kit.ts
 var hash = (value) => createHash4("sha256").update(JSON.stringify(value)).digest("hex");
 var now = () => (/* @__PURE__ */ new Date()).toISOString();
-var id4 = z8.string().min(1).max(100);
-var reference = z8.object({
-  kind: z8.enum(["event", "proposal", "client", "file", "attachment"]),
-  id: id4,
-  title: z8.string().max(200).optional(),
-  text: z8.string().max(64e3).optional()
+var id5 = z9.string().min(1).max(100);
+var reference = z9.object({
+  kind: z9.enum(["event", "proposal", "client", "file", "attachment"]),
+  id: id5,
+  title: z9.string().max(200).optional(),
+  text: z9.string().max(64e3).optional()
 }).strict();
-var contextSchema = z8.object({
-  route: z8.string().max(300).optional(),
-  proposalId: id4.optional(),
-  eventId: id4.optional(),
-  clientId: id4.optional()
+var contextSchema = z9.object({
+  route: z9.string().max(300).optional(),
+  proposalId: id5.optional(),
+  eventId: id5.optional(),
+  clientId: id5.optional()
 }).strict();
-var toolCall = z8.object({
-  tool: z8.string().min(1).max(100),
-  input: z8.record(z8.string(), z8.unknown())
+var toolCall = z9.object({
+  tool: z9.string().min(1).max(100),
+  input: z9.record(z9.string(), z9.unknown())
 }).strict();
-var legacyAction = z8.object({
-  kind: z8.enum(["create_task", "proposal_draft"]),
-  eventId: id4,
-  title: z8.string().min(1).max(200),
-  brief: z8.string().max(6e3)
+var legacyAction = z9.object({
+  kind: z9.enum(["create_task", "proposal_draft"]),
+  eventId: id5,
+  title: z9.string().min(1).max(200),
+  brief: z9.string().max(6e3)
 }).strict();
 var answerFields = {
-  text: z8.string().min(1).max(2e4),
-  citations: z8.array(z8.string().max(150)).max(8),
-  artifact: z8.object({ title: z8.string().max(200), text: z8.string().max(2e4) }).strict().nullable()
+  text: z9.string().min(1).max(2e4),
+  citations: z9.array(z9.string().max(150)).max(8),
+  artifact: z9.object({ title: z9.string().max(200), text: z9.string().max(2e4) }).strict().nullable()
 };
-var kitAnswer = z8.object({ ...answerFields, action: toolCall.nullable() }).strict();
-var kitAnswerLoose = z8.object({
+var kitAnswer = z9.object({ ...answerFields, action: toolCall.nullable() }).strict();
+var kitAnswerLoose = z9.object({
   ...answerFields,
-  action: z8.union([toolCall, legacyAction]).nullable()
+  action: z9.union([toolCall, legacyAction]).nullable()
 }).strict();
 function normalizeAction(action) {
   if ("tool" in action) return action;
@@ -4865,7 +5133,7 @@ function normalizeThread(raw) {
     const call = normalizeAction(legacy.input);
     m.actions = [
       {
-        id: randomUUID6(),
+        id: randomUUID7(),
         ...call,
         effect: "draft",
         summary: legacy.input.kind === "create_task" ? `Crear la tarea \xAB${legacy.input.title}\xBB` : `Crear una propuesta \xAB${legacy.input.title}\xBB`,
@@ -5113,8 +5381,8 @@ var KitService = class {
       };
     });
   }
-  async get(user, id5) {
-    return await this.view(user, await this.read(user, id5));
+  async get(user, id6) {
+    return await this.view(user, await this.read(user, id6));
   }
   async create(user, title = "Nueva conversaci\xF3n", projectId = null, parentId) {
     await this.actor(user);
@@ -5126,7 +5394,7 @@ var KitService = class {
       );
     if (projectId) await this.sources(user, [{ kind: "event", id: projectId }]);
     const t = {
-      id: randomUUID6(),
+      id: randomUUID7(),
       title,
       projectId,
       parentId,
@@ -5173,7 +5441,7 @@ var KitService = class {
       original.projectId,
       tid
     );
-    t.messages = original.messages.slice(0, index + 1).filter((m) => m.status !== "pending" && m.status !== "blocked").map((m) => ({ ...m, id: randomUUID6(), actions: void 0 }));
+    t.messages = original.messages.slice(0, index + 1).filter((m) => m.status !== "pending" && m.status !== "blocked").map((m) => ({ ...m, id: randomUUID7(), actions: void 0 }));
     await this.save(user, t);
     return t;
   }
@@ -5269,7 +5537,7 @@ var KitService = class {
     const startRevision = scope.revision;
     const prompt = redactSecrets(input.text).text;
     const reply = {
-      id: randomUUID6(),
+      id: randomUUID7(),
       role: "assistant",
       text: "",
       at: now(),
@@ -5305,10 +5573,10 @@ var KitService = class {
       const actions = [];
       let revision = startRevision;
       let toolCalls = 0;
-      const run = async (name2, raw2) => {
+      const run = async (name3, raw2) => {
         toolCalls++;
         const call = {
-          tool: toolId(name2),
+          tool: toolId(name3),
           input: raw2 && typeof raw2 === "object" && !Array.isArray(raw2) ? raw2 : {}
         };
         let record;
@@ -5331,7 +5599,7 @@ var KitService = class {
               isError: true
             };
           record = {
-            id: randomUUID6(),
+            id: randomUUID7(),
             tool: prepared.tool.id,
             input: prepared.input,
             effect: prepared.effect,
@@ -5446,7 +5714,7 @@ var KitService = class {
         citations: answer.citations,
         artifacts: answer.artifact ? [
           {
-            id: randomUUID6(),
+            id: randomUUID7(),
             title: answer.artifact.title,
             text: answer.artifact.text,
             kind: "summary"
@@ -5630,9 +5898,9 @@ var KitService = class {
   }
   mount(app) {
     const actor = async (res) => {
-      const id5 = userOf(res).id;
-      await this.actor(id5);
-      return id5;
+      const id6 = userOf(res).id;
+      await this.actor(id6);
+      return id6;
     };
     app.get("/api/kit/status", async (_req, res) => {
       const user = await this.actor(await actor(res));
@@ -5650,31 +5918,31 @@ var KitService = class {
       async (_req, res) => res.json({ threads: await this.list(await actor(res)) })
     );
     app.post("/api/kit/threads", async (req, res) => {
-      const b = z8.object({
-        title: z8.string().trim().min(1).max(120).default("Nueva conversaci\xF3n"),
-        projectId: id4.nullable().default(null)
+      const b = z9.object({
+        title: z9.string().trim().min(1).max(120).default("Nueva conversaci\xF3n"),
+        projectId: id5.nullable().default(null)
       }).strict().parse(req.body);
       res.status(201).json(await this.create(await actor(res), b.title, b.projectId));
     });
     app.get(
       "/api/kit/threads/:id",
-      async (req, res) => res.json(await this.get(await actor(res), id4.parse(req.params.id)))
+      async (req, res) => res.json(await this.get(await actor(res), id5.parse(req.params.id)))
     );
     app.patch(
       "/api/kit/threads/:id",
       async (req, res) => res.json(
         await this.update(
           await actor(res),
-          id4.parse(req.params.id),
-          z8.object({
-            title: z8.string().trim().min(1).max(120),
-            projectId: id4.nullable()
+          id5.parse(req.params.id),
+          z9.object({
+            title: z9.string().trim().min(1).max(120),
+            projectId: id5.nullable()
           }).strict().parse(req.body)
         )
       )
     );
     app.delete("/api/kit/threads/:id", async (req, res) => {
-      await this.delete(await actor(res), id4.parse(req.params.id));
+      await this.delete(await actor(res), id5.parse(req.params.id));
       res.json({ deleted: true });
     });
     app.post(
@@ -5682,48 +5950,48 @@ var KitService = class {
       async (req, res) => res.status(201).json(
         await this.branch(
           await actor(res),
-          id4.parse(req.params.id),
-          id4.parse(req.body.messageId)
+          id5.parse(req.params.id),
+          id5.parse(req.body.messageId)
         )
       )
     );
     app.post(
       "/api/kit/threads/:id/restart",
-      async (req, res) => res.json(await this.restart(await actor(res), id4.parse(req.params.id)))
+      async (req, res) => res.json(await this.restart(await actor(res), id5.parse(req.params.id)))
     );
     app.post(
       "/api/kit/threads/:id/stop",
-      async (req, res) => res.json(await this.stop(await actor(res), id4.parse(req.params.id)))
+      async (req, res) => res.json(await this.stop(await actor(res), id5.parse(req.params.id)))
     );
     app.post(
       "/api/kit/threads/:id/messages",
       async (req, res) => res.status(202).json(
         await this.send(
           await actor(res),
-          id4.parse(req.params.id),
-          z8.object({
-            requestId: z8.string().uuid(),
-            text: z8.string().trim().min(1).max(6e3),
-            mode: z8.enum(["ask", "act"]),
-            approval: z8.enum(["ask", "auto"]).default("ask"),
-            refs: z8.array(reference).max(8),
-            consent: z8.boolean(),
+          id5.parse(req.params.id),
+          z9.object({
+            requestId: z9.string().uuid(),
+            text: z9.string().trim().min(1).max(6e3),
+            mode: z9.enum(["ask", "act"]),
+            approval: z9.enum(["ask", "auto"]).default("ask"),
+            refs: z9.array(reference).max(8),
+            consent: z9.boolean(),
             context: contextSchema.optional()
           }).strict().parse(req.body)
         )
       )
     );
-    const decision = z8.object({
-      messageId: id4,
-      token: z8.string().length(64),
-      confirmed: z8.literal(true).optional()
+    const decision = z9.object({
+      messageId: id5,
+      token: z9.string().length(64),
+      confirmed: z9.literal(true).optional()
     }).strict();
     app.post("/api/kit/threads/:id/confirm", async (req, res) => {
       const b = decision.required({ confirmed: true }).parse(req.body);
       res.json(
         await this.confirm(
           await actor(res),
-          id4.parse(req.params.id),
+          id5.parse(req.params.id),
           b.messageId,
           b.token
         )
@@ -5734,7 +6002,7 @@ var KitService = class {
       res.json(
         await this.reject(
           await actor(res),
-          id4.parse(req.params.id),
+          id5.parse(req.params.id),
           b.messageId,
           b.token
         )
@@ -5744,8 +6012,8 @@ var KitService = class {
 };
 
 // server/design-ai/service.ts
-import { randomUUID as randomUUID9 } from "node:crypto";
-import { z as z10 } from "zod";
+import { randomUUID as randomUUID10 } from "node:crypto";
+import { z as z11 } from "zod";
 import { waitUntil as waitUntil3 } from "@vercel/functions";
 
 // src/shared/kit-design.ts
@@ -5828,13 +6096,13 @@ function sampleRefineSpec(spec2, request) {
 }
 
 // server/design-ai/designer.ts
-import { randomUUID as randomUUID7 } from "node:crypto";
-import { z as z9 } from "zod";
+import { randomUUID as randomUUID8 } from "node:crypto";
+import { z as z10 } from "zod";
 var SAMPLE_NOTICE = "Vista de muestra: todav\xEDa no hay un motor de im\xE1genes conectado.";
 var sampleDesigner = {
   label: null,
   async create({ brief, images, catalog }) {
-    const spec2 = sampleSpec(brief, images, catalog, randomUUID7);
+    const spec2 = sampleSpec(brief, images, catalog, randomUUID8);
     return {
       spec: spec2,
       reply: `Listo. Prepar\xE9 ${spec2.views.length === 1 ? "una vista" : `${spec2.views.length} vistas`} y ${spec2.items.length} art\xEDculos de equipo.`
@@ -5848,40 +6116,40 @@ var sampleDesigner = {
     };
   }
 };
-var item = z9.object({
-  equipmentId: z9.string().max(100).nullable(),
-  label: z9.string().min(1).max(200),
-  quantity: z9.number().int().min(1).max(1e4),
-  placement: z9.string().max(300)
+var item = z10.object({
+  equipmentId: z10.string().max(100).nullable(),
+  label: z10.string().min(1).max(200),
+  quantity: z10.number().int().min(1).max(1e4),
+  placement: z10.string().max(300)
 }).strict();
-var spec = z9.object({
-  room: z9.object({
-    widthM: z9.number().positive().max(1e3).nullable(),
-    depthM: z9.number().positive().max(1e3).nullable(),
-    heightM: z9.number().positive().max(100).nullable(),
-    notes: z9.string().max(1e3)
+var spec = z10.object({
+  room: z10.object({
+    widthM: z10.number().positive().max(1e3).nullable(),
+    depthM: z10.number().positive().max(1e3).nullable(),
+    heightM: z10.number().positive().max(100).nullable(),
+    notes: z10.string().max(1e3)
   }).strict(),
-  style: z9.object({
-    mood: z9.string().max(500),
-    palette: z9.array(z9.string().max(40)).max(8),
-    lighting: z9.string().max(300)
+  style: z10.object({
+    mood: z10.string().max(500),
+    palette: z10.array(z10.string().max(40)).max(8),
+    lighting: z10.string().max(300)
   }).strict(),
-  items: z9.array(item).max(60)
+  items: z10.array(item).max(60)
 }).strict();
-var createAnswer = z9.object({
+var createAnswer = z10.object({
   spec,
-  views: z9.array(
-    z9.object({
-      imageId: z9.string().max(100),
-      prompt: z9.string().min(1).max(2e3)
+  views: z10.array(
+    z10.object({
+      imageId: z10.string().max(100),
+      prompt: z10.string().min(1).max(2e3)
     }).strict()
   ).max(6),
-  reply: z9.string().min(1).max(2e3)
+  reply: z10.string().min(1).max(2e3)
 }).strict();
-var refineAnswer = z9.object({
+var refineAnswer = z10.object({
   spec,
-  editPrompt: z9.string().min(1).max(2e3),
-  reply: z9.string().min(1).max(2e3)
+  editPrompt: z10.string().min(1).max(2e3),
+  reply: z10.string().min(1).max(2e3)
 }).strict();
 var catalogFor = (catalog) => catalog.map((e) => ({
   id: e.id,
@@ -5950,13 +6218,13 @@ function aiDesigner(provider, key, model, transport) {
           return [];
         seen.add(v.imageId);
         return [
-          { id: randomUUID7(), sourceImageId: v.imageId, prompt: v.prompt }
+          { id: randomUUID8(), sourceImageId: v.imageId, prompt: v.prompt }
         ];
       });
       for (const image of images)
         if (!seen.has(image.id))
           views.push({
-            id: randomUUID7(),
+            id: randomUUID8(),
             sourceImageId: image.id,
             prompt: `Keep the exact same room and camera angle. Photorealistic finished event setup: ${brief}`
           });
@@ -5996,7 +6264,7 @@ function aiDesigner(provider, key, model, transport) {
 }
 
 // server/design-ai/render-provider.ts
-import { randomUUID as randomUUID8 } from "node:crypto";
+import { randomUUID as randomUUID9 } from "node:crypto";
 
 // server/design-ai/fixture-video.ts
 var FIXTURE_VIDEO = Buffer.from(
@@ -6105,7 +6373,7 @@ function higgsfieldClient(options) {
         headers: {
           ...auth,
           "Content-Type": "application/json",
-          "Idempotency-Key": randomUUID8()
+          "Idempotency-Key": randomUUID9()
         },
         body: JSON.stringify(body),
         signal
@@ -6307,19 +6575,19 @@ var MAX_DESIGNS_PER_EVENT = 50;
 var now2 = () => (/* @__PURE__ */ new Date()).toISOString();
 var monthStart = () => `${now2().slice(0, 7)}-01T00:00:00.000Z`;
 var extension = (mimeType) => mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
-var uploadSchema = z10.object({
-  name: z10.string().trim().min(1).max(200),
-  mimeType: z10.enum(["image/png", "image/jpeg", "image/webp"]),
-  dataUrl: z10.string().max(15e5).regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/),
-  width: z10.number().int().positive().max(1e4),
-  height: z10.number().int().positive().max(1e4)
+var uploadSchema = z11.object({
+  name: z11.string().trim().min(1).max(200),
+  mimeType: z11.enum(["image/png", "image/jpeg", "image/webp"]),
+  dataUrl: z11.string().max(15e5).regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/),
+  width: z11.number().int().positive().max(1e4),
+  height: z11.number().int().positive().max(1e4)
 }).strict().refine(
   (value) => value.dataUrl.startsWith(`data:${value.mimeType};base64,`),
   "La imagen no coincide con su tipo."
 );
-var messageSchema = z10.object({ text: z10.string().trim().min(1).max(2e3) }).strict();
-var selectSchema = z10.object({ versionId: z10.string().min(1).max(100) }).strict();
-var videoSchema = z10.object({ renderId: z10.string().min(1).max(100) }).strict();
+var messageSchema = z11.object({ text: z11.string().trim().min(1).max(2e3) }).strict();
+var selectSchema = z11.object({ versionId: z11.string().min(1).max(100) }).strict();
+var videoSchema = z11.object({ renderId: z11.string().min(1).max(100) }).strict();
 function matchesType(bytes, mimeType) {
   if (mimeType === "image/png")
     return bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
@@ -6371,7 +6639,7 @@ var DesignAIService = class {
   async message(designId, eventId, role, text4) {
     await this.repo.db.prepare(
       "INSERT INTO design_messages (id,design_id,event_id,role,text,created_at) VALUES (?,?,?,?,?,?)"
-    ).run(randomUUID9(), designId, eventId, role, text4, now2());
+    ).run(randomUUID10(), designId, eventId, role, text4, now2());
   }
   /** Live renders made this month across the company. */
   async usage() {
@@ -6479,8 +6747,8 @@ var DesignAIService = class {
   /* --------------------------------------------------------------------- */
   async interruptAll() {
     const rows = await this.repo.db.prepare("SELECT id FROM design_projects WHERE job IS NOT NULL").all();
-    for (const { id: id5 } of rows) {
-      const row = await this.row(id5);
+    for (const { id: id6 } of rows) {
+      const row = await this.row(id6);
       if (row) await this.interrupt(row);
     }
   }
@@ -6567,7 +6835,7 @@ var DesignAIService = class {
       const first = result2.renders[0];
       const wantsVideo = job.kind === "create" && first && await this.videoAllowed();
       const next = wantsVideo ? {
-        id: randomUUID9(),
+        id: randomUUID10(),
         kind: "video",
         request: "Video",
         renderId: first.id,
@@ -6581,7 +6849,7 @@ var DesignAIService = class {
           "SELECT MAX(number) AS n FROM design_versions WHERE design_id=?"
         ).get(designId);
         const number2 = Number(last.n ?? 0) + 1;
-        const versionId = randomUUID9();
+        const versionId = randomUUID10();
         const at = now2();
         await this.repo.db.prepare(
           "INSERT INTO design_versions (id,design_id,event_id,number,request,spec,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)"
@@ -6652,11 +6920,11 @@ var DesignAIService = class {
     }
   }
   async saveFile(designId, folder, bytes, mimeType, written) {
-    const id5 = randomUUID9();
-    const path = `${designId}/${folder}/${id5}.${mimeType === "video/mp4" ? "mp4" : extension(mimeType)}`;
+    const id6 = randomUUID10();
+    const path = `${designId}/${folder}/${id6}.${mimeType === "video/mp4" ? "mp4" : extension(mimeType)}`;
     await this.storage.put(path, bytes, mimeType);
     written.push(path);
-    return { id: id5, path };
+    return { id: id6, path };
   }
   async runCreate(designId, event, job, workspace, written, signal) {
     const rows = await this.images(designId);
@@ -6872,7 +7140,7 @@ var DesignAIService = class {
         req.params.eventId,
         true
       );
-      const id5 = await this.repo.transaction(async () => {
+      const id6 = await this.repo.transaction(async () => {
         const empty = await this.repo.db.prepare(
           `SELECT p.id FROM design_projects p WHERE p.event_id=? AND p.current_version_id IS NULL AND p.job IS NULL
                AND NOT EXISTS (SELECT 1 FROM design_images i WHERE i.design_id=p.id)
@@ -6886,14 +7154,14 @@ var DesignAIService = class {
             409,
             `M\xE1ximo ${MAX_DESIGNS_PER_EVENT} dise\xF1os por evento. Elimina uno para continuar.`
           );
-        const id6 = randomUUID9();
+        const id7 = randomUUID10();
         const at = now2();
         await this.repo.db.prepare(
           "INSERT INTO design_projects (id,event_id,title,brief,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?)"
-        ).run(id6, event.id, NEW_DESIGN_TITLE, "", user.id, at, at);
-        return id6;
+        ).run(id7, event.id, NEW_DESIGN_TITLE, "", user.id, at, at);
+        return id7;
       });
-      res.status(201).json(await this.project(id5));
+      res.status(201).json(await this.project(id6));
     });
     app.get("/api/design/designs/:designId", async (req, res) => {
       await this.access(res, req.params.designId);
@@ -6982,8 +7250,8 @@ var DesignAIService = class {
         throw new HttpError(413, "Cada imagen debe pesar 1 MB o menos.");
       if (!matchesType(bytes, input.mimeType))
         throw new HttpError(422, "El archivo no es una imagen v\xE1lida.");
-      const id5 = randomUUID9();
-      const path = `${row.id}/images/${id5}.${extension(input.mimeType)}`;
+      const id6 = randomUUID10();
+      const path = `${row.id}/images/${id6}.${extension(input.mimeType)}`;
       await this.repo.transaction(async () => {
         const fresh = await this.reapStale(await this.row(row.id));
         if (fresh.job)
@@ -7004,7 +7272,7 @@ var DesignAIService = class {
         await this.repo.db.prepare(
           "INSERT INTO design_images (id,design_id,event_id,name,mime_type,width,height,file_path,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)"
         ).run(
-          id5,
+          id6,
           row.id,
           event.id,
           input.name,
@@ -7020,7 +7288,7 @@ var DesignAIService = class {
       try {
         await this.storage.put(path, bytes, input.mimeType);
       } catch {
-        await this.repo.db.prepare("DELETE FROM design_images WHERE id=?").run(id5);
+        await this.repo.db.prepare("DELETE FROM design_images WHERE id=?").run(id6);
         throw new HttpError(502, "No se pudo guardar la imagen. Reintenta.");
       }
       res.status(201).json(await this.project(row.id));
@@ -7048,9 +7316,9 @@ var DesignAIService = class {
         res.json(await this.project(row.id));
       }
     );
-    const serveFile = async (res, designId, sql, id5, redirect = false) => {
+    const serveFile = async (res, designId, sql, id6, redirect = false) => {
       await this.access(res, designId);
-      const row = await this.repo.db.prepare(sql).get(id5, designId);
+      const row = await this.repo.db.prepare(sql).get(id6, designId);
       if (!row) throw new HttpError(404, "Archivo no encontrado.");
       if (redirect && this.storage.signedUrl) {
         const url = await this.storage.signedUrl(row.file_path, 3600).catch(() => {
@@ -7134,7 +7402,7 @@ var DesignAIService = class {
             );
         }
         const job2 = {
-          id: randomUUID9(),
+          id: randomUUID10(),
           kind: first ? "create" : "refine",
           request: text4,
           startedAt: now2()
@@ -7183,7 +7451,7 @@ var DesignAIService = class {
             `Se alcanz\xF3 el l\xEDmite mensual de videos (${this.videoCap}). Pide a un administrador que lo ampl\xEDe.`
           );
         const job2 = {
-          id: randomUUID9(),
+          id: randomUUID10(),
           kind: "video",
           request: "Video",
           renderId,
@@ -7265,7 +7533,7 @@ var DesignAIService = class {
 
 // server/app.ts
 import { resolve as resolve2 } from "node:path";
-import { z as z19 } from "zod";
+import { z as z20 } from "zod";
 
 // server/logger.ts
 var order = {
@@ -7322,7 +7590,7 @@ function jsonLogger(minimum = "info", write = (line2, level) => (level === "warn
 }
 
 // server/routes/auth.ts
-import { randomUUID as randomUUID10 } from "node:crypto";
+import { randomUUID as randomUUID11 } from "node:crypto";
 var FIRST_COMPANY_NAME = "KIT audiovisual";
 async function requireHuman(config, token) {
   if (!config.recaptchaVerifier) return;
@@ -7355,23 +7623,23 @@ function mountAuthRoutes(app, { repo, config }) {
       );
     const input = setupSchema.parse(req.body);
     const encoded = await passwordHash(input.password);
-    const id5 = randomUUID10();
+    const id6 = randomUUID11();
     await repo.transaction(async () => {
       if (await repo.initialized())
         throw new HttpError(409, "Workspace setup was already completed.");
       await repo.db.prepare(
         "INSERT INTO users (id,email,name,role,owner,password_hash) VALUES (?,?,?,?,1,?)"
-      ).run(id5, input.email, input.name, "Administrator", encoded);
+      ).run(id6, input.email, input.name, "Administrator", encoded);
       await repo.db.prepare("INSERT INTO workspace VALUES (1,0,?)").run(JSON.stringify(emptyWorkspace(input.company)));
-      await repo.audit(id5, "Company workspace created", input.company);
+      await repo.audit(id6, "Company workspace created", input.company);
     });
     const csrf = await createSession(
       repo,
-      id5,
+      id6,
       res,
       Boolean(config.secureCookies)
     );
-    res.status(201).json({ user: publicUser(await repo.user(id5)), csrf });
+    res.status(201).json({ user: publicUser(await repo.user(id6)), csrf });
   });
   app.post("/api/login", async (req, res) => {
     const input = loginSchema.parse(req.body);
@@ -7415,7 +7683,7 @@ function mountAuthRoutes(app, { repo, config }) {
       await repo.transaction(async () => {
         if (await repo.initialized()) return;
         const owner = await repo.upsertFederatedUser({
-          id: randomUUID10(),
+          id: randomUUID11(),
           email: identity.email,
           name: identity.name || identity.email,
           role: "Administrator",
@@ -7438,7 +7706,7 @@ function mountAuthRoutes(app, { repo, config }) {
         "This account does not have access to the workspace."
       );
     row ??= await repo.upsertFederatedUser({
-      id: randomUUID10(),
+      id: randomUUID11(),
       email: identity.email,
       name: identity.name || identity.email,
       role: "Administrator",
@@ -7518,11 +7786,11 @@ function mountWorkspaceRoutes(app, { repo, response }) {
   });
   app.delete("/api/proposals/:id", async (req, res) => {
     const user = userOf(res);
-    const id5 = identifier.parse(req.params.id);
+    const id6 = identifier.parse(req.params.id);
     await repo.transaction(async () => {
       const current = await repo.read();
-      const proposal = current.workspace.proposals.find((p) => p.id === id5);
-      const next = deleteDraftProposal(current.workspace, id5, user);
+      const proposal = current.workspace.proposals.find((p) => p.id === id6);
+      const next = deleteDraftProposal(current.workspace, id6, user);
       await repo.save(next, current.revision);
       await repo.audit(
         user.id,
@@ -7536,13 +7804,13 @@ function mountWorkspaceRoutes(app, { repo, response }) {
 }
 
 // server/routes/conversations.ts
-import { z as z11 } from "zod";
+import { z as z12 } from "zod";
 function mountConversationRoutes(app, { repo, response }) {
   app.post("/api/conversations/:id/accept", async (req, res) => {
     const user = userOf(res);
     if (!user.isOwner)
       throw new HttpError(403, "Only the owner can confirm client acceptance.");
-    const revision = z11.object({ revision: z11.number().int().nonnegative() }).strict().parse(req.body).revision;
+    const revision = z12.object({ revision: z12.number().int().nonnegative() }).strict().parse(req.body).revision;
     await repo.transaction(async () => {
       const current = await repo.read();
       if (revision !== current.revision)
@@ -7572,10 +7840,10 @@ function mountConversationRoutes(app, { repo, response }) {
 }
 
 // server/routes/messaging.ts
-import { z as z12 } from "zod";
+import { z as z13 } from "zod";
 
 // server/messaging.ts
-import { randomUUID as randomUUID11 } from "node:crypto";
+import { randomUUID as randomUUID12 } from "node:crypto";
 function ingestInboundMessage(workspace, inbound) {
   if (workspace.conversations.some(
     (conversation2) => conversation2.messages.some(
@@ -7596,7 +7864,7 @@ function ingestInboundMessage(workspace, inbound) {
     inbound.proposalId && inbound.proposalVersion && inbound.proposalId === conversation.proposalId && inbound.proposalVersion === conversation.proposalVersion
   );
   const message2 = {
-    id: randomUUID11(),
+    id: randomUUID12(),
     direction: "in",
     text: inbound.text,
     at: inbound.receivedAt,
@@ -7635,15 +7903,15 @@ function mountMessagingRoutes(app, { repo, config, response }) {
         403,
         "Solo el propietario puede agregar mensajes de demostraci\xF3n."
       );
-    const input = z12.object({
-      externalId: z12.string().trim().min(1).max(500),
-      channel: z12.string().trim().min(1).max(200),
+    const input = z13.object({
+      externalId: z13.string().trim().min(1).max(500),
+      channel: z13.string().trim().min(1).max(200),
       conversationId: identifier,
-      text: z12.string().trim().min(1).max(2e4),
-      receivedAt: z12.string().datetime(),
-      acceptanceSignal: z12.boolean(),
+      text: z13.string().trim().min(1).max(2e4),
+      receivedAt: z13.string().datetime(),
+      acceptanceSignal: z13.boolean(),
       proposalId: identifier.optional(),
-      proposalVersion: z12.number().int().positive().optional()
+      proposalVersion: z13.number().int().positive().optional()
     }).strict().refine(
       (value) => Boolean(value.proposalId) === Boolean(value.proposalVersion),
       "La propuesta y su versi\xF3n deben proporcionarse juntas."
@@ -7681,7 +7949,7 @@ function mountMessagingRoutes(app, { repo, config, response }) {
           403,
           "Solo el propietario puede confirmar mensajes para env\xEDo."
         );
-      const revision = z12.object({ revision: z12.number().int().nonnegative() }).strict().parse(req.body).revision;
+      const revision = z13.object({ revision: z13.number().int().nonnegative() }).strict().parse(req.body).revision;
       const transport = config.messageTransport;
       if (!transport)
         throw new HttpError(
@@ -7840,7 +8108,7 @@ function mountInventoryRoutes(app, { repo }) {
 }
 
 // server/routes/ai.ts
-import { z as z13 } from "zod";
+import { z as z14 } from "zod";
 function mountAiRoutes(app, { repo, config }) {
   app.get("/api/ai/status", async (_req, res) => {
     const user = userOf(res);
@@ -7855,10 +8123,10 @@ function mountAiRoutes(app, { repo, config }) {
     const user = userOf(res);
     if (!["Administrator", "Sales Manager"].includes(user.role))
       throw new HttpError(403, "No tienes acceso a la redacci\xF3n comercial.");
-    const input = z13.object({
+    const input = z14.object({
       eventId: identifier.optional(),
       proposalId: identifier.optional(),
-      brief: z13.string().trim().min(10).max(6e3)
+      brief: z14.string().trim().min(10).max(6e3)
     }).strict().parse(req.body);
     if (!input.eventId && !input.proposalId)
       throw new HttpError(422, "Indica el evento o la propuesta.");
@@ -7895,18 +8163,18 @@ function mountAiRoutes(app, { repo, config }) {
 }
 
 // server/routes/users.ts
-import { randomBytes as randomBytes3, randomUUID as randomUUID12 } from "node:crypto";
-import { z as z14 } from "zod";
+import { randomBytes as randomBytes3, randomUUID as randomUUID13 } from "node:crypto";
+import { z as z15 } from "zod";
 function validateGrants(workspace, input) {
-  if (input.eventIds.some((id5) => !workspace.events.some((e) => e.id === id5)))
+  if (input.eventIds.some((id6) => !workspace.events.some((e) => e.id === id6)))
     throw new HttpError(422, "An assigned event does not exist.");
   if (input.role === "Client / Guest" && (!input.clientId || !workspace.clients.some((c) => c.id === input.clientId)))
     throw new HttpError(
       422,
       "A client account requires a valid client profile."
     );
-  if (input.sharedProposalIds.some((id5) => {
-    const p = workspace.proposals.find((p2) => p2.id === id5);
+  if (input.sharedProposalIds.some((id6) => {
+    const p = workspace.proposals.find((p2) => p2.id === id6);
     return !p || workspace.events.find((e) => e.id === p.eventId)?.clientId !== input.clientId || !["Issued", "Accepted", "Declined", "Superseded"].includes(p.status);
   }))
     throw new HttpError(
@@ -7923,7 +8191,7 @@ function mountUserRoutes(app, { repo }) {
     res.json({
       members: (await repo.users()).filter(
         (person) => person.active && person.role !== "Client / Guest" && (person.role === "Administrator" || person.eventIds.includes(eventId))
-      ).map(({ id: id5, name: name2, role }) => ({ id: id5, name: name2, role }))
+      ).map(({ id: id6, name: name3, role }) => ({ id: id6, name: name3, role }))
     });
   });
   app.get("/api/users", async (_req, res) => {
@@ -7937,14 +8205,14 @@ function mountUserRoutes(app, { repo }) {
     if (await repo.userByEmail(input.email))
       throw new HttpError(409, "A user with this email already exists.");
     const encoded = await passwordHash(input.password);
-    const id5 = randomUUID12();
+    const id6 = randomUUID13();
     await repo.transaction(async () => {
       if (await repo.userByEmail(input.email))
         throw new HttpError(409, "A user with this email already exists.");
       await repo.db.prepare(
         "INSERT INTO users (id,email,name,role,password_hash,event_ids,client_id,shared_proposals) VALUES (?,?,?,?,?,?,?,?)"
       ).run(
-        id5,
+        id6,
         input.email,
         input.name,
         input.role,
@@ -7959,12 +8227,12 @@ function mountUserRoutes(app, { repo }) {
         `${input.name} \xB7 ${input.role}`
       );
     });
-    res.status(201).json({ user: publicUser(await repo.user(id5)) });
+    res.status(201).json({ user: publicUser(await repo.user(id6)) });
   });
   app.patch("/api/users/:id", async (req, res) => {
     const actor = requireAdmin(res);
     const userId = identifier.parse(req.params.id);
-    const input = z14.object({ active: z14.boolean() }).strict().parse(req.body);
+    const input = z15.object({ active: z15.boolean() }).strict().parse(req.body);
     const row = await repo.user(userId);
     if (!row) throw new HttpError(404, "User not found.");
     if (row.owner || actor.id === userId)
@@ -8041,7 +8309,7 @@ function mountUserRoutes(app, { repo }) {
   app.post("/api/users/:id/reset-password", async (req, res) => {
     const actor = requireAdmin(res);
     const userId = identifier.parse(req.params.id);
-    z14.object({}).strict().parse(req.body ?? {});
+    z15.object({}).strict().parse(req.body ?? {});
     const row = await repo.user(userId);
     if (!row) throw new HttpError(404, "User not found.");
     if (actor.id === userId)
@@ -8100,38 +8368,38 @@ function mountAccountRoutes(app, { repo }) {
 }
 
 // server/routes/backup.ts
-import { z as z16 } from "zod";
+import { z as z17 } from "zod";
 
 // server/backup.ts
 import { createHash as createHash5, timingSafeEqual as timingSafeEqual3 } from "node:crypto";
-import { z as z15 } from "zod";
-var backupWorkspaceSchema = z15.object({
-  schema: z15.literal(1),
-  clients: z15.array(schemas.clients),
-  venues: z15.array(schemas.venues),
-  events: z15.array(schemas.events),
-  equipment: z15.array(schemas.equipment),
-  proposals: z15.array(schemas.proposals),
-  conversations: z15.array(schemas.conversations),
-  tasks: z15.array(schemas.tasks),
-  reservations: z15.array(schemas.reservations),
-  packages: z15.array(schemas.packages),
-  maintenanceRecords: z15.array(schemas.maintenanceRecords),
-  operations: z15.array(schemas.operations),
-  automations: z15.array(schemas.automations),
-  layouts: z15.array(schemas.layouts),
-  brandAssets: z15.array(schemas.brandAssets),
-  creativeAssets: z15.array(schemas.creativeAssets),
+import { z as z16 } from "zod";
+var backupWorkspaceSchema = z16.object({
+  schema: z16.literal(1),
+  clients: z16.array(schemas.clients),
+  venues: z16.array(schemas.venues),
+  events: z16.array(schemas.events),
+  equipment: z16.array(schemas.equipment),
+  proposals: z16.array(schemas.proposals),
+  conversations: z16.array(schemas.conversations),
+  tasks: z16.array(schemas.tasks),
+  reservations: z16.array(schemas.reservations),
+  packages: z16.array(schemas.packages),
+  maintenanceRecords: z16.array(schemas.maintenanceRecords),
+  operations: z16.array(schemas.operations),
+  automations: z16.array(schemas.automations),
+  layouts: z16.array(schemas.layouts),
+  brandAssets: z16.array(schemas.brandAssets),
+  creativeAssets: z16.array(schemas.creativeAssets),
   settings: schemas.settings
 }).strict();
-var backupPayloadSchema = z15.object({
-  format: z15.literal("kit-workspace-backup"),
-  version: z15.literal(1),
-  exportedAt: z15.string().datetime(),
-  sourceRevision: z15.number().int().nonnegative(),
+var backupPayloadSchema = z16.object({
+  format: z16.literal("kit-workspace-backup"),
+  version: z16.literal(1),
+  exportedAt: z16.string().datetime(),
+  sourceRevision: z16.number().int().nonnegative(),
   workspace: backupWorkspaceSchema
 }).strict();
-var backupSchema = backupPayloadSchema.extend({ checksum: z15.string().regex(/^[a-f0-9]{64}$/) }).strict();
+var backupSchema = backupPayloadSchema.extend({ checksum: z16.string().regex(/^[a-f0-9]{64}$/) }).strict();
 function canonicalJson(value) {
   if (Array.isArray(value))
     return `[${value.map((item2) => canonicalJson(item2)).join(",")}]`;
@@ -8242,7 +8510,7 @@ function mountBackupRoutes(app, { repo, response }) {
   });
   app.post("/api/backup/preview", async (req, res) => {
     requireAdmin(res);
-    const input = z16.object({ backup: z16.unknown() }).strict().parse(req.body);
+    const input = z17.object({ backup: z17.unknown() }).strict().parse(req.body);
     const backup = readWorkspaceBackup(input.backup);
     const workspace = restorableWorkspace(backup);
     await validateRecovery(workspace);
@@ -8258,10 +8526,10 @@ function mountBackupRoutes(app, { repo, response }) {
   });
   app.post("/api/backup/restore", async (req, res) => {
     const user = requireAdmin(res);
-    const input = z16.object({
-      backup: z16.unknown(),
-      expectedRevision: z16.number().int().nonnegative(),
-      confirmation: z16.string().max(220)
+    const input = z17.object({
+      backup: z17.unknown(),
+      expectedRevision: z17.number().int().nonnegative(),
+      confirmation: z17.string().max(220)
     }).strict().parse(req.body);
     const backup = readWorkspaceBackup(input.backup);
     if (input.confirmation !== `RESTORE ${backup.workspace.settings.company}`)
@@ -8294,9 +8562,9 @@ function mountBackupRoutes(app, { repo, response }) {
   app.post("/api/backup/recovery-points/:id/restore", async (req, res) => {
     const user = requireAdmin(res);
     const recoveryId = identifier.parse(req.params.id);
-    const input = z16.object({
-      expectedRevision: z16.number().int().nonnegative(),
-      confirmation: z16.literal("ROLL BACK")
+    const input = z17.object({
+      expectedRevision: z17.number().int().nonnegative(),
+      confirmation: z17.literal("ROLL BACK")
     }).strict().parse(req.body);
     const workspace = await repo.recoveryWorkspace(recoveryId);
     await validateRecovery(workspace);
@@ -8333,7 +8601,7 @@ function mountBackupRoutes(app, { repo, response }) {
 }
 
 // server/routes/integrations.ts
-import { z as z17 } from "zod";
+import { z as z18 } from "zod";
 
 // server/integrations.ts
 var clean = (value) => value?.trim() || void 0;
@@ -8379,24 +8647,24 @@ var AUDIT = {
   ],
   whatsapp: ["Outgoing message delivered to transport"]
 };
-async function lastTest(repo, id5) {
+async function lastTest(repo, id6) {
   const row = await repo.db.prepare(
     "SELECT detail, created_at FROM audit WHERE action=? AND detail LIKE ? ORDER BY seq DESC LIMIT 1"
-  ).get(AUDIT.test, `${id5} \xB7 %`);
+  ).get(AUDIT.test, `${id6} \xB7 %`);
   const success = await repo.db.prepare(
     "SELECT created_at FROM audit WHERE action=? AND detail LIKE ? ORDER BY seq DESC LIMIT 1"
-  ).get(AUDIT.test, `${id5} \xB7 ok%`);
+  ).get(AUDIT.test, `${id6} \xB7 ok%`);
   return {
     lastTestedAt: row?.created_at ?? null,
-    lastTestOk: row ? row.detail.startsWith(`${id5} \xB7 ok`) : null,
+    lastTestOk: row ? row.detail.startsWith(`${id6} \xB7 ok`) : null,
     lastSuccessAt: success?.created_at ?? null
   };
 }
 async function integrationStatus(repo, config, extra) {
-  const { ai, serpapi, whatsapp, email } = config;
+  const { ai, serpapi, whatsapp, email: email2 } = config;
   const ids2 = ["ai", "whatsapp", "serpapi", "search", "email"];
   const last = Object.fromEntries(
-    await Promise.all(ids2.map(async (id5) => [id5, await lastTest(repo, id5)]))
+    await Promise.all(ids2.map(async (id6) => [id6, await lastTest(repo, id6)]))
   );
   const used = {
     ai: await monthlyCount(repo, AUDIT.ai),
@@ -8469,12 +8737,12 @@ async function integrationStatus(repo, config, extra) {
     {
       id: "email",
       group: "email",
-      configured: Boolean(email),
+      configured: Boolean(email2),
       testable: false,
       env: ["KIT_EMAIL_PROVIDER", "KIT_EMAIL_API_KEY", "KIT_EMAIL_FROM"],
-      provider: email?.provider,
-      account: email?.from ?? null,
-      keyHint: hint(email?.key),
+      provider: email2?.provider,
+      account: email2?.from ?? null,
+      keyHint: hint(email2?.key),
       ...last.email
     }
   ];
@@ -8497,9 +8765,9 @@ async function probe(url, headers, transport) {
   if (!response.ok)
     throw new HttpError(502, "El servicio no respondi\xF3 correctamente.");
 }
-async function testIntegration(id5, config) {
+async function testIntegration(id6, config) {
   const transport = config.transport ?? fetch;
-  if (id5 === "ai") {
+  if (id6 === "ai") {
     if (!config.ai)
       throw new HttpError(409, "Configura la clave de IA antes de probar.");
     const model = config.ai.proposalModel || config.ai.chatModel || config.ai.planModel;
@@ -8513,7 +8781,7 @@ async function testIntegration(id5, config) {
     });
     return `${providerLabel[config.ai.provider]} reconoce el modelo ${model}.`;
   }
-  if (id5 === "serpapi") {
+  if (id6 === "serpapi") {
     if (!config.serpapi)
       throw new HttpError(409, "Configura SERPAPI_API_KEY antes de probar.");
     await probe(
@@ -8523,7 +8791,7 @@ async function testIntegration(id5, config) {
     );
     return "SerpApi acept\xF3 la clave. No se us\xF3 ninguna b\xFAsqueda.";
   }
-  if (id5 === "whatsapp") {
+  if (id6 === "whatsapp") {
     if (!config.whatsapp)
       throw new HttpError(
         409,
@@ -8561,25 +8829,25 @@ function mountIntegrationRoutes(app, { repo, config }) {
         403,
         "Solo el propietario puede probar las conexiones."
       );
-    const id5 = z17.enum(ids).parse(req.params.id);
+    const id6 = z18.enum(ids).parse(req.params.id);
     await rateLimit(repo, `integration-test:${user.id}`, 10);
     let ok = true;
     let message2;
     try {
-      message2 = await testIntegration(id5, settings());
+      message2 = await testIntegration(id6, settings());
     } catch (error) {
       if (error instanceof HttpError && [409, 422].includes(error.status))
         throw error;
       ok = false;
       message2 = error instanceof HttpError ? error.message : "La prueba de conexi\xF3n fall\xF3.";
     }
-    await repo.audit(user.id, AUDIT.test, `${id5} \xB7 ${ok ? "ok" : "error"}`);
-    res.json({ id: id5, ok, message: message2, testedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    await repo.audit(user.id, AUDIT.test, `${id6} \xB7 ${ok ? "ok" : "error"}`);
+    res.json({ id: id6, ok, message: message2, testedAt: (/* @__PURE__ */ new Date()).toISOString() });
   });
 }
 
 // server/routes/lookup.ts
-import { z as z18 } from "zod";
+import { z as z19 } from "zod";
 
 // server/lookup.ts
 var text3 = (value, max = 300) => typeof value === "string" && value.trim() ? value.trim().slice(0, max) : void 0;
@@ -8692,9 +8960,9 @@ function mountLookupRoutes(app, { repo, config }) {
   });
   app.post("/api/lookup", async (req, res) => {
     const user = owner(res);
-    const input = z18.object({
-      kind: z18.enum(["equipment", "venue", "event"]),
-      query: z18.string().trim().min(2).max(200)
+    const input = z19.object({
+      kind: z19.enum(["equipment", "venue", "event"]),
+      query: z19.string().trim().min(2).max(200)
     }).strict().parse(req.body);
     const serpapi = config.integrations?.serpapi;
     if (!serpapi) throw new HttpError(503, "B\xFAsqueda externa no conectada.");
@@ -8738,7 +9006,7 @@ function createApp(repo, config) {
     }
   })();
   app.use((req, res, next) => {
-    const requestId = randomUUID13();
+    const requestId = randomUUID14();
     const started = performance.now();
     res.locals.requestId = requestId;
     if (req.path.startsWith("/api/"))
@@ -8835,7 +9103,7 @@ function createApp(repo, config) {
   }
   app.use(
     (error, req, res, _next) => {
-      if (error instanceof z19.ZodError)
+      if (error instanceof z20.ZodError)
         return res.status(422).json({
           error: error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
         });
@@ -8882,9 +9150,9 @@ function supabaseVerifier(url, publishableKey) {
   return async (accessToken) => {
     const user = await get("/auth/v1/user", accessToken);
     if (!user.id || !user.email) throw new Error("no user");
-    const id5 = encodeURIComponent(user.id);
+    const id6 = encodeURIComponent(user.id);
     const profiles = await get(
-      `/rest/v1/profiles?id=eq.${id5}&select=role,account_status,full_name`,
+      `/rest/v1/profiles?id=eq.${id6}&select=role,account_status,full_name`,
       accessToken
     );
     return {

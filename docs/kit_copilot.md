@@ -64,6 +64,8 @@ Proposals (`Administrator`, `Sales Manager`): `proposal.get`, `proposal.validate
 
 Records (all staff roles; visibility by scope): `event.list`, `event.get`, `client.search`, `client.get`, `task.list`, `inventory.search`, `inventory.get_item`, `inventory.check_availability`. Writes: `task.create` (Administrator, Production Manager), `task.update` (plus Technician, own tasks only via `applyChanges`).
 
+Directory (Stage E): `client.create`, `client.update` (Administrator, Sales Manager; duplicates by name or email rejected), `event.create`, `event.update` (plus Production Manager, who may only change the status — `applyChanges` enforces it), financial: `event.set_budget`.
+
 `GET /api/kit/status` lists the tool ids the signed-in person may use.
 
 ## 5. API additions (all additive)

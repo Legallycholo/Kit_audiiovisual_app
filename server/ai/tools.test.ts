@@ -3,7 +3,7 @@ import { createSeed } from "../../src/shared/seed";
 import { availableStock } from "../../src/shared/domain";
 import type { WorkspaceUser } from "../../src/shared/access";
 import { HttpError } from "../database";
-import { applyChanges } from "../permissions";
+import { applyChanges, scopeWorkspace } from "../permissions";
 import { defaultToolRegistry } from "./tools/index";
 import {
   requiresConfirmation,
@@ -315,5 +315,117 @@ describe("record tools", () => {
     expect(
       registry.get("task.update")!.input.safeParse({ taskId: "t1" }).success,
     ).toBe(false);
+  });
+});
+
+describe("directory tools", () => {
+  it("creates clients with the shared initials and refuses duplicates", async () => {
+    const outcome = await run("client.create", {
+      name: "Teatro Nuevo",
+      contact: "Ana Ruiz",
+      email: "ana@example.com",
+    });
+    const client = outcome.changes![0].value as any;
+    expect(client).toMatchObject({
+      name: "Teatro Nuevo",
+      initials: "TN",
+      color: "sage",
+      industry: "Corporate",
+      phone: "",
+    });
+    expect(() =>
+      applyChanges(createSeed(), outcome.changes!, owner),
+    ).not.toThrow();
+    await expect(
+      run("client.create", { name: "Museo de Arte", contact: "X" }),
+    ).rejects.toMatchObject({ status: 409 });
+    const updated = await run("client.update", {
+      clientId: "c4",
+      phone: "+1 787 555 0199",
+    });
+    expect(updated.changes![0].value).toMatchObject({
+      id: "c4",
+      phone: "+1 787 555 0199",
+      initials: "MA",
+    });
+    expect(registry.get("client.create")!.roles).not.toContain("Technician");
+  });
+  it("creates events for an existing client with the company's time zone and keeps budget financial", async () => {
+    const outcome = await run("event.create", {
+      name: "Gala",
+      clientId: "c1",
+      type: "Gala",
+      date: "2026-12-20",
+    });
+    const event = outcome.changes![0].value as any;
+    expect(event).toMatchObject({
+      clientId: "c1",
+      endDate: "2026-12-20",
+      status: "Planning",
+      manager: "Owner",
+      budget: 0,
+      timezone: "America/Puerto_Rico",
+    });
+    expect(() =>
+      applyChanges(createSeed(), outcome.changes!, owner),
+    ).not.toThrow();
+    await expect(
+      run("event.create", {
+        name: "X",
+        clientId: "ghost",
+        type: "Gala",
+        date: "2026-12-20",
+      }),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(registry.get("event.set_budget")!.effect).toBe("financial");
+    const moved = await run("event.update", {
+      eventId: "e1",
+      date: "2027-01-10",
+    });
+    expect(moved.changes![0].value).toMatchObject({
+      id: "e1",
+      date: "2027-01-10",
+      endDate: "2027-01-10",
+    });
+    // A production manager sees the scoped event (budget hidden) and may only move the status.
+    const pm = {
+      ...owner,
+      id: "pm",
+      role: "Production Manager" as const,
+      isOwner: false,
+      eventIds: ["e1"],
+    };
+    const renamed = await run(
+      "event.update",
+      { eventId: "e1", name: "Otro" },
+      { ...context(pm), workspace: scopeWorkspace(createSeed(), pm) },
+    );
+    expect(() => applyChanges(createSeed(), renamed.changes!, pm)).toThrow(
+      HttpError,
+    );
+    const scoped = {
+      ...context(pm),
+      workspace: scopeWorkspace(createSeed(), pm),
+    };
+    const status = await run(
+      "event.update",
+      { eventId: "e1", status: "Planning" },
+      scoped,
+    );
+    const next = applyChanges(createSeed(), status.changes!, pm);
+    // The hidden budget is restored from the stored record, not zeroed.
+    expect(next.events.find((e) => e.id === "e1")).toMatchObject({
+      status: "Planning",
+      budget: 18000,
+    });
+    // Business readiness rules bind KIT too: no Preparation without an accepted proposal.
+    const early = await run(
+      "event.update",
+      { eventId: "e1", status: "Preparation" },
+      scoped,
+    );
+    expect(() => applyChanges(createSeed(), early.changes!, pm)).toThrow(
+      /Production readiness/,
+    );
   });
 });

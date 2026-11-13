@@ -390,6 +390,55 @@ describe("KIT copilot: executing tools", () => {
     expect(thread.messages.at(-1)!.actions![0].status).toBe("pending");
     expect((await proposal()).discount).toBe(0);
   });
+  it("creates a client and its event in one auto turn, while the event budget still waits for the person", async () => {
+    runTools.mockImplementationOnce(async (_i, tools, run) => {
+      expect(tools.map((t) => t.name)).toContain("event__set_budget");
+      const client = await run("client__create", {
+        name: "Teatro Nuevo",
+        contact: "Ana Ruiz",
+      });
+      const clientId = (client.content as any).result.clientId;
+      const event = await run("event__create", {
+        name: "Gala de invierno",
+        clientId,
+        type: "Gala",
+        date: "2026-12-20",
+      });
+      const eventId = (event.content as any).result.eventId;
+      const budget = await run("event__set_budget", { eventId, budget: 25000 });
+      expect((budget.content as any).status).toBe("pending_confirmation");
+      return answer(
+        "Creé el cliente y el evento; el presupuesto espera tu confirmación.",
+      );
+    });
+    const thread = await send("sales", {
+      text: "Nuevo cliente Teatro Nuevo con su gala.",
+      refs: [],
+    });
+    const actions = thread.messages.at(-1)!.actions!;
+    expect(actions.map((a) => [a.tool, a.status])).toEqual([
+      ["client.create", "completed"],
+      ["event.create", "completed"],
+      ["event.set_budget", "pending"],
+    ]);
+    const workspace = (await repo.read()).workspace;
+    const gala = workspace.events.find((e) => e.name === "Gala de invierno")!;
+    expect(gala).toMatchObject({
+      budget: 0,
+      manager: "Sales",
+      status: "Planning",
+    });
+    expect(workspace.clients.find((c) => c.id === gala.clientId)!.name).toBe(
+      "Teatro Nuevo",
+    );
+    expect(await audits("KIT action executed")).toHaveLength(2);
+    const reply = thread.messages.at(-1)!;
+    await kit.confirm("sales", thread.id, reply.id, actions[2].token);
+    expect(
+      (await repo.read()).workspace.events.find((e) => e.id === gala.id)!
+        .budget,
+    ).toBe(25000);
+  });
   it("survives a provider failure without partial writes and keeps the message retryable", async () => {
     runTools.mockRejectedValueOnce(new Error("socket hang up"));
     const thread = await send("owner", { text: "Haz algo." });

@@ -202,6 +202,8 @@ Tool registry + action engine for KIT (`server/ai/`), approvals per conversation
 | Check                  | Before                                   | After                                                       |
 | ---------------------- | ---------------------------------------- | ----------------------------------------------------------- |
 | `npm run typecheck`    | OK                                       | OK                                                          |
-| `npm test`             | 43 files, 297 passed + 1 expected failure | 46 files, **321 passed + 1 expected failure**              |
+| `npm test`             | 43 files, 297 passed + 1 expected failure | 46 files, **324 passed + 1 expected failure** (after Stage E) |
 | `npm run build`        | OK                                       | OK (+ `npm run build:api`)                                  |
-| `npm run test:browser` | 48 passed                                | see the commit message of the copilot commit                |
+| `npm run test:browser` | 48 passed                                | **76 passed** (full run 2026-11-13)                          |
+
+Browser note: one earlier full run had a single failure in `proposal-workspace.spec.ts:225` — axe colour contrast 4.43:1 (needs 4.5:1) on `.drawer-heading p` (`--color-text-muted` #6a7789 on #fbfcfd). That element was not changed by this work; the test passed when rerun alone on clean `HEAD` and on the working tree, and in the next full run. It looks like a reading taken mid-transition under load, but the muted token is close to the limit and may be worth darkening slightly.
