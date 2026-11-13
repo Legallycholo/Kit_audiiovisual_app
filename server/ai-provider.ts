@@ -123,6 +123,9 @@ export function portableSchema(
     "pattern",
     "minItems",
     "maxItems",
+    // z.record() emits `propertyNames`, which Anthropic's structured output
+    // does not list as supported. zod still validates the keys afterwards.
+    "propertyNames",
     "$schema",
   ],
 ): unknown {

@@ -274,5 +274,16 @@ describe("portableSchema for Anthropic", () => {
       ),
     );
     expect(JSON.stringify(schema)).not.toMatch(/"additionalProperties":\{/);
+    expect(JSON.stringify(schema)).not.toContain("propertyNames");
+  });
+
+  it("leaves the KIT chat answer schema with only supported keywords", async () => {
+    const { z } = await import("zod");
+    const { kitAnswer } = await import("./kit");
+    const schema = JSON.stringify(
+      portableSchema(z.toJSONSchema(kitAnswer, { target: "draft-7" })),
+    );
+    expect(schema).not.toMatch(/"additionalProperties":(?!false)/);
+    expect(schema).not.toMatch(/propertyNames|minLength|maxLength|"\$schema"/);
   });
 });
