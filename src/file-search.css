@@ -631,3 +631,27 @@
   background: var(--color-primary-subtle);
   color: var(--color-primary);
 }
+.kit-action-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--color-surface-muted, var(--color-surface));
+  border: 1px solid var(--color-border);
+}
+.kit-action[data-effect="financial"] .kit-action-badge {
+  border-color: var(--color-warning, #b8860b);
+}
+.kit-action-completed {
+  border-left: 3px solid var(--color-success, #2e7d32);
+}
+.kit-action-failed,
+.kit-action-cancelled {
+  opacity: 0.75;
+}
+.kit-action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}

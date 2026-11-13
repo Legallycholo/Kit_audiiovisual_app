@@ -20,7 +20,13 @@ import { ConnectNotice } from "./ConnectNotice";
 import { LightMix } from "../shared/ui";
 import { useKit } from "../shared/kit-store";
 import { useWorkspace } from "../shared/store";
-import type { KitMessage, KitMode, KitReference } from "../shared/kit";
+import type {
+  KitActionRecord,
+  KitApproval,
+  KitMessage,
+  KitMode,
+  KitReference,
+} from "../shared/kit";
 function download(name: string, text: string) {
   const url = URL.createObjectURL(
     new Blob([text], { type: "text/plain;charset=utf-8" }),
@@ -30,6 +36,26 @@ function download(name: string, text: string) {
   link.download = name;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const effectLabel: Record<KitActionRecord["effect"], string> = {
+  read: "Consulta",
+  draft: "Borrador",
+  financial: "Financiero",
+  external: "Externo",
+};
+function actionStatus(a: KitActionRecord) {
+  switch (a.status) {
+    case "pending":
+      return "Pendiente de tu confirmación. Todavía no se ha aplicado.";
+    case "running":
+      return "Aplicando…";
+    case "completed":
+      return a.result || (a.auto ? "Aplicado automáticamente." : "Aplicado.");
+    case "cancelled":
+      return "Descartado. No se aplicó.";
+    case "failed":
+      return a.error ? `No se aplicó: ${a.error}` : "No se aplicó.";
+  }
 }
 function greeting(name?: string) {
   const hour = new Date().getHours();
@@ -66,10 +92,19 @@ export function KitChat({
   const [filter, setFilter] = useState("");
   const [title, setTitle] = useState("");
   const [project, setProject] = useState("");
-  const [actionMode, setActionMode] = useState<KitMode>("ask");
+  // Like a coding assistant: consult only, act with a dialog per change, or
+  // act applying low-risk changes as KIT goes (money and external changes still ask).
+  const [actionMode, setActionMode] = useState<"ask" | "act-ask" | "act-auto">(
+    "ask",
+  );
+  const kitMode: KitMode = actionMode === "ask" ? "ask" : "act";
+  const approval: KitApproval = actionMode === "act-auto" ? "auto" : "ask";
   const [consent, setConsent] = useState(true);
   const [notice, setNotice] = useState("");
-  const [confirm, setConfirm] = useState<KitMessage | null>(null);
+  const [confirm, setConfirm] = useState<{
+    message: KitMessage;
+    action: KitActionRecord;
+  } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const editor = useRef<HTMLTextAreaElement>(null);
   const tail = useRef<HTMLDivElement>(null);
@@ -199,7 +234,11 @@ export function KitChat({
         className="kit-composer"
         onSubmit={(e) => {
           e.preventDefault();
-          void kit.send(actionMode, consent);
+          void kit.send(kitMode, consent, approval, {
+            route: location.pathname,
+            proposalId: proposal?.id,
+            eventId: event?.id,
+          });
         }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
@@ -307,10 +346,15 @@ export function KitChat({
               <span className="visually-hidden">Modo</span>
               <select
                 value={actionMode}
-                onChange={(e) => setActionMode(e.target.value as KitMode)}
+                onChange={(e) =>
+                  setActionMode(e.target.value as typeof actionMode)
+                }
               >
-                <option value="ask">Consultar (sin acciones)</option>
-                <option value="act">Actuar (requiere confirmación)</option>
+                <option value="ask">Consultar (sin cambios)</option>
+                <option value="act-ask">Actuar · confirmar cada cambio</option>
+                <option value="act-auto">
+                  Actuar · aplicar cambios de borrador
+                </option>
               </select>
             </label>
           </div>
@@ -418,34 +462,42 @@ export function KitChat({
               )}
             </details>
           ))}
-          {m.action && (
-            <div className="kit-action">
-              <strong>
-                {m.action.input.kind === "create_task"
-                  ? "Crear tarea"
-                  : "Generar borrador de propuesta"}
-                : {m.action.input.title}
-              </strong>
+          {m.actions?.map((a) => (
+            <div
+              key={a.id}
+              className={`kit-action kit-action-${a.status}`}
+              data-effect={a.effect}
+            >
+              <strong>{a.summary}</strong>
               <p>
-                Proyecto:{" "}
-                {data.events.find((e) => e.id === m.action!.input.eventId)
-                  ?.name || m.action.input.eventId}
+                <span className="kit-action-badge">
+                  {effectLabel[a.effect]}
+                </span>{" "}
+                {actionStatus(a)}
               </p>
-              <p>
-                {m.action.result ||
-                  "Solo propuesta. Todavía no se ha ejecutado."}
-              </p>
-              {m.action.status === "pending" && (
-                <button
-                  className="button primary"
-                  disabled={kit.busy || kit.thread?.busy}
-                  onClick={() => setConfirm(m)}
-                >
-                  Revisar acción
-                </button>
+              {a.route && a.status === "completed" && (
+                <Link to={a.route}>Abrir</Link>
+              )}
+              {a.status === "pending" && (
+                <div className="kit-action-buttons">
+                  <button
+                    className="button primary"
+                    disabled={kit.busy || kit.thread?.busy}
+                    onClick={() => setConfirm({ message: m, action: a })}
+                  >
+                    Revisar cambio
+                  </button>
+                  <button
+                    className="button"
+                    disabled={kit.busy || kit.thread?.busy}
+                    onClick={() => void kit.reject(m.id, a.token)}
+                  >
+                    Descartar
+                  </button>
+                </div>
               )}
             </div>
-          )}
+          ))}
           <div className="kit-message-tools">
             <button
               className="button ghost"
@@ -596,7 +648,7 @@ export function KitChat({
           type="button"
           className="kit-suggestion-chip"
           onClick={() => {
-            setActionMode("act");
+            setActionMode("act-ask");
             kit.setDraft(
               "Propón una lista de tareas de montaje y pruebas de sonido para el próximo evento activo.",
             );
@@ -609,19 +661,24 @@ export function KitChat({
       {disconnected && <ConnectNotice service="kit" compact={sidebar} />}
     </div>
   );
-  const confirmDialog = confirm?.action && (
+  const confirmDialog = confirm && (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Confirmar acción de KIT"
+      aria-label="Confirmar cambio de KIT"
       className="kit-confirm"
     >
       <div className="panel">
-        <h2>Confirmar acción de KIT</h2>
+        <h2>Confirmar cambio de KIT</h2>
         <p>
-          {confirm.action.input.kind === "create_task"
-            ? "Se creará una tarea asignada a tu cuenta, en la fecha del evento, sin modificar otras tareas."
-            : "Se enviará al proveedor el resumen del evento, cliente y catálogo para generar un borrador comercial. No se guardará ni enviará una propuesta."}
+          <strong>{confirm.action.summary}</strong>
+        </p>
+        <p>
+          {confirm.action.effect === "financial"
+            ? "Cambio financiero: revisa los importes antes de confirmar. Los totales se recalculan con las tarifas del catálogo."
+            : confirm.action.effect === "external"
+              ? "Esta acción tiene efectos fuera del borrador y no se puede deshacer desde aquí."
+              : "Cambio de borrador: se guarda en el servidor con tu usuario y queda en el registro de actividad."}
         </p>
         <pre>{JSON.stringify(confirm.action.input, null, 2)}</pre>
         <button
@@ -629,11 +686,11 @@ export function KitChat({
           disabled={kit.busy}
           onClick={() =>
             void kit
-              .confirm(confirm.id, confirm.action!.token)
+              .confirm(confirm.message.id, confirm.action.token)
               .then(() => setConfirm(null))
           }
         >
-          Confirmar esta acción
+          Confirmar este cambio
         </button>
         <button
           className="button"

@@ -159,20 +159,25 @@ describe("KIT indexed-file grounding", () => {
     });
     const pending = await waitForThread(thread.id);
     const message = pending.messages.at(-1)!;
-    expect(message.action?.status).toBe("pending");
+    expect(message.actions?.[0]?.status).toBe("pending");
     expect(
       (await repo.read()).workspace.tasks.some(
         (t) => t.title === "Revisar plano",
       ),
     ).toBe(false);
-    await kit.confirm("owner", thread.id, message.id, message.action!.token);
+    await kit.confirm(
+      "owner",
+      thread.id,
+      message.id,
+      message.actions![0].token,
+    );
     expect(
       (await repo.read()).workspace.tasks.some(
         (t) => t.title === "Revisar plano",
       ),
     ).toBe(true);
     expect(
-      (await kit.get("owner", thread.id)).messages.at(-1)!.action?.status,
+      (await kit.get("owner", thread.id)).messages.at(-1)!.actions?.[0]?.status,
     ).toBe("completed");
   });
 

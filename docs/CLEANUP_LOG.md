@@ -194,3 +194,14 @@ Plan and checklist: [implementationplan_vercel_migration.md](implementationplan_
 **Browser suite, pre-existing problem:** at commit `4982a43`, before this migration and with the SQLite backend, the browser specs fail in a clean environment because they still click "Abrir espacio de empresa", which the single-login change (`b95e656`) removed. The app now opens directly on owner setup. Verified on an untouched copy of `4982a43`. The specs need updating to the single-login flow; this migration did not change any frontend file.
 
 Existing tests changed only mechanically (`await`, `Repository.open("memory://")`, `.rejects.toThrow` for async throws); no assertion was changed.
+
+## KIT copilot (November 12, 2026)
+
+Tool registry + action engine for KIT (`server/ai/`), approvals per conversation, Claude tool loop. No route or response shape removed; additive fields only (see `docs/kit_copilot.md` §5). One existing test changed mechanically: `server/kit.test.ts` reads `message.actions[0]` instead of `message.action` (the message shape change approved with the copilot). The assignee/crew checks of `PATCH /api/workspace` moved verbatim to `server/policy/assignees.ts` so KIT's writes share them.
+
+| Check                  | Before                                   | After                                                       |
+| ---------------------- | ---------------------------------------- | ----------------------------------------------------------- |
+| `npm run typecheck`    | OK                                       | OK                                                          |
+| `npm test`             | 43 files, 297 passed + 1 expected failure | 46 files, **321 passed + 1 expected failure**              |
+| `npm run build`        | OK                                       | OK (+ `npm run build:api`)                                  |
+| `npm run test:browser` | 48 passed                                | see the commit message of the copilot commit                |

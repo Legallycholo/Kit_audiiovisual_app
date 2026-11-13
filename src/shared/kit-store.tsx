@@ -7,7 +7,14 @@ import {
   type ReactNode,
 } from "react";
 import { useWorkspace } from "./store";
-import type { KitThread, KitStatus, KitReference, KitMode } from "./kit";
+import type {
+  KitApproval,
+  KitContext,
+  KitMode,
+  KitReference,
+  KitStatus,
+  KitThread,
+} from "./kit";
 type Summary = Omit<KitThread, "messages">;
 interface KitStore {
   threads: Summary[];
@@ -23,7 +30,12 @@ interface KitStore {
   busy: boolean;
   create: () => Promise<KitThread | undefined>;
   select: (id: string) => Promise<void>;
-  send: (mode: KitMode, consent: boolean) => Promise<void>;
+  send: (
+    mode: KitMode,
+    consent: boolean,
+    approval?: KitApproval,
+    context?: KitContext,
+  ) => Promise<void>;
   stop: () => Promise<void>;
   /** Deletes a conversation (the open one when no id is given). */
   remove: (id?: string) => Promise<void>;
@@ -32,6 +44,8 @@ interface KitStore {
   branch: (mid: string) => Promise<KitThread | undefined>;
   update: (title: string, projectId: string | null) => Promise<void>;
   confirm: (mid: string, token: string) => Promise<void>;
+  /** Declines a pending change; nothing is applied. */
+  reject: (mid: string, token: string) => Promise<void>;
 }
 const Context = createContext<KitStore | null>(null);
 export function KitProvider({ children }: { children: ReactNode }) {
@@ -216,7 +230,12 @@ function Session({ children }: { children: ReactNode }) {
       return t;
     });
   }
-  async function send(mode: KitMode, consent: boolean) {
+  async function send(
+    mode: KitMode,
+    consent: boolean,
+    approval: KitApproval = "ask",
+    context?: KitContext,
+  ) {
     const text = draft.trim();
     if (!text) return;
     const sendingRefs = refs;
@@ -238,8 +257,10 @@ function Session({ children }: { children: ReactNode }) {
               requestId: messageId,
               text,
               mode,
+              approval,
               refs: sendingRefs,
               consent,
+              ...(context ? { context } : {}),
             },
           },
         );
@@ -382,6 +403,18 @@ function Session({ children }: { children: ReactNode }) {
       ),
     );
   }
+  async function reject(mid: string, token: string) {
+    if (!thread || !company) return;
+    const id = thread.id;
+    await run(async () =>
+      accept(
+        await request<KitThread>(`/kit/threads/${id}/reject`, {
+          method: "POST",
+          body: { messageId: mid, token },
+        }),
+      ),
+    );
+  }
   async function confirm(mid: string, token: string) {
     if (!thread || !company) return;
     const id = thread.id;
@@ -417,6 +450,7 @@ function Session({ children }: { children: ReactNode }) {
         branch,
         update,
         confirm,
+        reject,
       }}
     >
       {children}

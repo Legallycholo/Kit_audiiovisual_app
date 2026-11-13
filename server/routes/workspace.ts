@@ -4,6 +4,7 @@ import { userOf } from "../security";
 import { changeSchema } from "../schema";
 import { applyChanges } from "../permissions";
 import { deleteDraftProposal } from "../policy/delete-draft";
+import { assertCrewMembers, assertTaskAssignees } from "../policy/assignees";
 import { identifier } from "../schema";
 import type { RouteContext } from "./context";
 
@@ -23,47 +24,8 @@ export function mountWorkspaceRoutes(
           "Another session changed this workspace. Reload the latest data before saving.",
         );
       const next = applyChanges(current.workspace, input.changes, user);
-      for (const change of input.changes.filter(
-        (c) => c.collection === "tasks",
-      )) {
-        const task = next.tasks.find((t) => t.id === change.id)!;
-        if (task.assigneeId) {
-          const assignee = await repo.user(task.assigneeId);
-          if (
-            !assignee?.active ||
-            assignee.role === "Client / Guest" ||
-            (assignee.role !== "Administrator" &&
-              !JSON.parse(assignee.event_ids).includes(task.eventId)) ||
-            assignee.name !== task.assignee
-          )
-            throw new HttpError(
-              422,
-              "La persona asignada debe tener una cuenta activa y acceso al evento.",
-            );
-        }
-      }
-      for (const change of input.changes.filter(
-        (c) => c.collection === "operations",
-      )) {
-        const operation = next.operations.find(
-          (item) => item.id === change.id,
-        )!;
-        for (const shift of operation.crewShifts) {
-          if (!shift.memberId) continue;
-          const member = await repo.user(shift.memberId);
-          if (
-            !member?.active ||
-            member.role === "Client / Guest" ||
-            (member.role !== "Administrator" &&
-              !JSON.parse(member.event_ids).includes(operation.eventId)) ||
-            member.name !== shift.person
-          )
-            throw new HttpError(
-              422,
-              "La persona del turno debe tener una cuenta activa y acceso al evento.",
-            );
-        }
-      }
+      await assertTaskAssignees(repo, next, input.changes);
+      await assertCrewMembers(repo, next, input.changes);
       await repo.save(next, input.revision);
       for (const c of input.changes) {
         const eventId =

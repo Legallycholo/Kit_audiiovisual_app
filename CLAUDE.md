@@ -33,7 +33,7 @@ Before committing, run typecheck, `npm test` and `npm run test:browser`. Compare
 - **No push or deploy** without explicit user approval. The Vercel project builds every push to `main` into production, so a push is a deploy.
 - **Refactors do not change behavior.** Moves and extractions keep exported names, API routes and response shapes identical. If a test must change, stop and explain.
 - **Ask before** deleting files, changing an API route or response shape, or changing the on-disk database format.
-- AI only suggests. Outgoing client messages, proposal acceptance, and mutations proposed by KIT Act mode always need an owner or user confirmation and a server-side authorization check. Do not weaken this.
+- AI only suggests. Outgoing client messages, proposal acceptance, and every financial or external mutation proposed by KIT always need an owner or user confirmation and a server-side authorization check. Draft-class changes (texts, catalog lines, tasks) may run without a dialog only when the person chose the "aplicar cambios de borrador" approval for that conversation (owner decision 2026-11-12, see `docs/kit_copilot.md`). Do not weaken this.
 - UI text is Spanish (labels in `src/shared/i18n.ts`). Code, identifiers and docs are English. Never translate stored business content.
 - Match the surrounding style. Prettier is configured.
 

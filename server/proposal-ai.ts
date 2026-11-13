@@ -97,7 +97,7 @@ export type DraftSuggestion = Pick<
   aiReview: NonNullable<Proposal["aiReview"]>;
 } & Partial<Pick<Proposal, "scope" | "notes" | "terms" | "discount">>;
 
-const catalogOf = (workspace: Workspace) => {
+export const catalogOf = (workspace: Workspace) => {
   if (workspace.equipment.length > 500)
     throw new HttpError(
       422,

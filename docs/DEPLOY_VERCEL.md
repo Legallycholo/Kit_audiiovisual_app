@@ -118,6 +118,8 @@ Add each one for the **Production** environment only. Mark every secret as **Sen
 | `SUPABASE_PUBLISHABLE_KEY`                | copy from your local `.env`                                                            | **Yes**          |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | only the provider(s) you use; copy from your local `.env`             | For AI features  |
 | `KIT_AI_PROVIDER`, `KIT_AI_MODEL`, `KIT_CHAT_MODEL`, `KIT_PLAN_MODEL` | copy from your local `.env`                                          | For AI features  |
+
+With several AI keys and no `KIT_AI_PROVIDER`, the server prefers Anthropic, then OpenAI, then Gemini (2026-11-12). `KIT_CHAT_MODEL` sets the model for KIT chat/copilot turns; see [kit_copilot.md](kit_copilot.md).
 | `SUPABASE_SECRET_KEY` | copy from your local `.env`. KIT Design stores images in the private `kit-design` bucket with it; without it they are stored in the database. Server only, never a `VITE_` variable. | For KIT Design images |
 | `HIGGSFIELD_API_KEY` | your Higgsfield key as `KEY_ID:KEY_SECRET` (or `HIGGSFIELD_KEY_ID` + `HIGGSFIELD_KEY_SECRET`). Without it KIT Design shows sample images marked "MUESTRA". | For KIT Design renders |
 | `KIT_DESIGN_MONTHLY_RENDER_CAP` | live renders allowed per month, company-wide (default `100`). Set it once you know the real price per image. | Optional |

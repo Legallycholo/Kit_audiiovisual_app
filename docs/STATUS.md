@@ -1,6 +1,6 @@
 # KIT — Status
 
-Updated: November 11, 2026. One-page summary. Detailed evidence per requirement: [IMPLEMENTATION_PROGRESS.md](IMPLEMENTATION_PROGRESS.md).
+Updated: November 12, 2026. One-page summary. Detailed evidence per requirement: [IMPLEMENTATION_PROGRESS.md](IMPLEMENTATION_PROGRESS.md).
 
 ## Current state
 
@@ -10,11 +10,13 @@ Updated: November 11, 2026. One-page summary. Detailed evidence per requirement:
 - **Deployed.** Production runs on Vercel (`kit-audiiovisual-app`, auto-deployed from GitHub `main`) against the company's Supabase project (private `kit` schema, migrations 1–14 applied). Production has no AI, Higgsfield, SerpAPI, WhatsApp or Supabase secret key yet, so AI drafting, KIT chat and renders are disabled or fixtures there and KIT Design files are stored in the database. No live AI call, WhatsApp message or paid render has been made. Local `npm run dev` / `dev:server` use an in-process PGlite database and need no account.
 - **Proposals are the document-first KIT Classic workspace** (`docs/improvement_fable.md`, implemented 2026-11-11): "Nueva propuesta" opens a KIT-branded document at once (event optional, linked later), every field is edited in place, equipment lines come from the catalog or as custom services, totals use `quoteTotals()`, preview and print (US Letter) use the same tree, KIT sits beside the document and returns structured suggestions that are reviewed, with financial changes confirmed explicitly. Company brand fields (slogan, address, phone, website) are edited in Configuración › General. ⌘/Ctrl + Shift + P toggles preview. A draft can be deleted from the proposal list (trash button, then a confirmation); sent or accepted revisions never can (`DELETE /api/proposals/:id`, drafts without messages only). Earlier Minimal/Editorial/Spotlight proposals keep their presentation. KIT Design renders can be added to the document by reference. Remaining from the Phase 2 plan ([audit_phase1.md](audit_phase1.md)): template consolidation and the other later approvals.
 
+- **KIT is a copilot** ([kit_copilot.md](kit_copilot.md), 2026-11-12): KIT chat runs application tools through a server-side registry and action engine (proposal create/edit/lines/money, tasks, reads over events, clients, inventory). Three composer modes: Consultar, Actuar · confirmar cada cambio, Actuar · aplicar cambios de borrador (owner decision: auto applies draft-class changes only; financial and external changes always ask). Every write re-validates input, role and scope, checks the workspace revision, goes through `applyChanges` and is audited; pending changes are confirmed or discarded from the chat. Claude runs native tool use with prompt caching; other providers propose one action through the same policy. No schema change. **Not verified live** (no AI key in production).
+
 - **Sign-in (Supabase):** one entry page, `/portal/login`, with **Iniciar sesión** and **Crear cuenta** (`/portal/signup`). New accounts get the `user` role and, with `app_settings.require_account_approval = true`, wait as _pending_ until an administrator approves them in `/portal/admin/users` ("Aprobar"). Only active portal **administrators** enter the workspace for now (`POST /api/login/supabase`); approved non-admins see "Sin acceso al espacio de trabajo" until employee roles are decided. On an empty company database the **first** verified administrator to sign in becomes the owner and an empty workspace ("KIT audiovisual", renamable in Configuración) is created; the local owner-setup screen remains only for runs without a configured portal (that is how the browser tests sign in). No client role and no booking scheduling.
 
 ## What is verified
 
-- Automated: typecheck, 297 unit/API tests (plus 1 expected failure documenting a half-cent rounding issue), the Playwright browser journeys (each against its own in-process server, see `tests/browser/harness.ts`) including axe accessibility checks, and an offline AI-drafting evaluation harness. Details in [CLEANUP_LOG.md](CLEANUP_LOG.md).
+- Automated: typecheck, 321 unit/API tests (plus 1 expected failure documenting a half-cent rounding issue), the Playwright browser journeys (each against its own in-process server, see `tests/browser/harness.ts`) including axe accessibility checks, and an offline AI-drafting evaluation harness. Details in [CLEANUP_LOG.md](CLEANUP_LOG.md).
 - Server-enforced authentication, CSRF, role/event scope, revision conflicts, audit, AI output validation (catalog prices only, unknown items rejected).
 - macOS native binary builds.
 
