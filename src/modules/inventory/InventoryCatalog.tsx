@@ -1,5 +1,7 @@
 import { canEditCollection } from "../../shared/access";
-import { Box, Plus, Wrench, PackageCheck } from "lucide-react";
+import { useState } from "react";
+import { Box, Plus, Wrench, PackageCheck, Trash2 } from "lucide-react";
+import { DeleteDialog } from "../../shared/DeleteDialog";
 import {
   Badge,
   Button,
@@ -40,6 +42,7 @@ export function InventoryCatalog({ ctx }: { ctx: InventoryView }) {
     available,
     items,
   } = ctx;
+  const [deleting, setDeleting] = useState<Equipment | null>(null);
   return (
     <>
       <Panel>
@@ -382,7 +385,18 @@ export function InventoryCatalog({ ctx }: { ctx: InventoryView }) {
                       )}
                     </td>
                     {canPrice && <td className="amount">{money(q.rate)}</td>}
-                    <td>
+                    <td className="row-actions">
+                      {canEditCollection(user, "equipment") && (
+                        <button
+                          type="button"
+                          className="icon-button danger-hover"
+                          aria-label={`Eliminar equipo ${q.name}`}
+                          title="Eliminar equipo"
+                          onClick={() => setDeleting(q)}
+                        >
+                          <Trash2 size={17} aria-hidden="true" />
+                        </button>
+                      )}
                       <Button
                         disabled={!canEditCollection(user, "equipment")}
                         variant="ghost"
@@ -408,6 +422,17 @@ export function InventoryCatalog({ ctx }: { ctx: InventoryView }) {
           <span>{uiLabel("Rates · USD / day")}</span>
         </div>
       </Panel>
+      {deleting && (
+        <DeleteDialog
+          title="¿Eliminar este equipo?"
+          name={deleting.name}
+          note="Solo se puede eliminar un equipo que no se use en eventos, propuestas, paquetes ni reservas."
+          path={`/equipment/${encodeURIComponent(deleting.id)}`}
+          confirmLabel="Eliminar equipo"
+          done="Equipo eliminado."
+          onClose={() => setDeleting(null)}
+        />
+      )}
     </>
   );
 }

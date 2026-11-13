@@ -360,6 +360,74 @@ test("owner deletes a client from the list with a confirmation, and a client wit
     (await repo.read()).workspace.clients.some((c) => c.id === used.id),
   ).toBe(true);
 });
+test("events, venues and equipment can be deleted from their lists, and an event needs no client", async ({
+  page,
+}) => {
+  await setup(page);
+  const seed = createSeed();
+  seed.venues.push({ ...seed.venues[0], id: "v-libre", name: "Lugar libre" });
+  seed.equipment.push({
+    ...seed.equipment[0],
+    id: "q-libre",
+    name: "Equipo libre",
+    sku: "SKU-LIBRE",
+  });
+  await repo.save(seed, 0);
+  await page.reload();
+  const confirmDeleteOf = async (button: string, confirm: string) => {
+    await page.getByRole("button", { name: button }).click();
+    await page.getByRole("button", { name: confirm, exact: true }).click();
+  };
+  // Create an event with no client and no venue: both are optional.
+  await page.goto("/events");
+  await page.getByRole("button", { name: "Crear evento" }).click();
+  await page.getByLabel("Nombre del evento").fill("Evento sin cliente");
+  await page.getByLabel("Fecha de inicio").fill("2027-03-01");
+  await page.getByLabel("Fecha de cierre").fill("2027-03-01");
+  await page.getByRole("button", { name: "Crear evento" }).last().click();
+  await expect(page.getByText("Evento sin cliente").first()).toBeVisible();
+  const created = (await repo.read()).workspace.events.find(
+    (e) => e.name === "Evento sin cliente",
+  )!;
+  expect(created.clientId).toBe("");
+  expect(created.venueId).toBe("");
+  // The trash can removes it after a confirmation; cancelling keeps it.
+  await page.goto("/events");
+  await page
+    .getByRole("button", { name: "Eliminar evento Evento sin cliente" })
+    .click();
+  await page
+    .getByRole("dialog", { name: "¿Eliminar este evento?" })
+    .getByRole("button", { name: "Cancelar" })
+    .click();
+  expect(
+    (await repo.read()).workspace.events.some((e) => e.id === created.id),
+  ).toBe(true);
+  await confirmDeleteOf(
+    "Eliminar evento Evento sin cliente",
+    "Eliminar evento",
+  );
+  await expect(page.getByText("Evento eliminado.")).toBeVisible();
+  expect(
+    (await repo.read()).workspace.events.some((e) => e.id === created.id),
+  ).toBe(false);
+  // An event with work behind it is refused with the reason.
+  const used = seed.events[0];
+  await confirmDeleteOf(`Eliminar evento ${used.name}`, "Eliminar evento");
+  await expect(
+    page.getByText("ya tiene propuestas, tareas", { exact: false }),
+  ).toBeVisible();
+  // Venues and equipment.
+  await page.goto("/venues");
+  await confirmDeleteOf("Eliminar lugar Lugar libre", "Eliminar lugar");
+  await expect(page.getByText("Lugar eliminado.")).toBeVisible();
+  await page.goto("/inventory");
+  await confirmDeleteOf("Eliminar equipo Equipo libre", "Eliminar equipo");
+  await expect(page.getByText("Equipo eliminado.")).toBeVisible();
+  const after = (await repo.read()).workspace;
+  expect(after.venues.some((v) => v.id === "v-libre")).toBe(false);
+  expect(after.equipment.some((q) => q.id === "q-libre")).toBe(false);
+});
 test("owner reviews AI suggestion, edits, saves, reopens and preserves manual edits on regeneration", async ({
   page,
 }) => {

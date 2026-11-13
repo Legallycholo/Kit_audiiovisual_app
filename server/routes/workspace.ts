@@ -5,6 +5,7 @@ import { changeSchema } from "../schema";
 import { applyChanges } from "../permissions";
 import { deleteDraftProposal } from "../policy/delete-draft";
 import { deleteClient } from "../policy/delete-client";
+import { deleteRecord, deletable } from "../policy/delete-record";
 import { assertCrewMembers, assertTaskAssignees } from "../policy/assignees";
 import { identifier } from "../schema";
 import type { RouteContext } from "./context";
@@ -88,4 +89,27 @@ export function mountWorkspaceRoutes(
     });
     res.json(await response(res));
   });
+  // Events, venues and equipment: deletable when nothing points to them (see policy/delete-record).
+  for (const kind of Object.keys(deletable) as Array<keyof typeof deletable>)
+    app.delete(`/api/${kind}/:id`, async (req, res) => {
+      const user = userOf(res);
+      const id = identifier.parse(req.params.id);
+      await repo.transaction(async () => {
+        const current = await repo.read();
+        const { workspace, label } = deleteRecord(
+          current.workspace,
+          kind,
+          id,
+          user,
+        );
+        await repo.save(workspace, current.revision);
+        await repo.audit(
+          user.id,
+          `${kind} record deleted`,
+          `${user.name} · ${kind} · ${label}`,
+          kind === "events" ? id : undefined,
+        );
+      });
+      res.json(await response(res));
+    });
 }

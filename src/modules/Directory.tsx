@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DeleteDialog } from "../shared/DeleteDialog";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -445,9 +446,10 @@ export function Clients() {
   );
 }
 export function Venues() {
-  const { data, update, toast } = useWorkspace();
+  const { data, update, toast, user } = useWorkspace();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Venue | null>(null);
+  const [deletingVenue, setDeletingVenue] = useState<Venue | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
@@ -475,61 +477,81 @@ export function Venues() {
             `${v.name} ${v.city}`.toLowerCase().includes(search.toLowerCase()),
           )
           .map((v) => (
-            <button
-              className="venue-card"
-              key={v.id}
-              onClick={() => setSelected(v)}
-            >
-              <div className={`venue-art ${v.color}`}>
-                <svg viewBox="0 0 300 150" aria-hidden="true">
-                  <path
-                    d="m40 100 110 36 110-58-110-36Z"
-                    fill="currentColor"
-                    opacity=".15"
-                  />
-                  <path
-                    d="m65 90 85 28 85-45-85-28Z"
-                    fill="none"
-                    stroke="currentColor"
-                  />
-                  <path
-                    d="M65 90V55l85 28 85-45v35M150 83v35M65 55l85-44 85 27"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="m90 76 60 20 60-32M90 64v12m30-1v11m30-4v14m30-29v13m30-29v13"
-                    fill="none"
-                    stroke="currentColor"
-                    opacity=".5"
-                  />
-                </svg>
-                <span>{v.category}</span>
-              </div>
-              <div className="venue-content">
-                <h2>
-                  {v.name}
-                  <ArrowUpRight size={18} />
-                </h2>
-                <p>
-                  <MapPin size={14} />
-                  {v.city}
-                </p>
-                <div>
-                  <span>
-                    <LayersIcon />
-                    {v.rooms.length} room{v.rooms.length !== 1 ? "s" : ""}
-                  </span>
-                  <span>
-                    <Users size={14} />
-                    {v.rooms.reduce((n, r) => n + r.capacity, 0)} capacity
-                  </span>
+            <div className="venue-card-wrap" key={v.id}>
+              {canEditCollection(user, "venues") && (
+                <button
+                  type="button"
+                  className="icon-button danger-hover venue-delete"
+                  aria-label={`Eliminar lugar ${v.name}`}
+                  title="Eliminar lugar"
+                  onClick={() => setDeletingVenue(v)}
+                >
+                  <Trash2 size={17} aria-hidden="true" />
+                </button>
+              )}
+              <button className="venue-card" onClick={() => setSelected(v)}>
+                <div className={`venue-art ${v.color}`}>
+                  <svg viewBox="0 0 300 150" aria-hidden="true">
+                    <path
+                      d="m40 100 110 36 110-58-110-36Z"
+                      fill="currentColor"
+                      opacity=".15"
+                    />
+                    <path
+                      d="m65 90 85 28 85-45-85-28Z"
+                      fill="none"
+                      stroke="currentColor"
+                    />
+                    <path
+                      d="M65 90V55l85 28 85-45v35M150 83v35M65 55l85-44 85 27"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="m90 76 60 20 60-32M90 64v12m30-1v11m30-4v14m30-29v13m30-29v13"
+                      fill="none"
+                      stroke="currentColor"
+                      opacity=".5"
+                    />
+                  </svg>
+                  <span>{v.category}</span>
                 </div>
-              </div>
-            </button>
+                <div className="venue-content">
+                  <h2>
+                    {v.name}
+                    <ArrowUpRight size={18} />
+                  </h2>
+                  <p>
+                    <MapPin size={14} />
+                    {v.city}
+                  </p>
+                  <div>
+                    <span>
+                      <LayersIcon />
+                      {v.rooms.length} room{v.rooms.length !== 1 ? "s" : ""}
+                    </span>
+                    <span>
+                      <Users size={14} />
+                      {v.rooms.reduce((n, r) => n + r.capacity, 0)} capacity
+                    </span>
+                  </div>
+                </div>
+              </button>
+            </div>
           ))}
       </div>
+      {deletingVenue && (
+        <DeleteDialog
+          title="¿Eliminar este lugar?"
+          name={deletingVenue.name}
+          note="Solo se puede eliminar un lugar que no se use en ningún evento."
+          path={`/venues/${encodeURIComponent(deletingVenue.id)}`}
+          confirmLabel="Eliminar lugar"
+          done="Lugar eliminado."
+          onClose={() => setDeletingVenue(null)}
+        />
+      )}
       {selected && (
         <Modal
           title={selected.name}

@@ -14,7 +14,8 @@ export function validateWorkspace(next: Workspace, before: Workspace) {
   };
   for (const event of next.events) {
     invalid(
-      !next.clients.some((c) => c.id === event.clientId),
+      Boolean(event.clientId) &&
+        !next.clients.some((c) => c.id === event.clientId),
       "The event client does not exist.",
     );
     invalid(

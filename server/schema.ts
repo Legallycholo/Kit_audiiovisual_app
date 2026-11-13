@@ -293,7 +293,8 @@ export const schemas = {
     .object({
       id: identifier,
       name,
-      clientId: identifier,
+      // A client and a venue are both optional on an event.
+      clientId: z.union([identifier, z.literal("")]),
       venueId: z.union([identifier, z.literal("")]),
       date,
       endDate: date,

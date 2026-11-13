@@ -19,8 +19,10 @@ import {
   Calendar,
   FileText,
   Layers3,
+  Trash2,
 } from "lucide-react";
 import { activity, useWorkspace } from "../shared/store";
+import { DeleteDialog } from "../shared/DeleteDialog";
 import {
   Avatar,
   Badge,
@@ -37,7 +39,8 @@ import {
 import { id, money, shortDate } from "../shared/domain";
 import type { EventStatus, ProductionEvent } from "../shared/types";
 export function Events() {
-  const { data } = useWorkspace();
+  const { data, user } = useWorkspace();
+  const [deleting, setDeleting] = useState<ProductionEvent | null>(null);
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All events");
@@ -142,7 +145,18 @@ export function Events() {
                         <Badge>{event.status}</Badge>
                       </td>
                       <td>{event.manager}</td>
-                      <td>
+                      <td className="row-actions">
+                        {canEditCollection(user, "events") && (
+                          <button
+                            type="button"
+                            className="icon-button danger-hover"
+                            aria-label={`Eliminar evento ${event.name}`}
+                            title="Eliminar evento"
+                            onClick={() => setDeleting(event)}
+                          >
+                            <Trash2 size={17} aria-hidden="true" />
+                          </button>
+                        )}
                         <Link
                           className="icon-button"
                           to={`/events/${event.id}`}
@@ -192,6 +206,17 @@ export function Events() {
         </div>
       </Panel>
       {params.has("new") && <EventForm onClose={() => setParams({})} />}
+      {deleting && (
+        <DeleteDialog
+          title="¿Eliminar este evento?"
+          name={deleting.name}
+          note="Solo se puede eliminar un evento sin propuestas, tareas, reservas ni mensajes."
+          path={`/events/${encodeURIComponent(deleting.id)}`}
+          confirmLabel="Eliminar evento"
+          done="Evento eliminado."
+          onClose={() => setDeleting(null)}
+        />
+      )}
     </>
   );
 }
@@ -208,8 +233,8 @@ export function EventForm({
     event || {
       id: id(),
       name: "",
-      clientId: data.clients[0]?.id || "",
-      venueId: data.venues[0]?.id || "",
+      clientId: "",
+      venueId: "",
       date: "",
       endDate: "",
       status: "Planning",
@@ -288,10 +313,10 @@ export function EventForm({
         <div className="form-grid">
           <Field label="Client">
             <select
-              required
               value={draft.clientId}
               onChange={(e) => field("clientId", e.target.value)}
             >
+              <option value="">Sin cliente (opcional)</option>
               {data.clients.map((c) => (
                 <option value={c.id} key={c.id}>
                   {c.name}

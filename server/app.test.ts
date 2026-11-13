@@ -238,6 +238,47 @@ describe("authenticated company workspace", () => {
       ),
     ).toBe(true);
   });
+  it("deletes events, venues and equipment nothing points to, through their own routes", async () => {
+    const base = (await workspace()).workspace;
+    const spare = {
+      venue: { ...base.venues[0], id: "v-api", name: "Lugar api" },
+      equipment: {
+        ...base.equipment[0],
+        id: "q-api",
+        name: "Equipo api",
+        sku: "SKU-API-DELETE",
+      },
+      event: {
+        ...base.events[0],
+        id: "e-api",
+        name: "Evento api",
+        clientId: "",
+        venueId: "",
+      },
+    };
+    const created = await patch([
+      { collection: "venues", id: "v-api", value: spare.venue },
+      { collection: "equipment", id: "q-api", value: spare.equipment },
+      { collection: "events", id: "e-api", value: spare.event },
+    ]);
+    expect(created.json?.error ?? created.status).toBe(200);
+    expect((await call("/venues/v1", "DELETE")).status).toBe(422);
+    expect((await call("/events/e1", "DELETE")).status).toBe(422);
+    const tech = await account("Technician", { eventIds: ["e1"] });
+    expect(
+      (await call("/venues/v-api", "DELETE", undefined, tech)).status,
+    ).toBe(403);
+    for (const path of ["/venues/v-api", "/equipment/q-api", "/events/e-api"]) {
+      expect((await call(path, "DELETE")).status, path).toBe(200);
+      expect((await call(path, "DELETE")).status, path).toBe(404);
+    }
+    const after = (await repo.read()).workspace;
+    expect(after.venues.some((v) => v.id === "v-api")).toBe(false);
+    expect(after.events.some((e) => e.id === "e-api")).toBe(false);
+    expect(
+      after.activity.some((a) => a.title === "events record deleted"),
+    ).toBe(true);
+  });
   it("protects records and client shares at the API boundary", async () => {
     const tech = await account("Technician", { eventIds: ["e1"] });
     const scoped = await workspace(tech);

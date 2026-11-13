@@ -1168,7 +1168,8 @@ var schemas = {
   events: z.object({
     id: identifier,
     name,
-    clientId: identifier,
+    // A client and a venue are both optional on an event.
+    clientId: z.union([identifier, z.literal("")]),
     venueId: z.union([identifier, z.literal("")]),
     date,
     endDate: date,
@@ -1572,7 +1573,7 @@ function validateWorkspace(next, before) {
   };
   for (const event of next.events) {
     invalid(
-      !next.clients.some((c) => c.id === event.clientId),
+      Boolean(event.clientId) && !next.clients.some((c) => c.id === event.clientId),
       "The event client does not exist."
     );
     invalid(
@@ -5825,6 +5826,43 @@ function deleteClient(workspace, clientId, user) {
   };
 }
 
+// server/policy/delete-record.ts
+var deletable = {
+  events: { field: "eventId", noun: "el evento", plural: "eventos" },
+  venues: { field: "venueId", noun: "el lugar", plural: "lugares" },
+  equipment: { field: "equipmentId", noun: "el equipo", plural: "equipos" }
+};
+function referenced(workspace, skip, field, id3) {
+  const seen = (value) => {
+    if (Array.isArray(value)) return value.some(seen);
+    if (!value || typeof value !== "object") return false;
+    return Object.entries(value).some(
+      ([key, v]) => key === field && v === id3 || seen(v)
+    );
+  };
+  return Object.keys(workspace).some(
+    (key) => key !== skip && key !== "activity" && key !== "settings" && key !== "schema" && seen(workspace[key])
+  );
+}
+function deleteRecord(workspace, kind, id3, user) {
+  const meta = deletable[kind];
+  if (!canEditCollection(user, kind))
+    throw new HttpError(403, `Tu rol no puede eliminar ${meta.plural}.`);
+  const list = workspace[kind];
+  const record = list.find((r) => r.id === id3);
+  if (!record || kind === "events" && !ownsEvent(user, id3))
+    throw new HttpError(404, `No se encontr\xF3 ${meta.noun}.`);
+  if (referenced(workspace, kind, meta.field, id3))
+    throw new HttpError(
+      422,
+      kind === "events" ? "Este evento ya tiene propuestas, tareas, reservas o mensajes asociados y no se puede eliminar." : `Este ${kind === "venues" ? "lugar" : "equipo"} se usa en eventos, propuestas o reservas y no se puede eliminar.`
+    );
+  return {
+    workspace: { ...workspace, [kind]: list.filter((r) => r.id !== id3) },
+    label: record.name
+  };
+}
+
 // server/policy/assignees.ts
 async function assertTaskAssignees(repo, next, changes) {
   for (const change of changes.filter((c) => c.collection === "tasks")) {
@@ -5922,6 +5960,28 @@ function mountWorkspaceRoutes(app, { repo, response }) {
     });
     res.json(await response(res));
   });
+  for (const kind of Object.keys(deletable))
+    app.delete(`/api/${kind}/:id`, async (req, res) => {
+      const user = userOf(res);
+      const id3 = identifier.parse(req.params.id);
+      await repo.transaction(async () => {
+        const current = await repo.read();
+        const { workspace, label } = deleteRecord(
+          current.workspace,
+          kind,
+          id3,
+          user
+        );
+        await repo.save(workspace, current.revision);
+        await repo.audit(
+          user.id,
+          `${kind} record deleted`,
+          `${user.name} \xB7 ${kind} \xB7 ${label}`,
+          kind === "events" ? id3 : void 0
+        );
+      });
+      res.json(await response(res));
+    });
 }
 
 // server/routes/conversations.ts
