@@ -57,12 +57,10 @@ export const stubGenerators: Partial<AppConfig> = {
   },
   kitGenerator: {
     model: "kit-test-model",
-    generate: async (input) => ({
-      text: "El proyecto tiene contexto verificado y tareas visibles.",
-      citations: input.sources.map((source) => source.key),
-      artifact: null,
-      action: null,
-    }),
+    generate: async (input) =>
+      input.sources.length
+        ? "El proyecto tiene contexto verificado y tareas visibles."
+        : "Hola, ¿en qué te ayudo?",
   },
 };
 

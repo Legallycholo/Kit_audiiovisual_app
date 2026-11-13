@@ -52,12 +52,9 @@ beforeEach(async () => {
     text: "Rolando needs twelve speakers. api_key=do-not-send",
     policy: search.fingerprint,
   });
-  generate = vi.fn(async (input: KitInput) => ({
-    text: "El documento solicita doce altavoces.",
-    citations: [input.sources[0].key],
-    artifact: null,
-    action: null,
-  }));
+  generate = vi.fn(
+    async (_input: KitInput) => "El documento solicita doce altavoces.",
+  );
   kit = new KitService(
     repo,
     { model: "fixture-model", generate },
@@ -78,7 +75,6 @@ describe("KIT indexed-file grounding", () => {
     await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
       text: "¿Cuántos altavoces necesita Rolando?",
-      mode: "ask",
       refs: [
         {
           kind: "file",
@@ -87,16 +83,15 @@ describe("KIT indexed-file grounding", () => {
           text: "Forged renderer content",
         },
       ],
-      consent: true,
     });
     const complete = await waitForThread(thread.id);
     const answer = complete.messages.at(-1)!;
     expect(answer).toMatchObject({
       status: "completed",
-      citations: [`file:${fileId}`],
+      text: "El documento solicita doce altavoces.",
       model: "fixture-model",
     });
-    expect(answer.sources[0]).toMatchObject({
+    expect(complete.messages[0].sources[0]).toMatchObject({
       label: "Rolando production brief.txt",
       revision: "b".repeat(64),
       route: `/search?source=${fileId}`,
@@ -113,9 +108,7 @@ describe("KIT indexed-file grounding", () => {
     await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
       text: "Resume el archivo.",
-      mode: "ask",
       refs: [{ kind: "file", id: fileId }],
-      consent: true,
     });
     await waitForThread(thread.id);
     await search.put("owner", {
@@ -127,85 +120,61 @@ describe("KIT indexed-file grounding", () => {
       policy: search.fingerprint,
     });
     expect(
-      (await kit.get("owner", thread.id)).messages.at(-1)!.sources[0].stale,
+      (await kit.get("owner", thread.id)).messages[0].sources[0].stale,
     ).toBe(true);
     vi.mocked(provider.delete).mockResolvedValue(false);
     await search.remove("owner", fileId);
-    const revoked = (await kit.get("owner", thread.id)).messages.at(-1)!;
+    const revoked = (await kit.get("owner", thread.id)).messages[0];
     expect(revoked.status).toBe("blocked");
     expect(revoked.sources[0].unavailable).toBe(true);
-    expect(revoked.citations).toEqual([]);
   });
 
-  it("still requires explicit confirmation and current authorization for actions", async () => {
-    generate.mockResolvedValueOnce({
-      text: "Puedo crear la tarea después de tu confirmación.",
-      citations: ["event:e1"],
-      artifact: null,
-      action: {
-        kind: "create_task",
-        eventId: "e1",
-        title: "Revisar plano",
-        brief: "Validar dimensiones con producción.",
-      },
-    });
+  it("sends only what the person attached: no workspace summary without refs", async () => {
     const thread = await kit.create("owner");
     await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
-      text: "Crea una tarea para revisar el plano.",
-      mode: "act",
-      refs: [{ kind: "event", id: "e1" }],
-      consent: true,
+      text: "Hola",
+      refs: [],
     });
-    const pending = await waitForThread(thread.id);
-    const message = pending.messages.at(-1)!;
-    expect(message.actions?.[0]?.status).toBe("pending");
-    expect(
-      (await repo.read()).workspace.tasks.some(
-        (t) => t.title === "Revisar plano",
-      ),
-    ).toBe(false);
-    await kit.confirm(
-      "owner",
-      thread.id,
-      message.id,
-      message.actions![0].token,
-    );
-    expect(
-      (await repo.read()).workspace.tasks.some(
-        (t) => t.title === "Revisar plano",
-      ),
-    ).toBe(true);
-    expect(
-      (await kit.get("owner", thread.id)).messages.at(-1)!.actions?.[0]?.status,
-    ).toBe("completed");
+    const complete = await waitForThread(thread.id);
+    expect(complete.messages.at(-1)).toMatchObject({
+      status: "completed",
+      text: "El documento solicita doce altavoces.",
+    });
+    expect(generate.mock.calls[0][0].sources).toEqual([]);
+    expect(complete.messages[0].sources).toEqual([]);
   });
 
-  it("rejects provider actions in Ask mode", async () => {
-    generate.mockResolvedValueOnce({
-      text: "Acción no permitida.",
-      citations: ["event:e1"],
-      artifact: null,
-      action: {
-        kind: "create_task",
-        eventId: "e1",
-        title: "No crear",
-        brief: "No crear",
-      },
-    });
+  it("passes the earlier turns as history", async () => {
     const thread = await kit.create("owner");
     await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
-      text: "Solo dime qué harías.",
-      mode: "ask",
-      refs: [{ kind: "event", id: "e1" }],
-      consent: true,
+      text: "Primera pregunta",
+      refs: [],
+    });
+    await waitForThread(thread.id);
+    await kit.send("owner", thread.id, {
+      requestId: crypto.randomUUID(),
+      text: "Segunda pregunta",
+      refs: [],
+    });
+    await waitForThread(thread.id);
+    expect(generate.mock.calls[1][0].history).toEqual([
+      { role: "user", text: "Primera pregunta" },
+      { role: "assistant", text: "El documento solicita doce altavoces." },
+    ]);
+  });
+
+  it("fails the turn when the provider returns nothing", async () => {
+    generate.mockResolvedValueOnce("   ");
+    const thread = await kit.create("owner");
+    await kit.send("owner", thread.id, {
+      requestId: crypto.randomUUID(),
+      text: "Hola",
+      refs: [],
     });
     const failed = await waitForThread(thread.id);
     expect(failed.messages.at(-1)).toMatchObject({ status: "failed" });
-    expect(
-      (await repo.read()).workspace.tasks.some((t) => t.title === "No crear"),
-    ).toBe(false);
   });
 });
 
@@ -215,9 +184,7 @@ describe("KIT conversation history", () => {
     await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
       text: "¿Cuántos altavoces necesita Rolando?",
-      mode: "ask",
       refs: [{ kind: "file", id: fileId }],
-      consent: true,
     });
     expect((await waitForThread(thread.id)).messages).toHaveLength(2);
 
@@ -233,9 +200,7 @@ describe("KIT conversation history", () => {
     await kit.send("owner", thread.id, {
       requestId: crypto.randomUUID(),
       text: "¿Y ahora cuántos?",
-      mode: "ask",
       refs: [{ kind: "file", id: fileId }],
-      consent: true,
     });
     expect((await waitForThread(thread.id)).messages).toHaveLength(2);
 

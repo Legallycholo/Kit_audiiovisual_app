@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { HttpError } from "./database";
 import { redact } from "./logger";
-import type { ToolSpec } from "./ai/tools";
 
 /**
  * Provider-neutral structured output. Every provider gets the same inputs and
@@ -345,20 +344,18 @@ export async function structuredResponse(
   return openAI(options);
 }
 
-export interface ToolTurnOptions {
+export interface ChatTurn {
+  role: "user" | "assistant";
+  text: string;
+}
+
+export interface ChatOptions {
+  provider?: AIProvider;
   key: string;
   model: string;
   instructions: string;
-  input: unknown;
-  /** Schema of the final answer (the text the model ends with). */
-  schema: z.ZodType;
-  tools: ToolSpec[];
-  /** Runs one tool call; the result (or error) goes back to the model. */
-  run: (
-    name: string,
-    input: unknown,
-  ) => Promise<{ content: unknown; isError?: boolean }>;
-  maxTurns?: number;
+  /** Earlier turns, oldest first. The last entry must be the new question. */
+  turns: ChatTurn[];
   effort?: "low" | "medium" | "high";
   maxOutputTokens?: number;
   timeoutMs?: number;
@@ -366,133 +363,176 @@ export interface ToolTurnOptions {
   transport?: typeof fetch;
 }
 
-/**
- * One agentic turn on Claude: the model may call the given tools (several
- * per step, run in order here) and finishes with a JSON answer in the given
- * schema. Forced tool choice is not available on current models, so the loop
- * runs with `auto` and, on its last allowed step, `none`. The system prompt
- * and the tool list carry cache breakpoints; they must stay byte-stable
- * between requests for the cache to hit. Tool results are data for the
- * model, never authority: the caller decides what each tool may do.
- */
-export async function anthropicToolTurn(
-  options: ToolTurnOptions,
-): Promise<unknown> {
-  const fallback = anthropicFallbackModel.test(options.model);
-  const format = {
-    type: "json_schema",
-    schema: portableSchema(
-      z.toJSONSchema(options.schema, { target: "draft-7" }),
-    ),
-  };
-  const tools = options.tools.map((tool, index) => ({
-    ...tool,
-    ...(index === options.tools.length - 1
-      ? { cache_control: { type: "ephemeral" } }
-      : {}),
-  }));
-  const messages: unknown[] = [
-    {
-      role: "user",
-      content: [{ type: "text", text: JSON.stringify(options.input) }],
-    },
-  ];
-  const maxTurns = Math.max(1, options.maxTurns ?? 8);
-  for (let turn = 1; turn <= maxTurns; turn++) {
-    const closing = turn === maxTurns;
-    let response: Response;
-    try {
-      response = await (options.transport || fetch)(
-        "https://api.anthropic.com/v1/messages",
-        {
-          method: "POST",
-          redirect: "error",
-          headers: {
-            "x-api-key": options.key,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-            ...(fallback
-              ? { "anthropic-beta": "server-side-fallback-2026-07-01" }
-              : {}),
-          },
-          signal: signalFor({
-            timeoutMs: options.timeoutMs ?? 90_000,
-            signal: options.signal,
-          } as StructuredOptions),
-          body: JSON.stringify({
-            model: options.model,
-            max_tokens: options.maxOutputTokens ?? 8000,
-            system: [
-              {
-                type: "text",
-                text: options.instructions,
-                cache_control: { type: "ephemeral" },
-              },
-            ],
-            messages,
-            ...(tools.length
-              ? { tools, tool_choice: { type: closing ? "none" : "auto" } }
-              : {}),
-            output_config: { effort: options.effort ?? "medium", format },
-            ...(fallback ? { fallbacks: "default" } : {}),
-          }),
-        },
-      );
-    } catch {
-      throw unreachable();
-    }
-    if (response.status === 529)
-      throw new HttpError(503, "La IA está saturada. Intenta en unos minutos.");
-    const value = await readJson(response);
-    if (value.stop_reason === "refusal")
-      throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
-    if (value.stop_reason === "max_tokens" || !Array.isArray(value.content))
-      throw new HttpError(502, "La respuesta de IA quedó incompleta.");
-    const uses = value.content.filter(
-      (block: any) => block.type === "tool_use",
-    );
-    if (value.stop_reason === "tool_use" && uses.length) {
-      messages.push({ role: "assistant", content: value.content });
-      const results: unknown[] = [];
-      for (const use of uses) {
-        if (options.signal?.aborted)
-          throw new HttpError(409, "Generación detenida.");
-        let content: unknown;
-        let isError = false;
-        try {
-          const result = await options.run(String(use.name), use.input);
-          content = result.content;
-          isError = Boolean(result.isError);
-        } catch (error) {
-          content = {
-            error:
-              error instanceof HttpError
-                ? error.message
-                : "La herramienta falló.",
-          };
-          isError = true;
-        }
-        results.push({
-          type: "tool_result",
-          tool_use_id: use.id,
-          content: JSON.stringify(content ?? null).slice(0, 12_000),
-          ...(isError ? { is_error: true } : {}),
-        });
-      }
-      messages.push({ role: "user", content: results });
-      continue;
-    }
-    const text = value.content
-      .filter((block: any) => block.type === "text")
-      .map((block: any) => block.text || "")
-      .join("");
-    if (!text.trim()) throw new HttpError(502, "La IA no devolvió contenido.");
-    return parseOutput(text);
+/** Collapses consecutive same-role turns and drops empty ones. */
+function normalizeTurns(turns: ChatTurn[]): ChatTurn[] {
+  const out: ChatTurn[] = [];
+  for (const t of turns) {
+    if (!t.text.trim()) continue;
+    const last = out[out.length - 1];
+    if (last && last.role === t.role) last.text += "\n\n" + t.text;
+    else out.push({ ...t });
   }
-  throw new HttpError(
-    502,
-    "La IA no terminó su respuesta en los pasos permitidos. Reintenta.",
-  );
+  while (out.length && out[0].role !== "user") out.shift();
+  return out;
+}
+
+async function anthropicChat(options: ChatOptions): Promise<string> {
+  const fallback = anthropicFallbackModel.test(options.model);
+  let response: Response;
+  try {
+    response = await (options.transport || fetch)(
+      "https://api.anthropic.com/v1/messages",
+      {
+        method: "POST",
+        redirect: "error",
+        headers: {
+          "x-api-key": options.key,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+          ...(fallback
+            ? { "anthropic-beta": "server-side-fallback-2026-07-01" }
+            : {}),
+        },
+        signal: signalFor({
+          timeoutMs: options.timeoutMs ?? 90_000,
+          signal: options.signal,
+        } as StructuredOptions),
+        body: JSON.stringify({
+          model: options.model,
+          max_tokens: options.maxOutputTokens ?? 8000,
+          system: [
+            {
+              type: "text",
+              text: options.instructions,
+              cache_control: { type: "ephemeral" },
+            },
+          ],
+          messages: normalizeTurns(options.turns).map((t) => ({
+            role: t.role,
+            content: [{ type: "text", text: t.text }],
+          })),
+          output_config: { effort: options.effort ?? "medium" },
+          ...(fallback ? { fallbacks: "default" } : {}),
+        }),
+      },
+    );
+  } catch {
+    throw unreachable();
+  }
+  if (response.status === 529)
+    throw new HttpError(503, "La IA está saturada. Intenta en unos minutos.");
+  const value = await readJson(response);
+  if (value.stop_reason === "refusal")
+    throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
+  if (!Array.isArray(value.content))
+    throw new HttpError(502, "La respuesta de IA quedó incompleta.");
+  const text = value.content
+    .filter((block: any) => block.type === "text")
+    .map((block: any) => block.text || "")
+    .join("");
+  if (!text.trim()) throw new HttpError(502, "La IA no devolvió contenido.");
+  return text;
+}
+
+async function openAIChat(options: ChatOptions): Promise<string> {
+  let response: Response;
+  try {
+    response = await (options.transport || fetch)(
+      "https://api.openai.com/v1/responses",
+      {
+        method: "POST",
+        redirect: "error",
+        headers: {
+          Authorization: `Bearer ${options.key}`,
+          "Content-Type": "application/json",
+        },
+        signal: signalFor({
+          timeoutMs: options.timeoutMs ?? 90_000,
+          signal: options.signal,
+        } as StructuredOptions),
+        body: JSON.stringify({
+          model: options.model,
+          store: false,
+          max_output_tokens: options.maxOutputTokens ?? 8000,
+          instructions: options.instructions,
+          input: normalizeTurns(options.turns).map((t) => ({
+            role: t.role,
+            content: t.text,
+          })),
+        }),
+      },
+    );
+  } catch {
+    throw unreachable();
+  }
+  const value = await readJson(response);
+  if (!Array.isArray(value.output))
+    throw new HttpError(502, "La respuesta de IA quedó incompleta.");
+  const content = value.output
+    .filter((i: any) => i.type === "message")
+    .flatMap((i: any) => (Array.isArray(i.content) ? i.content : []));
+  if (content.some((i: any) => i.type === "refusal"))
+    throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
+  const text = content
+    .filter((i: any) => i.type === "output_text")
+    .map((i: any) => i.text || "")
+    .join("");
+  if (!text.trim()) throw new HttpError(502, "La IA no devolvió contenido.");
+  return text;
+}
+
+async function geminiChat(options: ChatOptions): Promise<string> {
+  let response: Response;
+  try {
+    response = await (options.transport || fetch)(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(options.model)}:generateContent`,
+      {
+        method: "POST",
+        redirect: "error",
+        headers: {
+          "x-goog-api-key": options.key,
+          "Content-Type": "application/json",
+        },
+        signal: signalFor({
+          timeoutMs: options.timeoutMs ?? 90_000,
+          signal: options.signal,
+        } as StructuredOptions),
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: options.instructions }] },
+          contents: normalizeTurns(options.turns).map((t) => ({
+            role: t.role === "assistant" ? "model" : "user",
+            parts: [{ text: t.text }],
+          })),
+        }),
+      },
+    );
+  } catch {
+    throw unreachable();
+  }
+  const value = await readJson(response);
+  const candidate = value.candidates?.[0];
+  if (
+    value.promptFeedback?.blockReason === "SAFETY" ||
+    candidate?.finishReason === "SAFETY"
+  )
+    throw new HttpError(422, "La IA no pudo responder a esta solicitud.");
+  const text = candidate?.content?.parts
+    ?.map((p: any) => p.text || "")
+    .join("");
+  if (!text?.trim()) throw new HttpError(502, "La IA no devolvió contenido.");
+  return text;
+}
+
+/**
+ * One plain-text chat turn on any provider: the system prompt, the earlier
+ * turns and the new question go in, the model's text comes back. No tools,
+ * no output schema.
+ */
+export async function chatResponse(options: ChatOptions): Promise<string> {
+  const provider = options.provider ?? "openai";
+  if (provider === "anthropic") return anthropicChat(options);
+  if (provider === "gemini") return geminiChat(options);
+  return openAIChat(options);
 }
 
 /**

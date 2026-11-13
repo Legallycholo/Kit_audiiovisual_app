@@ -7,14 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useWorkspace } from "./store";
-import type {
-  KitApproval,
-  KitContext,
-  KitMode,
-  KitReference,
-  KitStatus,
-  KitThread,
-} from "./kit";
+import type { KitReference, KitStatus, KitThread } from "./kit";
 type Summary = Omit<KitThread, "messages">;
 interface KitStore {
   threads: Summary[];
@@ -30,22 +23,13 @@ interface KitStore {
   busy: boolean;
   create: () => Promise<KitThread | undefined>;
   select: (id: string) => Promise<void>;
-  send: (
-    mode: KitMode,
-    consent: boolean,
-    approval?: KitApproval,
-    context?: KitContext,
-  ) => Promise<void>;
+  send: () => Promise<void>;
   stop: () => Promise<void>;
   /** Deletes a conversation (the open one when no id is given). */
   remove: (id?: string) => Promise<void>;
   /** Empties the open conversation but keeps it in the history. */
   restart: () => Promise<void>;
-  branch: (mid: string) => Promise<KitThread | undefined>;
   update: (title: string, projectId: string | null) => Promise<void>;
-  confirm: (mid: string, token: string) => Promise<void>;
-  /** Declines a pending change; nothing is applied. */
-  reject: (mid: string, token: string) => Promise<void>;
 }
 const Context = createContext<KitStore | null>(null);
 export function KitProvider({ children }: { children: ReactNode }) {
@@ -53,7 +37,7 @@ export function KitProvider({ children }: { children: ReactNode }) {
   return <Session key={`${mode}:${user?.id || "sample"}`}>{children}</Session>;
 }
 function Session({ children }: { children: ReactNode }) {
-  const { mode, user, request, refresh: refreshWorkspace } = useWorkspace();
+  const { mode, user, request } = useWorkspace();
   const company = mode === "company";
   const key = `kit.chat.v1:${mode}:${user?.id || "sample"}`;
   const [local, setLocal] = useState<KitThread[]>(() => {
@@ -230,12 +214,7 @@ function Session({ children }: { children: ReactNode }) {
       return t;
     });
   }
-  async function send(
-    mode: KitMode,
-    consent: boolean,
-    approval: KitApproval = "ask",
-    context?: KitContext,
-  ) {
+  async function send() {
     const text = draft.trim();
     if (!text) return;
     const sendingRefs = refs;
@@ -253,15 +232,7 @@ function Session({ children }: { children: ReactNode }) {
           `/kit/threads/${target.id}/messages`,
           {
             method: "POST",
-            body: {
-              requestId: messageId,
-              text,
-              mode,
-              approval,
-              refs: sendingRefs,
-              consent,
-              ...(context ? { context } : {}),
-            },
+            body: { requestId: messageId, text, refs: sendingRefs },
           },
         );
       } else {
@@ -281,7 +252,6 @@ function Session({ children }: { children: ReactNode }) {
               at,
               status: "completed",
               sources: [],
-              citations: [],
             },
             {
               id: crypto.randomUUID(),
@@ -290,7 +260,6 @@ function Session({ children }: { children: ReactNode }) {
               at,
               status: "blocked",
               sources: [],
-              citations: [],
               error:
                 "La IA no está conectada en modo de ejemplo. Abre el espacio de empresa para conversar con el proveedor configurado.",
             },
@@ -354,36 +323,6 @@ function Session({ children }: { children: ReactNode }) {
       });
     });
   }
-  async function branch(mid: string) {
-    if (!thread) return;
-    const original = thread;
-    return run(async () => {
-      const t = company
-        ? await request<KitThread>(`/kit/threads/${original.id}/branch`, {
-            method: "POST",
-            body: { messageId: mid },
-          })
-        : {
-            ...original,
-            id: crypto.randomUUID(),
-            title: `Rama: ${original.title}`.slice(0, 120),
-            parentId: original.id,
-            busy: false,
-            messages: original.messages
-              .slice(0, original.messages.findIndex((m) => m.id === mid) + 1)
-              .map((m) => ({
-                ...m,
-                id: crypto.randomUUID(),
-                action: undefined,
-              })),
-          };
-      accept(t);
-      setActive(t.id);
-      activeRef.current = t.id;
-      setThread(t);
-      return t;
-    });
-  }
   async function update(title: string, projectId: string | null) {
     if (!thread) return;
     const original = thread;
@@ -402,31 +341,6 @@ function Session({ children }: { children: ReactNode }) {
             },
       ),
     );
-  }
-  async function reject(mid: string, token: string) {
-    if (!thread || !company) return;
-    const id = thread.id;
-    await run(async () =>
-      accept(
-        await request<KitThread>(`/kit/threads/${id}/reject`, {
-          method: "POST",
-          body: { messageId: mid, token },
-        }),
-      ),
-    );
-  }
-  async function confirm(mid: string, token: string) {
-    if (!thread || !company) return;
-    const id = thread.id;
-    await run(async () => {
-      accept(
-        await request<KitThread>(`/kit/threads/${id}/confirm`, {
-          method: "POST",
-          body: { messageId: mid, token, confirmed: true },
-        }),
-      );
-      await refreshWorkspace();
-    });
   }
   return (
     <Context.Provider
@@ -447,10 +361,7 @@ function Session({ children }: { children: ReactNode }) {
         stop,
         remove,
         restart,
-        branch,
         update,
-        confirm,
-        reject,
       }}
     >
       {children}

@@ -38,12 +38,10 @@ test.beforeEach(async ({ page }) => {
     },
     kitGenerator: {
       model: "kit-test-model",
-      generate: async (input) => ({
-        text: "El proyecto tiene contexto verificado y tareas visibles.",
-        citations: input.sources.map((source) => source.key),
-        artifact: null,
-        action: null,
-      }),
+      generate: async (input) =>
+        input.sources.length
+          ? "El proyecto tiene contexto verificado y tareas visibles."
+          : "Hola, ¿en qué te ayudo?",
     },
     messageTransport: {
       label: "Canal de demostración",
@@ -266,7 +264,7 @@ test("company setup separates sample data, durable records survive sign-out and 
   // The record is durable on the server.
   expect((await repo.read()).workspace.clients[0].name).toBe("Empresa nueva");
 });
-test("company KIT keeps one cited thread between the sidebar and full workspace", async ({
+test("company KIT answers a plain message and keeps one thread between the sidebar and full workspace", async ({
   page,
 }) => {
   await setup(page);
@@ -275,24 +273,25 @@ test("company KIT keeps one cited thread between the sidebar and full workspace"
   await page.goto("/events/e1");
   await page.getByRole("button", { name: "Preguntar a KIT" }).click();
   const sidebar = page.locator(".kit-chat-sidebar");
-  await sidebar
-    .getByRole("button", { name: "Adjuntar contexto de esta página" })
-    .click();
+  // Nothing attached: a plain greeting gets a plain answer, no context added.
+  await sidebar.getByLabel("Mensaje para KIT").fill("Hola");
+  await sidebar.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(
+    sidebar.getByText("Hola, ¿en qué te ayudo?", { exact: false }),
+  ).toBeVisible();
+  await expect(sidebar.getByText("Adjuntos:")).toHaveCount(0);
+  // Attaching a project by choice sends it with the next message.
+  await sidebar.getByLabel("Adjuntar proyecto").selectOption("e1");
   await sidebar
     .getByLabel("Mensaje para KIT")
-    .fill("Resume este proyecto usando la fuente adjunta.");
-  await sidebar.getByLabel("Enviar este mensaje", { exact: false }).check();
+    .fill("Resume este proyecto usando el adjunto.");
   await sidebar.getByRole("button", { name: "Enviar", exact: true }).click();
   await expect(
     sidebar.getByText("El proyecto tiene contexto verificado", {
       exact: false,
     }),
   ).toBeVisible();
-  const answer = sidebar
-    .getByRole("article")
-    .filter({ hasText: "El proyecto tiene contexto verificado" });
-  await answer.getByText("Contexto y citas (1)").click();
-  await expect(answer.getByText("Citada:", { exact: false })).toBeVisible();
+  await expect(sidebar.getByText("Adjuntos:", { exact: false })).toBeVisible();
   await sidebar
     .getByRole("link", { name: "Abrir chat completo", exact: true })
     .click();

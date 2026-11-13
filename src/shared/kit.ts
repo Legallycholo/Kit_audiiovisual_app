@@ -1,24 +1,10 @@
-export type KitMode = "ask" | "act";
-/**
- * How Act mode handles low-risk changes: ask before each one, or apply them
- * as KIT works. Financial and external changes always ask.
- */
-export type KitApproval = "ask" | "auto";
-/** Side-effect class of a tool; decides whether a confirmation is needed. */
-export type KitToolEffect = "read" | "draft" | "financial" | "external";
 export type KitReference = {
   kind: "event" | "proposal" | "client" | "file" | "attachment";
   id: string;
   title?: string;
   text?: string;
 };
-/** Where the person is working, so KIT attaches the matching records. */
-export interface KitContext {
-  route?: string;
-  proposalId?: string;
-  eventId?: string;
-  clientId?: string;
-}
+/** A record or text the person attached to a message; the AI reads it as data. */
 export interface KitSource {
   key: string;
   ref: KitReference;
@@ -29,25 +15,6 @@ export interface KitSource {
   stale?: boolean;
   unavailable?: boolean;
 }
-/** A tool call the model asked for: validated and authorized by the server. */
-export interface KitAction {
-  tool: string;
-  input: Record<string, unknown>;
-}
-export interface KitActionRecord extends KitAction {
-  id: string;
-  effect: KitToolEffect;
-  /** One sentence in Spanish: what the change does. */
-  summary: string;
-  token: string;
-  revision: number;
-  status: "pending" | "running" | "completed" | "cancelled" | "failed";
-  /** The change ran during the turn without a dialog (approval "auto"). */
-  auto?: boolean;
-  result?: string;
-  route?: string;
-  error?: string;
-}
 export interface KitMessage {
   id: string;
   role: "user" | "assistant";
@@ -56,18 +23,8 @@ export interface KitMessage {
   status:
     "completed" | "pending" | "failed" | "stopped" | "blocked" | "rate_limited";
   sources: KitSource[];
-  citations: string[];
   model?: string;
   error?: string;
-  /** Changes KIT made or proposed in this turn, in order. */
-  actions?: KitActionRecord[];
-  artifacts?: Array<{
-    id: string;
-    title: string;
-    kind: "summary" | "proposal";
-    text: string;
-    route?: string;
-  }>;
 }
 export interface KitThread {
   id: string;
@@ -78,8 +35,6 @@ export interface KitThread {
   updatedAt: string;
   messages: KitMessage[];
   busy: boolean;
-  /** Last approval setting used in this conversation. */
-  approval?: KitApproval;
 }
 export interface KitStatus {
   configured: boolean;
@@ -87,6 +42,4 @@ export interface KitStatus {
   proposalConfigured: boolean;
   provider: string;
   maxSources: number;
-  /** Tool ids the signed-in person may use through KIT. */
-  tools?: string[];
 }

@@ -276,14 +276,39 @@ describe("portableSchema for Anthropic", () => {
     expect(JSON.stringify(schema)).not.toMatch(/"additionalProperties":\{/);
     expect(JSON.stringify(schema)).not.toContain("propertyNames");
   });
+});
 
-  it("leaves the KIT chat answer schema with only supported keywords", async () => {
-    const { z } = await import("zod");
-    const { kitAnswer } = await import("./kit");
-    const schema = JSON.stringify(
-      portableSchema(z.toJSONSchema(kitAnswer, { target: "draft-7" })),
+describe("plain chat on Anthropic", () => {
+  it("sends the history as turns, no output schema, and returns the text", async () => {
+    const { chatResponse } = await import("./ai-provider");
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        stop_reason: "end_turn",
+        content: [{ type: "text", text: "Hola, ¿en qué te ayudo?" }],
+      }),
     );
-    expect(schema).not.toMatch(/"additionalProperties":(?!false)/);
-    expect(schema).not.toMatch(/propertyNames|minLength|maxLength|"\$schema"/);
+    const text = await chatResponse({
+      provider: "anthropic",
+      key: "sk-ant-test",
+      model: "claude-sonnet-5-5",
+      instructions: "Eres el asistente.",
+      turns: [
+        { role: "user", text: "Primera" },
+        { role: "assistant", text: "Respuesta" },
+        { role: "user", text: "Hola" },
+      ],
+      transport,
+    });
+    expect(text).toBe("Hola, ¿en qué te ayudo?");
+    const body = JSON.parse(String(transport.mock.calls[0][1]?.body));
+    expect(body.messages.map((m: any) => m.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+    ]);
+    expect(body.messages[2].content[0].text).toBe("Hola");
+    expect(body.output_config.format).toBeUndefined();
+    expect(body.tools).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain("sk-ant-test");
   });
 });

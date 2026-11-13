@@ -90,8 +90,9 @@ test("KIT full workspace and sidebar share the active conversation", async ({
         exact: true,
       }),
   ).toBeVisible();
+  // Nothing attached: the answer comes without workspace context.
   await expect(
-    page.getByText("El proyecto tiene contexto verificado", { exact: false }),
+    page.getByText("Hola, ¿en qué te ayudo?", { exact: false }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Preguntar a KIT" }).click();
   const sidebar = page.locator(".kit-chat-sidebar");
