@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { HttpError } from "./database";
+import { redact } from "./logger";
 import type { ToolSpec } from "./ai/tools";
 
 /**
@@ -44,6 +45,23 @@ function signalFor(options: StructuredOptions) {
 }
 
 async function readJson(response: Response): Promise<any> {
+  if (!response.ok) {
+    // Operator diagnostics only: status plus the provider's error type and
+    // message (never the request, never credentials), so a bad key, model id or
+    // parameter is visible in the server log instead of a generic message.
+    const detail = await response
+      .text()
+      .then((text) => redact(text.slice(0, 400)))
+      .catch(() => "");
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "ai.provider_error",
+        status: response.status,
+        detail,
+      }),
+    );
+  }
   if (!response.ok)
     throw new HttpError(
       response.status === 429 ? 429 : 502,
