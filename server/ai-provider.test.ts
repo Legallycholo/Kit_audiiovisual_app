@@ -262,3 +262,17 @@ describe("connection probe", () => {
     ).rejects.toThrow(text);
   });
 });
+
+describe("portableSchema for Anthropic", () => {
+  it("turns open-map additionalProperties into false", async () => {
+    const { z } = await import("zod");
+    const { portableSchema } = await import("./ai-provider");
+    const schema = portableSchema(
+      z.toJSONSchema(
+        z.object({ input: z.record(z.string(), z.unknown()) }).strict(),
+        { target: "draft-7" },
+      ),
+    );
+    expect(JSON.stringify(schema)).not.toMatch(/"additionalProperties":\{/);
+  });
+});

@@ -3090,6 +3090,62 @@ import { waitUntil as waitUntil2 } from "@vercel/functions";
 
 // server/ai-provider.ts
 import { z as z3 } from "zod";
+
+// server/logger.ts
+var order = {
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+  silent: 100
+};
+function parseLogLevel(value) {
+  return value && Object.hasOwn(order, value) ? value : "info";
+}
+var sensitiveKey = /(authorization|cookie|password|passwd|secret|token|api[_-]?key|x-api-key|x-goog-api-key|csrf|credential)/i;
+var sensitiveValue = [
+  /\b(?:sk-(?:ant-)?[A-Za-z0-9_-]{12,}|AKIA[A-Z0-9]{16}|AIza[0-9A-Za-z_-]{20,}|cal_(?:live|test)_[A-Za-z0-9_]{8,}|EAA[A-Za-z0-9]{20,})\b/g,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
+  /([?&](?:api_key|key|token|access_token)=)[^&\s"]+/gi
+];
+var REDACTED = "[REDACTED]";
+function redact(value, depth = 0) {
+  if (typeof value === "string")
+    return sensitiveValue.reduce(
+      (text4, pattern) => text4.replace(
+        pattern,
+        (_match, prefix) => typeof prefix === "string" && prefix.startsWith("?") || typeof prefix === "string" && prefix.startsWith("&") ? `${prefix}${REDACTED}` : REDACTED
+      ),
+      value
+    );
+  if (depth > 6 || value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((item2) => redact(item2, depth + 1));
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item2]) => [
+      key,
+      sensitiveKey.test(key) ? REDACTED : redact(item2, depth + 1)
+    ])
+  );
+}
+function jsonLogger(minimum = "info", write = (line2, level) => (level === "warn" || level === "error" ? process.stderr : process.stdout).write(`${line2}
+`)) {
+  return {
+    log(level, event, fields = {}) {
+      if (order[level] < order[minimum]) return;
+      write(
+        JSON.stringify({
+          time: (/* @__PURE__ */ new Date()).toISOString(),
+          level,
+          event,
+          ...redact(fields)
+        }),
+        level
+      );
+    }
+  };
+}
+
+// server/ai-provider.ts
 var aiProviders = ["anthropic", "openai", "gemini"];
 var unreachable = () => new HttpError(
   503,
@@ -3100,6 +3156,17 @@ function signalFor(options) {
   return options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 }
 async function readJson(response) {
+  if (!response.ok) {
+    const detail = await response.text().then((text4) => redact(text4.slice(0, 400))).catch(() => "");
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "ai.provider_error",
+        status: response.status,
+        detail
+      })
+    );
+  }
   if (!response.ok)
     throw new HttpError(
       response.status === 429 ? 429 : 502,
@@ -3153,7 +3220,12 @@ function portableSchema(schema, drop = [
     return schema.map((item2) => portableSchema(item2, drop));
   if (!schema || typeof schema !== "object") return schema;
   return Object.fromEntries(
-    Object.entries(schema).filter(([key]) => !drop.includes(key)).map(([key, value]) => [key, portableSchema(value, drop)])
+    Object.entries(schema).filter(([key]) => !drop.includes(key)).map(([key, value]) => [
+      key,
+      // Anthropic structured output accepts only `additionalProperties: false`;
+      // open maps (z.record) emit `{}`, which it rejects with a 400.
+      key === "additionalProperties" && value && typeof value === "object" ? false : portableSchema(value, drop)
+    ])
   );
 }
 async function openAI(options) {
@@ -7534,60 +7606,6 @@ var DesignAIService = class {
 // server/app.ts
 import { resolve as resolve2 } from "node:path";
 import { z as z20 } from "zod";
-
-// server/logger.ts
-var order = {
-  debug: 10,
-  info: 20,
-  warn: 30,
-  error: 40,
-  silent: 100
-};
-function parseLogLevel(value) {
-  return value && Object.hasOwn(order, value) ? value : "info";
-}
-var sensitiveKey = /(authorization|cookie|password|passwd|secret|token|api[_-]?key|x-api-key|x-goog-api-key|csrf|credential)/i;
-var sensitiveValue = [
-  /\b(?:sk-(?:ant-)?[A-Za-z0-9_-]{12,}|AKIA[A-Z0-9]{16}|AIza[0-9A-Za-z_-]{20,}|cal_(?:live|test)_[A-Za-z0-9_]{8,}|EAA[A-Za-z0-9]{20,})\b/g,
-  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
-  /([?&](?:api_key|key|token|access_token)=)[^&\s"]+/gi
-];
-var REDACTED = "[REDACTED]";
-function redact(value, depth = 0) {
-  if (typeof value === "string")
-    return sensitiveValue.reduce(
-      (text4, pattern) => text4.replace(
-        pattern,
-        (_match, prefix) => typeof prefix === "string" && prefix.startsWith("?") || typeof prefix === "string" && prefix.startsWith("&") ? `${prefix}${REDACTED}` : REDACTED
-      ),
-      value
-    );
-  if (depth > 6 || value === null || typeof value !== "object") return value;
-  if (Array.isArray(value)) return value.map((item2) => redact(item2, depth + 1));
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item2]) => [
-      key,
-      sensitiveKey.test(key) ? REDACTED : redact(item2, depth + 1)
-    ])
-  );
-}
-function jsonLogger(minimum = "info", write = (line2, level) => (level === "warn" || level === "error" ? process.stderr : process.stdout).write(`${line2}
-`)) {
-  return {
-    log(level, event, fields = {}) {
-      if (order[level] < order[minimum]) return;
-      write(
-        JSON.stringify({
-          time: (/* @__PURE__ */ new Date()).toISOString(),
-          level,
-          event,
-          ...redact(fields)
-        }),
-        level
-      );
-    }
-  };
-}
 
 // server/routes/auth.ts
 import { randomUUID as randomUUID11 } from "node:crypto";

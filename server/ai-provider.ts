@@ -132,7 +132,14 @@ export function portableSchema(
   return Object.fromEntries(
     Object.entries(schema as Record<string, unknown>)
       .filter(([key]) => !drop.includes(key))
-      .map(([key, value]) => [key, portableSchema(value, drop)]),
+      .map(([key, value]) => [
+        key,
+        // Anthropic structured output accepts only `additionalProperties: false`;
+        // open maps (z.record) emit `{}`, which it rejects with a 400.
+        key === "additionalProperties" && value && typeof value === "object"
+          ? false
+          : portableSchema(value, drop),
+      ]),
   );
 }
 
