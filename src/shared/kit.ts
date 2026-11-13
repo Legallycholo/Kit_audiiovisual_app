@@ -39,6 +39,8 @@ export interface KitThread {
 export interface KitStatus {
   configured: boolean;
   model: string | null;
+  /** Models the person may switch between (empty when the provider has no choice). */
+  models?: Array<{ id: string; label: string }>;
   proposalConfigured: boolean;
   provider: string;
   maxSources: number;

@@ -23,6 +23,9 @@ interface KitStore {
   busy: boolean;
   create: () => Promise<KitThread | undefined>;
   select: (id: string) => Promise<void>;
+  /** Model chosen for the next messages ("" = the server default). */
+  model: string;
+  setModel: (id: string) => void;
   send: () => Promise<void>;
   stop: () => Promise<void>;
   /** Deletes a conversation (the open one when no id is given). */
@@ -78,6 +81,21 @@ function Session({ children }: { children: ReactNode }) {
   const [statusLoaded, setStatusLoaded] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [model, setModelState] = useState(() => {
+    try {
+      return localStorage.getItem("kit.chat.model") || "";
+    } catch {
+      return "";
+    }
+  });
+  const setModel = (id: string) => {
+    setModelState(id);
+    try {
+      localStorage.setItem("kit.chat.model", id);
+    } catch {
+      /* The choice just lasts for this tab. */
+    }
+  };
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [contexts, setContexts] = useState<Record<string, KitReference[]>>({});
   const mounted = useRef(true);
@@ -218,6 +236,8 @@ function Session({ children }: { children: ReactNode }) {
     const text = draft.trim();
     if (!text) return;
     const sendingRefs = refs;
+    // Ignore a stored choice the server no longer offers.
+    const chosenModel = status.models?.some((m) => m.id === model) ? model : "";
     let t = current.current;
     if (!t) {
       t = (await create()) || null;
@@ -232,7 +252,12 @@ function Session({ children }: { children: ReactNode }) {
           `/kit/threads/${target.id}/messages`,
           {
             method: "POST",
-            body: { requestId: messageId, text, refs: sendingRefs },
+            body: {
+              requestId: messageId,
+              text,
+              refs: sendingRefs,
+              ...(chosenModel ? { model: chosenModel } : {}),
+            },
           },
         );
       } else {
@@ -357,6 +382,8 @@ function Session({ children }: { children: ReactNode }) {
         busy,
         create,
         select,
+        model,
+        setModel,
         send,
         stop,
         remove,

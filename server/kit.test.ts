@@ -178,6 +178,56 @@ describe("KIT indexed-file grounding", () => {
   });
 });
 
+describe("KIT model choice", () => {
+  it("lets Claude users pick an allowed model per message and rejects others", async () => {
+    const seen: Array<string | undefined> = [];
+    const claude = new KitService(repo, {
+      model: "claude-sonnet-5-5",
+      provider: "anthropic",
+      generate: async (input) => {
+        seen.push(input.model);
+        return "ok";
+      },
+    });
+    await claude.ready;
+    const thread = await claude.create("owner");
+    await claude.send("owner", thread.id, {
+      requestId: crypto.randomUUID(),
+      text: "Hola",
+      refs: [],
+      model: "claude-opus-5-5",
+    });
+    await vi.waitFor(async () =>
+      expect((await claude.get("owner", thread.id)).busy).toBe(false),
+    );
+    expect(seen).toEqual(["claude-opus-5-5"]);
+    expect((await claude.get("owner", thread.id)).messages.at(-1)?.model).toBe(
+      "claude-opus-5-5",
+    );
+    await expect(
+      claude.send("owner", thread.id, {
+        requestId: crypto.randomUUID(),
+        text: "Hola",
+        refs: [],
+        model: "gpt-anything",
+      }),
+    ).rejects.toThrow("Modelo no disponible");
+    await claude.drain();
+  });
+
+  it("does not offer a choice when the provider is not Claude", async () => {
+    const thread = await kit.create("owner");
+    await expect(
+      kit.send("owner", thread.id, {
+        requestId: crypto.randomUUID(),
+        text: "Hola",
+        refs: [],
+        model: "claude-opus-5-5",
+      }),
+    ).rejects.toThrow("Modelo no disponible");
+  });
+});
+
 describe("KIT conversation history", () => {
   it("restarts a conversation (empty again, same title, still in the history) and deletes one", async () => {
     const thread = await kit.create("owner", "Montaje de la boda");

@@ -222,6 +222,25 @@ export function KitChat({
         </label>
         <div className="kit-composer-bar">
           <div className="kit-composer-options">
+            {company && (kit.status.models?.length ?? 0) > 1 && (
+              <label className="kit-pill">
+                <span className="visually-hidden">Modelo</span>
+                <select
+                  value={
+                    kit.status.models!.some((m) => m.id === kit.model)
+                      ? kit.model
+                      : (kit.status.model ?? "")
+                  }
+                  onChange={(e) => kit.setModel(e.target.value)}
+                >
+                  {kit.status.models!.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {company && (
               <>
                 <button
@@ -306,7 +325,7 @@ export function KitChat({
               </span>
             )}
             <strong>{m.role === "user" ? "Tú" : "KIT"}</strong>
-            <small>{m.model || new Date(m.at).toLocaleString()}</small>
+            <small>{new Date(m.at).toLocaleString()}</small>
           </header>
           {m.text && <p className="kit-message-text">{m.text}</p>}
           {m.status === "pending" && (
@@ -480,24 +499,14 @@ export function KitChat({
     if (last?.[0] === group) last[1].push(t);
     else history.push([group, [t]]);
   }
-  const status = kit.status.configured
-    ? `${kit.status.provider} · ${kit.status.model}`
-    : "IA no conectada";
+  const status = kit.status.configured ? "" : "IA no conectada";
   if (sidebar)
     return (
       <aside className="assistant kit-chat-sidebar">
         <header className="kit-chat-header">
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <h1>KIT</h1>
-              {kit.status.model && (
-                <span className="kit-gemini-badge">
-                  <Sparkles size={11} aria-hidden="true" />
-                  {kit.status.model}
-                </span>
-              )}
-            </div>
-            <p>{status}</p>
+            <h1>KIT</h1>
+            {status && <p>{status}</p>}
           </div>
           <button
             className="icon-button"
@@ -594,7 +603,7 @@ export function KitChat({
             </p>
           )}
         </nav>
-        <footer className="kit-rail-footer">{status}</footer>
+        {status && <footer className="kit-rail-footer">{status}</footer>}
       </aside>
       <div className="kit-stage">
         {kit.thread && (

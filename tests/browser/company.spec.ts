@@ -273,6 +273,10 @@ test("company KIT answers a plain message and keeps one thread between the sideb
   await page.goto("/events/e1");
   await page.getByRole("button", { name: "Preguntar a KIT" }).click();
   const sidebar = page.locator(".kit-chat-sidebar");
+  // The header says only "KIT": no provider or model text.
+  await expect(sidebar.locator("header.kit-chat-header")).toHaveText(/^KIT/);
+  await expect(sidebar.getByText("Claude (Anthropic)")).toHaveCount(0);
+  await expect(sidebar.getByText("claude-sonnet-5-5")).toHaveCount(0);
   // Nothing attached: a plain greeting gets a plain answer, no context added.
   await sidebar.getByLabel("Mensaje para KIT").fill("Hola");
   await sidebar.getByRole("button", { name: "Enviar", exact: true }).click();

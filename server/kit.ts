@@ -27,7 +27,14 @@ const reference = z
     text: z.string().max(64000).optional(),
   })
   .strict();
+/** Models the person may pick in the sidebar and the KIT page (Claude only). */
+export const kitModels = [
+  { id: "claude-sonnet-5-5", label: "Sonnet 5.5" },
+  { id: "claude-opus-5-5", label: "Opus 5.5" },
+];
 export interface KitInput {
+  /** Model for this turn; defaults to the generator's configured model. */
+  model?: string;
   question: string;
   history: Array<{ role: "user" | "assistant"; text: string }>;
   /** What the person attached to this message, already scoped and redacted. */
@@ -82,7 +89,7 @@ export function aiKitGenerator(
       chatResponse({
         provider,
         key,
-        model,
+        model: input.model || model,
         transport,
         signal,
         effort: "medium",
@@ -435,9 +442,22 @@ export class KitService {
   async send(
     userId: string,
     tid: string,
-    input: { requestId: string; text: string; refs: KitReference[] },
+    input: {
+      requestId: string;
+      text: string;
+      refs: KitReference[];
+      model?: string;
+    },
   ) {
     await this.actor(userId);
+    if (
+      input.model &&
+      input.model !== this.generator?.model &&
+      (this.generator?.provider !== "anthropic" ||
+        !kitModels.some((m) => m.id === input.model))
+    )
+      throw new HttpError(422, "Modelo no disponible.");
+    const model = input.model || this.generator?.model;
     const t = await this.read(userId, tid);
     if (t.messages.some((m) => m.id === input.requestId))
       return await this.view(userId, t);
@@ -457,7 +477,7 @@ export class KitService {
       at: now(),
       status: this.generator ? "pending" : "blocked",
       sources: [],
-      model: this.generator?.model,
+      model,
       error: this.generator
         ? undefined
         : "La IA no está configurada en el servidor. Tu mensaje quedó guardado.",
@@ -487,6 +507,7 @@ export class KitService {
       await rateLimit(this.repo, "kit:company", 100);
       const text = await this.generator!.generate(
         {
+          model,
           question: prompt,
           history,
           sources: sources.map(({ key, label, text }) => ({
@@ -577,6 +598,7 @@ export class KitService {
       res.json({
         configured: !!this.generator,
         model: this.generator?.model || null,
+        models: this.generator?.provider === "anthropic" ? kitModels : [],
         proposalConfigured: !!this.proposal,
         provider: `${providerLabel[this.generator?.provider ?? "openai"]} · servidor de empresa`,
         maxSources: 8,
@@ -640,6 +662,7 @@ export class KitService {
               requestId: z.string().uuid(),
               text: z.string().trim().min(1).max(6000),
               refs: z.array(reference).max(8),
+              model: z.string().max(100).optional(),
             })
             .strict()
             .parse(req.body),
